@@ -100,7 +100,7 @@ def _run_finly_agents(request: ChatCompletionsRequest) -> dict[str, Any]:
     trade_date = request.trade_date or _extract_trade_date(prompt_text) or date.today().isoformat()
 
     selected_analysts = request.selected_analysts or DEFAULT_ANALYSTS
-    model_name = os.getenv("FINLY_AGENT_MODEL", "gpt-5-mini")
+    model_name = os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
 
     graph = _build_graph(model_name=model_name, selected_analysts=selected_analysts)
     final_state, decision = graph.propagate(ticker, trade_date)

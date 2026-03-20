@@ -91,3 +91,4 @@ python3 -m py_compile main.py $(find src -name '*.py')
 ```
 
 Set at least one LLM API key in `.env` before running live workflows.
+Finly default runtime expects `OPENROUTER_API_KEY`.

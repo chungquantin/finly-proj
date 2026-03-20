@@ -45,6 +45,7 @@ Finly’s product direction needs a programmatic backend interface for mobile/we
 - 2026-03-19: Removed `apps/agents/src/cli` and replaced entrypoint usage with `finly_agents.server`.
 - 2026-03-19: Added OpenAI-compatible endpoints: `/v1/models` and `/v1/chat/completions` (stream + non-stream), plus `/healthz`.
 - 2026-03-19: Updated packaging (`pyproject.toml`, `requirements.txt`) and app docs/env examples for API-first runtime.
+- 2026-03-19: Switched default LLM runtime from OpenAI to OpenRouter for Finly agents.
 
 ## Verification
 
