@@ -1,5 +1,5 @@
 # Product Specs Index
 
-No product specs exist yet.
-
-Add a spec here before introducing application behavior that depends on undocumented product intent.
+| Spec | Status | Notes |
+| --- | --- | --- |
+| `ai-fund-team-launch-flow.md` | draft | Initial iOS user flow for launching and interacting with an AI investment fund team |

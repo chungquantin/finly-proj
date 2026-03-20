@@ -1,6 +1,6 @@
 # Architecture
 
-This repository does not yet contain product code. The current architecture is the harness architecture that governs how future code should be introduced.
+This repository now contains an initial iOS product slice and remains governed by the harness architecture for future expansion.
 
 ## Principles
 
@@ -15,9 +15,13 @@ This repository does not yet contain product code. The current architecture is t
    Stores the product, design, planning, quality, reliability, and security knowledge base.
 2. `scripts/`
    Stores mechanical checks and repository automation.
-3. `.github/workflows/`
+3. `apps/ios/`
+   Stores the iOS SwiftUI application scaffold for the AI fund launch flow.
+4. `templates/`
+   Stores deterministic bootstrap templates (`web-nextjs`, `ios-swiftui`) used by `scripts/bootstrap_codebase.py`.
+5. `.github/workflows/`
    Stores CI enforcement for repository invariants.
-4. `.agents/skills/`
+6. `.agents/skills/`
    Stores repository-local agent skills for recurring workflows such as setup and git operations.
 
 ## Planned Evolution
@@ -30,6 +34,12 @@ When application code is introduced, extend this file with:
 - Cross-cutting concerns and where they enter the system
 - Test strategy by layer
 
-Default assumption before an application-specific architecture exists: the repository should stay compatible with a mixed-language monorepo. See `docs/design-docs/harness-engineering-guide.md` for the default stack policy and setup expectations.
+Current default assumption: the repository stays compatible with a mixed-language monorepo and grows with explicit boundaries:
 
-Do not add a framework-specific architecture section until the repository has committed to a concrete stack.
+- iOS app in `apps/ios/`
+- Python agent server in `python/` (planned)
+- Shared documentation and plans in `docs/`
+
+See `docs/design-docs/harness-engineering-guide.md` for the default stack policy and setup expectations.
+
+Add framework-specific architecture constraints only when corresponding application code exists in-repo.

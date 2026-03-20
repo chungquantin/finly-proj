@@ -1,6 +1,6 @@
 # harness-template
 
-`harness-template` is currently in harness-bootstrap mode. The repository is being prepared for agent-first engineering before product code is added.
+`harness-template` is currently in harness-bootstrap mode with an initial iOS product slice.
 
 The immediate goal is to make the codebase legible, enforceable, and easy for coding agents to operate in:
 
@@ -11,6 +11,7 @@ The immediate goal is to make the codebase legible, enforceable, and easy for co
 - `docs/exec-plans/` is the home for active and completed execution plans
 - `scripts/check_harness_readiness.py` mechanically validates the scaffold
 - `.github/workflows/harness-readiness.yml` runs the check in CI
+- `apps/ios/` contains an initialized SwiftUI flow for AI fund launch UX
 
 ## Bootstrap Workflow
 
@@ -29,18 +30,24 @@ The immediate goal is to make the codebase legible, enforceable, and easy for co
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
+├── apps/
 ├── templates/
 ├── docs/
 ├── scripts/
 └── .github/workflows/
 ```
 
+## Supported Bootstrap Stacks
+
+- `web-nextjs`
+- `ios-swiftui`
+
 ## Next Steps
 
 The next repository milestone should add:
 
-- Product specs for the first user-facing workflows
-- Additional repo-owned stack templates beyond `web-nextjs`
+- Python agent server scaffold under `python/`
+- API contracts between mobile app and agent server
 - Architectural invariants that can be enforced mechanically
 - Agent-operable local dev tooling for validation and observability
 

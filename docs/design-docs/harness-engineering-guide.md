@@ -53,6 +53,18 @@ Preferred monorepo target:
 
 - `apps/desktop`
 
+### Mobile App (iOS)
+
+For an iOS mobile application, default to:
+
+- Swift
+- SwiftUI
+- XcodeGen for deterministic project generation
+
+Preferred monorepo target:
+
+- `apps/ios`
+
 ### Rust App
 
 For a Rust application, default to:
@@ -111,6 +123,7 @@ Current bootstrap entrypoint:
 
 Current repo-owned supported stacks:
 
+- `ios-swiftui`
 - `web-nextjs`
 
 Bootstrap output should be deterministic, monorepo-friendly, and include formatter, linter, typecheck, and CI coverage from the first generated commit.

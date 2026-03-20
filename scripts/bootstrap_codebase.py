@@ -14,6 +14,7 @@ TEMPLATES_ROOT = ROOT / "templates"
 PLACEHOLDER_PATTERN = re.compile(r"__([A-Z0-9_]+)__")
 
 SUPPORTED_STACKS = {
+    "mobile-react-native": "mobile-react-native/root",
     "web-nextjs": "web-nextjs/root",
 }
 
