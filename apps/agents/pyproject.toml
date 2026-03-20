@@ -19,12 +19,11 @@ dependencies = [
     "pandas>=2.3.0",
     "parsel>=1.10.0",
     "pytz>=2025.2",
-    "questionary>=2.1.0",
     "rank-bm25>=0.2.2",
     "redis>=6.2.0",
     "requests>=2.32.4",
-    "rich>=14.0.0",
-    "typer>=0.21.0",
+    "fastapi>=0.116.1",
+    "uvicorn>=0.35.0",
     "setuptools>=80.9.0",
     "stockstats>=0.6.5",
     "tqdm>=4.67.1",
@@ -33,11 +32,11 @@ dependencies = [
 ]
 
 [project.scripts]
-tradingagents = "cli.main:app"
+finly-agents-api = "finly_agents.server:run"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["tradingagents*", "cli*"]
+include = ["tradingagents*", "finly_agents*"]

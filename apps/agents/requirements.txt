@@ -14,8 +14,7 @@ requests
 tqdm
 pytz
 redis
-rich
-typer
-questionary
+fastapi
+uvicorn
 langchain_anthropic
 langchain-google-genai
