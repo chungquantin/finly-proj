@@ -14,6 +14,28 @@ pnpm install
 pnpm run start
 ```
 
+## UI Stack (NativeWind + shadcn-style)
+
+This app now includes a Tailwind-style RN setup with reusable UI primitives.
+
+- NativeWind entrypoints:
+  - `global.css`
+  - `tailwind.config.js`
+  - `nativewind-env.d.ts`
+- Build wiring:
+  - `babel.config.js` (`nativewind/babel`)
+  - `metro.config.js` (`withNativeWind`)
+- Shadcn-style primitives:
+  - `app/components/ui/` (`button`, `card`, `badge`, `avatar`, `input`)
+  - Variants powered by `class-variance-authority`
+- Utility helper:
+  - `app/lib/utils.ts` (`cn` via `clsx` + `tailwind-merge`)
+
+Starter themed screen matching the pastel card-first direction is in:
+
+- `app/screens/ThemeShowcaseScreen.tsx`
+- Routed at `src/app/index.tsx`
+
 To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
 
 ```bash

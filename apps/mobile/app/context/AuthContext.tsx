@@ -1,5 +1,6 @@
 import { createContext, FC, PropsWithChildren, useCallback, useContext, useMemo } from "react"
-import { useMMKVString } from "react-native-mmkv"
+
+import { useStoredString } from "@/utils/storage/useStoredString"
 
 export type AuthContextType = {
   isAuthenticated: boolean
@@ -16,8 +17,8 @@ export const AuthContext = createContext<AuthContextType | null>(null)
 export interface AuthProviderProps {}
 
 export const AuthProvider: FC<PropsWithChildren<AuthProviderProps>> = ({ children }) => {
-  const [authToken, setAuthToken] = useMMKVString("AuthProvider.authToken")
-  const [authEmail, setAuthEmail] = useMMKVString("AuthProvider.authEmail")
+  const [authToken, setAuthToken] = useStoredString("AuthProvider.authToken")
+  const [authEmail, setAuthEmail] = useStoredString("AuthProvider.authEmail")
 
   const logout = useCallback(() => {
     setAuthToken(undefined)
