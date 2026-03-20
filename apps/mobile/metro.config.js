@@ -23,7 +23,14 @@ config.transformer.getTransformOptions = async () => ({
 // https://github.com/axios/axios/issues/6899
 // The solution was taken from the following issue:
 // https://github.com/facebook/metro/issues/1272
-config.resolver.unstable_conditionNames = ["require", "default", "browser"]
+//
+// On web, resolving `browser` conditions can pull ESM branches that rely on
+// `import.meta`, which breaks when Metro emits a classic script bundle.
+// Keep the axios workaround for native platforms, but avoid `browser` on web.
+const isWebBundling = process.env.EXPO_OS === "web"
+config.resolver.unstable_conditionNames = isWebBundling
+  ? ["react-native", "require", "default"]
+  : ["require", "default", "browser"]
 
 // This helps support certain popular third-party libraries
 // such as Firebase that use the extension cjs.

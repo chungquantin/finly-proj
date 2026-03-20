@@ -1,35 +1,42 @@
 const palette = {
   neutral100: "#FFFFFF",
-  neutral200: "#F4F2F1",
-  neutral300: "#D7CEC9",
-  neutral400: "#B6ACA6",
-  neutral500: "#978F8A",
-  neutral600: "#564E4A",
-  neutral700: "#3C3836",
+  neutral200: "#F9F9F9",
+  neutral300: "#E5E7EB",
+  neutral400: "#D1D5DB",
+  neutral500: "#9CA3AF",
+  neutral600: "#666666",
+  neutral700: "#374151",
   neutral800: "#191015",
   neutral900: "#000000",
 
-  primary100: "#F4E0D9",
-  primary200: "#E8C1B4",
-  primary300: "#DDA28E",
-  primary400: "#D28468",
-  primary500: "#C76542",
-  primary600: "#A54F31",
+  primary100: "#F3E8FF",
+  primary200: "#E9D5FF",
+  primary300: "#D8B4FE",
+  primary400: "#C084FC",
+  primary500: "#A855F7",
+  primary600: "#9333EA",
 
-  secondary100: "#DCDDE9",
-  secondary200: "#BCC0D6",
-  secondary300: "#9196B9",
-  secondary400: "#626894",
-  secondary500: "#41476E",
+  secondary100: "#DBEAFE",
+  secondary200: "#BFDBFE",
+  secondary300: "#93C5FD",
+  secondary400: "#60A5FA",
+  secondary500: "#3B82F6",
 
-  accent100: "#FFEED4",
-  accent200: "#FFE1B2",
-  accent300: "#FDD495",
-  accent400: "#FBC878",
-  accent500: "#FFBB50",
+  accent100: "#FEF3C7",
+  accent200: "#FDE68A",
+  accent300: "#FCD34D",
+  accent400: "#FFD233",
+  accent500: "#F59E0B",
 
-  angry100: "#F2D6CD",
+  success100: "#DCFCE7",
+  success500: "#4ADE80",
+
+  angry100: "#FEE2E2",
   angry500: "#C03403",
+
+  pastelPink: "#FFCFE1",
+  pastelBlue: "#DBEAFE",
+  pastelWarm: "#FEF3C7",
 
   overlay20: "rgba(25, 16, 21, 0.2)",
   overlay50: "rgba(25, 16, 21, 0.5)",
@@ -59,6 +66,16 @@ export const colors = {
    */
   background: palette.neutral200,
   /**
+   * Main elevated surface for cards and sheets.
+   */
+  surface: palette.neutral100,
+  /**
+   * Pastel surfaces for bento category cards.
+   */
+  surfacePastelPink: palette.pastelPink,
+  surfacePastelBlue: palette.pastelBlue,
+  surfacePastelWarm: palette.pastelWarm,
+  /**
    * The default border color.
    */
   border: palette.neutral400,
@@ -74,6 +91,11 @@ export const colors = {
    * A subtle color used for lines.
    */
   separator: palette.neutral300,
+  /**
+   * Success color for positive account states.
+   */
+  success: palette.success500,
+  successBackground: palette.success100,
   /**
    * Error messages.
    */

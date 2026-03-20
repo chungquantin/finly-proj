@@ -28,6 +28,14 @@ Use a responsive single-page flow for:
 - Keep charts simple and interpretable (battle portfolio growth bars, clash score meter)
 - Prioritize clarity over dense analytics
 
+## Mobile Design System
+
+- Follow `docs/design-docs/mobile-bento-kawaii-design-system.md` for:
+  - token palette and semantic color usage
+  - bento spacing/radius rules
+  - typography behavior and numeric readability
+  - component tone (playful + high-clarity fintech)
+
 ## Accessibility Baseline
 
 - Text equivalents for all voice outputs

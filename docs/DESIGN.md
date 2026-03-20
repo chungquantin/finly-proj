@@ -11,7 +11,8 @@ Use the index there to track:
 
 Start with:
 
-- `lazy-investor-experience.md` for the current product UX architecture
+- `finly-experience.md` for the current product UX architecture
+- `mobile-bento-kawaii-design-system.md` for the mobile visual language and token rules
 - `harness-template.md` for the repository operating model
 - `harness-engineering-guide.md` for stack defaults and setup policy
 - `core-beliefs.md` for the shortest statement of working principles

@@ -10,7 +10,7 @@ const buttonVariants = cva("items-center justify-center rounded-full px-5 py-3 a
   variants: {
     variant: {
       primary: "bg-accent",
-      secondary: "bg-white border border-border",
+      secondary: "border border-border bg-card",
       ghost: "bg-transparent",
     },
     size: {

@@ -1,5 +1,6 @@
 import { colors as colorsLight } from "./colors"
 import { colors as colorsDark } from "./colorsDark"
+import { radius } from "./radius"
 import { spacing as spacingLight } from "./spacing"
 import { spacing as spacingDark } from "./spacingDark"
 import { timing } from "./timing"
@@ -9,6 +10,7 @@ import { typography } from "./typography"
 // Here we define our themes.
 export const lightTheme: Theme = {
   colors: colorsLight,
+  radius,
   spacing: spacingLight,
   typography,
   timing,
@@ -16,6 +18,7 @@ export const lightTheme: Theme = {
 }
 export const darkTheme: Theme = {
   colors: colorsDark,
+  radius,
   spacing: spacingDark,
   typography,
   timing,

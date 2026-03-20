@@ -34,30 +34,28 @@ export function ThemeShowcaseScreen() {
   const selectedRiskIndex = riskLevels.findIndex((item) => item === selectedRisk)
 
   return (
-    <View className="flex-1 bg-[#f6f7fb]">
+    <View className="flex-1 bg-background">
       <SafeAreaView className="flex-1">
-        <View className="mx-4 mt-3 flex-1 rounded-[28px] border border-[#eef0f6] bg-white px-5 pb-6">
+        <View className="mx-5 mt-4 flex-1 rounded-xl3 border border-border bg-card px-6 pb-6">
           <View className="mt-4 items-center">
-            <Text className="font-semi text-xs tracking-[2px] text-[#a9b0c1]">STEP 1 OF 5</Text>
-            <View className="mt-4 h-1.5 w-full rounded-full bg-[#eef1f7]">
-              <View className="h-1.5 w-1/5 rounded-full bg-[#d8b5f5]" />
+            <Text className="font-semi text-xs tracking-[2px] text-muted">STEP 1 OF 5</Text>
+            <View className="mt-4 h-1.5 w-full rounded-full bg-border">
+              <View className="h-1.5 w-1/5 rounded-full bg-accent" />
             </View>
           </View>
 
           <View className="mt-8">
-            <Text className="font-bold text-[40px] leading-[48px] text-[#222d44]">
+            <Text className="font-bold text-[40px] leading-[48px] text-ink">
               Build your profile
             </Text>
-            <Text className="mt-2 font-medium text-base leading-6 text-[#9da6b8]">
+            <Text className="mt-2 font-medium text-base leading-6 text-muted">
               Help our AI understand your goals to personalize your investment strategy.
             </Text>
           </View>
 
           <View className="mt-7">
-            <Text className="font-semi text-sm tracking-[1.5px] text-[#a8afbf]">
-              RISK EXPERTISE
-            </Text>
-            <Card className="mt-3 rounded-[20px] border border-[#e8edf7] bg-[#f9fbff] shadow-none">
+            <Text className="font-semi text-sm tracking-[1.5px] text-muted">RISK EXPERTISE</Text>
+            <Card className="mt-3 rounded-xl2 border border-border bg-sky shadow-none">
               <CardContent className="p-4">
                 <View className="flex-row items-center justify-between px-1">
                   {(["Beginner", "Intermediate", "Expert"] as const).map((label, index) => (
@@ -65,7 +63,7 @@ export function ThemeShowcaseScreen() {
                       <Text
                         className={cn(
                           "font-semi text-xs",
-                          selectedRiskIndex === index ? "text-[#5d6472]" : "text-[#b2b8c7]",
+                          selectedRiskIndex === index ? "text-ink" : "text-muted",
                         )}
                       >
                         {label}
@@ -75,10 +73,10 @@ export function ThemeShowcaseScreen() {
                 </View>
 
                 <View className="mt-3">
-                  <View className="h-2 rounded-full bg-[#ebeff7]" />
+                  <View className="h-2 rounded-full bg-border" />
                   <View
                     className={cn(
-                      "absolute top-[-5px] h-4 w-4 rounded-full border-2 border-white bg-[#d6a7f8]",
+                      "absolute top-[-5px] h-4 w-4 rounded-full border-2 border-white bg-accent",
                       selectedRiskIndex === 0 ? "left-[2%]" : "",
                       selectedRiskIndex === 1 ? "left-[48%]" : "",
                       selectedRiskIndex === 2 ? "left-[92%]" : "",
@@ -87,8 +85,8 @@ export function ThemeShowcaseScreen() {
                 </View>
 
                 <View className="mt-4 items-center">
-                  <View className="rounded-full bg-[#cbeed9] px-4 py-1">
-                    <Text className="font-semi text-xs text-[#4f9d73]">Conservative Approach</Text>
+                  <View className="rounded-full bg-mint px-4 py-1">
+                    <Text className="font-semi text-xs text-[#166534]">Conservative Approach</Text>
                   </View>
                 </View>
               </CardContent>
@@ -96,7 +94,7 @@ export function ThemeShowcaseScreen() {
           </View>
 
           <View className="mt-6">
-            <Text className="font-semi text-sm tracking-[1.5px] text-[#a8afbf]">
+            <Text className="font-semi text-sm tracking-[1.5px] text-muted">
               INVESTMENT HORIZON
             </Text>
             <View className="mt-3 gap-3">
@@ -106,27 +104,27 @@ export function ThemeShowcaseScreen() {
                   <Pressable key={item.key} onPress={() => setInvestmentHorizon(item.key)}>
                     <Card
                       className={cn(
-                        "rounded-[20px] border bg-white shadow-none",
-                        selected ? "border-[#f7dc83] shadow-card" : "border-[#edf0f6]",
+                        "rounded-xl2 border bg-card shadow-none",
+                        selected ? "border-warning shadow-card" : "border-border",
                       )}
                     >
                       <CardContent className="flex-row items-center justify-between p-4">
                         <View className="flex-row items-center">
-                          <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#eef6ff]">
-                            <Text className="font-semi text-sm text-[#91a2bf]">{item.icon}</Text>
+                          <View className="h-9 w-9 items-center justify-center rounded-xl bg-sky">
+                            <Text className="font-semi text-sm text-ink">{item.icon}</Text>
                           </View>
                           <View className="ml-3">
-                            <Text className="font-semi text-[24px] leading-[30px] text-[#263147]">
+                            <Text className="font-semi text-[24px] leading-[30px] text-ink">
                               {item.title}
                             </Text>
-                            <Text className="mt-1 font-medium text-sm text-[#b3bbca]">
+                            <Text className="mt-1 font-medium text-sm text-muted">
                               {item.subtitle}
                             </Text>
                           </View>
                         </View>
                         {selected ? (
-                          <View className="h-5 w-5 items-center justify-center rounded-full bg-[#f6c84f]">
-                            <Text className="font-semi text-xs text-white">✓</Text>
+                          <View className="h-5 w-5 items-center justify-center rounded-full bg-warning">
+                            <Text className="font-semi text-xs text-ink">✓</Text>
                           </View>
                         ) : null}
                       </CardContent>
@@ -138,7 +136,7 @@ export function ThemeShowcaseScreen() {
           </View>
 
           <View className="mt-6">
-            <Text className="font-semi text-sm tracking-[1.5px] text-[#a8afbf]">
+            <Text className="font-semi text-sm tracking-[1.5px] text-muted">
               FINANCIAL KNOWLEDGE
             </Text>
             <View className="mt-3 flex-row justify-between">
@@ -150,11 +148,11 @@ export function ThemeShowcaseScreen() {
                     onPress={() => setFinancialKnowledge(item.key)}
                     className={cn(
                       "w-[31%] items-center rounded-2xl border px-2 py-3",
-                      selected ? "border-[#d5ddef] bg-[#f8faff]" : "border-transparent",
+                      selected ? "border-accent bg-lilac/30" : "border-transparent",
                     )}
                   >
                     <Text className="text-2xl">{item.icon}</Text>
-                    <Text className="mt-2 font-semi text-sm text-[#202a41]">{item.label}</Text>
+                    <Text className="mt-2 font-semi text-sm text-ink">{item.label}</Text>
                   </Pressable>
                 )
               })}
@@ -164,11 +162,11 @@ export function ThemeShowcaseScreen() {
           <View className="mt-auto pt-8">
             <Button
               label="Continue"
-              className="h-16 rounded-full bg-[#08153a]"
+              className="h-16 rounded-full bg-accent"
               onPress={() => router.push("/onboarding/step-2")}
             />
             <Pressable className="items-center py-4">
-              <Text className="font-medium text-sm text-[#bec5d2]">
+              <Text className="font-medium text-sm text-muted">
                 Skip for now, I&apos;ll do this later.
               </Text>
             </Pressable>

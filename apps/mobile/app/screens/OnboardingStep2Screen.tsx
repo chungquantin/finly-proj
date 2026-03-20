@@ -13,24 +13,24 @@ const importOptions = [
     icon: "◉",
     title: "Upload Screenshot",
     subtitle: "AI-powered sync from app images",
-    iconBg: "bg-[#cceff6]",
-    iconColor: "text-[#3778c9]",
+    iconBg: "bg-sky",
+    iconColor: "text-ink",
   },
   {
     key: "manual",
     icon: "▦",
     title: "Manual Entry",
     subtitle: "Type in your assets manually",
-    iconBg: "bg-[#f7ebbe]",
-    iconColor: "text-[#d5a229]",
+    iconBg: "bg-lemon",
+    iconColor: "text-ink",
   },
   {
     key: "csv",
     icon: "▤",
     title: "Attach CSV",
     subtitle: "Import from spreadsheet",
-    iconBg: "bg-[#cdeebf]",
-    iconColor: "text-[#4ba34c]",
+    iconBg: "bg-mint",
+    iconColor: "text-ink",
   },
 ] as const
 
@@ -41,39 +41,39 @@ export function OnboardingStep2Screen() {
   const setImportMethod = useOnboardingStore((state) => state.setImportMethod)
 
   return (
-    <View className="flex-1 bg-[#f6f7fb]">
+    <View className="flex-1 bg-background">
       <SafeAreaView className="flex-1">
-        <View className="mx-4 mt-3 flex-1 rounded-[28px] border border-[#eef0f6] bg-white px-5 pb-6">
+        <View className="mx-5 mt-4 flex-1 rounded-xl3 border border-border bg-card px-6 pb-6">
           <View className="mt-2 flex-row items-center justify-between">
             <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full bg-[#f5f6fb]"
+              className="h-10 w-10 items-center justify-center rounded-full bg-border"
               onPress={() => router.back()}
               accessibilityRole="button"
             >
-              <Text className="font-semi text-lg text-[#9aa3b4]">‹</Text>
+              <Text className="font-semi text-lg text-muted">‹</Text>
             </Pressable>
-            <Text className="font-bold text-xl text-[#1f293f]">Import Portfolio</Text>
+            <Text className="font-bold text-xl text-ink">Import Portfolio</Text>
             <View className="w-10" />
           </View>
 
           <View className="mt-7">
             <View className="flex-row items-end justify-between">
-              <Text className="font-semi text-xs tracking-[2px] text-[#a9b0c1]">STEP 2 OF 5</Text>
-              <Text className="font-semi text-xs tracking-[1px] text-[#ec9dc5]">40 %</Text>
+              <Text className="font-semi text-xs tracking-[2px] text-muted">STEP 2 OF 5</Text>
+              <Text className="font-semi text-xs tracking-[1px] text-accent">40 %</Text>
             </View>
-            <View className="mt-3 h-1.5 w-full rounded-full bg-[#eef1f7]">
-              <View className="h-1.5 w-2/5 rounded-full bg-[#f291c4]" />
+            <View className="mt-3 h-1.5 w-full rounded-full bg-border">
+              <View className="h-1.5 w-2/5 rounded-full bg-accent" />
             </View>
           </View>
 
           <View className="mt-10 items-center">
-            <View className="h-24 w-24 items-center justify-center rounded-[28px] bg-[#f7f8fc] shadow-card">
-              <Text className="text-[30px] text-[#ec9dc5]">▣</Text>
+            <View className="h-24 w-24 items-center justify-center rounded-xl3 bg-peach shadow-card">
+              <Text className="text-[30px] text-ink">▣</Text>
             </View>
-            <Text className="mt-8 text-center font-bold text-[48px] leading-[54px] text-[#1e273f]">
+            <Text className="mt-8 text-center font-bold text-[42px] leading-[48px] text-ink">
               How would you like to import?
             </Text>
-            <Text className="mt-3 text-center font-medium text-[26px] leading-9 text-[#98a1b3]">
+            <Text className="mt-3 text-center font-medium text-[22px] leading-8 text-muted">
               Choose the most convenient way to sync your assets.
             </Text>
           </View>
@@ -89,8 +89,8 @@ export function OnboardingStep2Screen() {
                 >
                   <Card
                     className={cn(
-                      "rounded-[24px] border bg-[#f8f9fc] shadow-none",
-                      selected ? "border-[#f5afd0]" : "border-[#edf0f6]",
+                      "rounded-xl2 border bg-card shadow-none",
+                      selected ? "border-accent bg-lilac/30" : "border-border",
                     )}
                   >
                     <CardContent className="flex-row items-center justify-between px-4 py-4">
@@ -106,16 +106,16 @@ export function OnboardingStep2Screen() {
                           </Text>
                         </View>
                         <View className="ml-3">
-                          <Text className="font-bold text-[31px] leading-[38px] text-[#1e273f]">
+                          <Text className="font-bold text-[28px] leading-[34px] text-ink">
                             {option.title}
                           </Text>
-                          <Text className="mt-1 font-medium text-[21px] leading-7 text-[#9aa2b3]">
+                          <Text className="mt-1 font-medium text-[18px] leading-6 text-muted">
                             {option.subtitle}
                           </Text>
                         </View>
                       </View>
 
-                      <Text className="font-semi text-xl text-[#c5cbda]">›</Text>
+                      <Text className="font-semi text-xl text-muted">›</Text>
                     </CardContent>
                   </Card>
                 </Pressable>
@@ -127,10 +127,10 @@ export function OnboardingStep2Screen() {
             <Button
               label="Continue  →"
               disabled={!importMethod}
-              className={cn("h-16 rounded-full", importMethod ? "bg-[#08153a]" : "bg-[#f0f2f7]")}
-              textClassName={cn(importMethod ? "text-white" : "text-[#bdc4d2]")}
+              className={cn("h-16 rounded-full", importMethod ? "bg-accent" : "bg-border")}
+              textClassName={cn(importMethod ? "text-white" : "text-muted")}
             />
-            <Text className="mt-4 text-center font-semi text-[11px] tracking-[2px] text-[#c0c7d5]">
+            <Text className="mt-4 text-center font-semi text-[11px] tracking-[2px] text-muted">
               PLEASE SELECT AN OPTION TO PROCEED
             </Text>
           </View>

@@ -101,5 +101,6 @@ module.exports = {
       },
     ],
     "import/newline-after-import": 1,
+    "import/no-unresolved": ["error", { ignore: ["^@/"] }],
   },
 }
