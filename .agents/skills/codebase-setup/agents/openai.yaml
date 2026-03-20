@@ -1,0 +1,3 @@
+display_name: Codebase Setup
+short_description: Discover and execute the commands needed to bootstrap a repo locally.
+default_prompt: Help me set up this codebase locally, including any missing clarification and verification steps.

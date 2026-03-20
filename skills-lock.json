@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "skills": {
+    "coding-guidelines": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "0742312a0de5eb6bd84e093c1815b1db98126130b92713ea5fc2cf902338aa3b"
+    },
+    "domain-fintech": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "c2fbfc41eafd81d828dead9f6988e63a544697d6961e673e563d08d47b7a17f5"
+    },
+    "domain-web": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "dd853ce97875f139da437df6e09eaca8b326931a98f3eb8dc02669670c12161d"
+    },
+    "git-atomic-commit": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "b80a83513dea5148ad8b0c87f245f35c0288ecb3e267bab1640f6ada0c3a36fe"
+    },
+    "git-conventional-commit": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "ad77aef1f1921230520900f97d6a3dfd91f79abf8bc8fe03feb72a766e279549"
+    },
+    "git-pr-workflow": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "889dee805c2062b411d3892d5220737620de3ba4ed11a5c61342dbda8cff3e20"
+    },
+    "git-run-checks": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "0090d8de12c8dbc9522c21b7913cba638019e8cd9346800e717cce63880b7eb9"
+    },
+    "git-workflow-orchestrator": {
+      "source": "chasebuild/agent-skills",
+      "sourceType": "github",
+      "computedHash": "b076e3c3d1bf52f295b90de001471ed04040ca241f4fb7935055ed68e2cb60db"
+    }
+  }
+}
