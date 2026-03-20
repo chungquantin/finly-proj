@@ -19,6 +19,7 @@ module.exports = {
         lilac: "#D8B4FE",
         sky: "#DBEAFE",
         peach: "#FFCFE1",
+        cloud: "#F3F4F6",
         mint: "#DCFCE7",
         lemon: "#FEF3C7",
         accent: "#A855F7",

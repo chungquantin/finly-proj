@@ -43,6 +43,8 @@ The mobile app currently mixes default scaffold styling with partially customize
 - 2026-03-20: Updated mobile theme tokens (`colors.ts`, `colorsDark.ts`, `spacing.ts`, `spacingDark.ts`) and added `radius.ts`.
 - 2026-03-20: Extended theme typing/wiring to include radius tokens (`types.ts`, `theme.ts`).
 - 2026-03-20: Updated active onboarding UI (`ThemeShowcaseScreen`, `OnboardingStep2Screen`) and shared UI primitives (`tailwind.config.js`, `ui/card.tsx`, `ui/button.tsx`) to consume the Bento-Kawaii token palette/radius/shadow system.
+- 2026-03-20: Reworked onboarding screens to the cloud-wallet reference pattern (sky hero, avatar overlap, amount emphasis, row details, gradient CTA) while preserving onboarding state transitions.
+- 2026-03-20: Updated design-system doc with cloud-wallet composition guidance and gradient token usage.
 
 ## Verification
 
@@ -50,6 +52,8 @@ The mobile app currently mixes default scaffold styling with partially customize
   - `cd apps/mobile && npx eslint app/theme/colors.ts app/theme/colorsDark.ts app/theme/theme.ts app/theme/types.ts app/theme/spacing.ts app/theme/spacingDark.ts`
   - `cd apps/mobile && npx eslint app/screens/ThemeShowcaseScreen.tsx app/screens/OnboardingStep2Screen.tsx app/components/ui/button.tsx app/components/ui/card.tsx tailwind.config.js`
   - `cd apps/mobile && npx eslint --fix app/screens/ThemeShowcaseScreen.tsx app/components/ui/card.tsx`
+  - `cd apps/mobile && npx eslint --fix app/screens/ThemeShowcaseScreen.tsx app/screens/OnboardingStep2Screen.tsx`
+  - `cd apps/mobile && npx eslint app/screens/ThemeShowcaseScreen.tsx app/screens/OnboardingStep2Screen.tsx tailwind.config.js`
   - `cd apps/mobile && pnpm run compile`
   - `python3 scripts/check_harness_readiness.py`
 - Manual checks:

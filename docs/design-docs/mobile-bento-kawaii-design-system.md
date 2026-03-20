@@ -20,6 +20,8 @@ This document defines the visual system for the Finly mobile app UI kit. It tran
 - Bold rounded cards and pill controls
 - Friendly, mascot-compatible composition without visual clutter
 - Structured bento layouts with generous breathing room
+- Sky-and-cloud hero headers with floating circular highlights for emotional warmth
+- Profile-centric composition with avatar overlap and centered name/value hierarchy
 
 ## Color System
 
@@ -43,6 +45,15 @@ This document defines the visual system for the Finly mobile app UI kit. It tran
 - Pink pastel: `#FFCFE1`
 - Blue pastel: `#DBEAFE`
 - Warm pastel: `#FEF3C7`
+- Cloud neutral: `#F3F4F6`
+
+### Gradient Usage
+
+- Header sky gradient: `#9EDCFF -> #8BCBFF`
+- CTA gradient: `#FDBA74 -> #FB7185 -> #E879F9`
+- Large amount styling:
+  - Currency symbol uses sky blue
+  - Amount uses action purple
 
 ## Typography
 
@@ -72,6 +83,20 @@ This document defines the visual system for the Finly mobile app UI kit. It tran
   - Use thick tracks and rounded ends
 - Feedback:
   - Positive outcomes should use color + celebratory copy/character treatment
+
+## Onboarding Composition Pattern
+
+- Use a single rounded container card (`32px` radius) on a soft neutral background.
+- Add a top hero block with:
+  - sky gradient
+  - cloud blobs
+  - warm circular sun accent
+- Place avatar badge overlapping hero and content.
+- Surface key amount in oversized typography near the top third of content.
+- Use row-based detail lines with clear left labels and right values.
+- Primary actions:
+  - two rounded pills near top for fast mode switching
+  - one gradient full-width CTA at bottom
 
 ## Interaction Tone
 
