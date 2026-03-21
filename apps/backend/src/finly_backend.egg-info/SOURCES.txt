@@ -9,6 +9,7 @@ src/finly_backend/intake.py
 src/finly_backend/memory.py
 src/finly_backend/mock_data.py
 src/finly_backend/models.py
+src/finly_backend/onboarding_chat.py
 src/finly_backend/portfolio.py
 src/finly_backend/profiles.py
 src/finly_backend/server.py

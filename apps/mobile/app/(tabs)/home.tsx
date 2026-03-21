@@ -230,6 +230,7 @@ export default function HomeTab() {
                               (holding.valueUsd / Math.max(totalValueUsd, 1)) * 100
                             }
                             changePercent={holding.changePercent}
+                            onPress={() => router.push(`/holding/${holding.ticker}`)}
                           />
                         ))}
                   </View>
@@ -575,6 +576,7 @@ function HoldingRow({
   value,
   allocationPercent,
   changePercent,
+  onPress,
 }: {
   name: string
   logoUri?: string
@@ -582,11 +584,13 @@ function HoldingRow({
   value: string
   allocationPercent: number
   changePercent: number
+  onPress: () => void
 }) {
   return (
-    <View
+    <Pressable
       className="flex-row items-center justify-between border-b py-4 last:border-b-0"
       style={{ borderColor: BORDER }}
+      onPress={onPress}
     >
       <View className="flex-row items-center">
         <TickerLogo ticker={ticker} logoUri={logoUri} />
@@ -607,7 +611,7 @@ function HoldingRow({
           {allocationPercent.toFixed(1)}% of portfolio
         </Text>
       </View>
-    </View>
+    </Pressable>
   )
 }
 

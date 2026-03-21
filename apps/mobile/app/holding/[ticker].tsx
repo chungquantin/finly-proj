@@ -218,10 +218,11 @@ export default function HoldingDetailRoute() {
                 {quickPrompts.map((prompt) => (
                   <Pressable
                     key={prompt}
-                    className="rounded-full border border-[#DCE6FF] bg-[#F4F7FF] px-3 py-2"
+                    className="rounded-[16px] border border-[#DCE6FF] bg-[#F4F7FF] px-3 py-2"
+                    style={{ maxWidth: "100%" }}
                     onPress={() => handleCreateThread(prompt)}
                   >
-                    <Text className="font-sans text-[13px] text-[#2453FF]">{prompt}</Text>
+                    <Text className="font-sans text-[13px] leading-5 text-[#2453FF]">{prompt}</Text>
                   </Pressable>
                 ))}
               </View>
