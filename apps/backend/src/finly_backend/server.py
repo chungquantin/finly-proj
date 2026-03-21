@@ -7,7 +7,6 @@ requests to the stateless Agent Server via agent_client.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -30,7 +29,6 @@ from finly_backend.models import (
     AgentPanelMessage,
     ChatRequest,
     ChatResponse,
-    HeartbeatAlert,
     IntakeRequest,
     IntakeResponse,
     MarketTicker,
@@ -44,8 +42,6 @@ from finly_backend.models import (
     ReportRegenerateRequest,
     ReportResponse,
     SpecialistInsight,
-    TickerSuggestion,
-    UserProfile,
 )
 from finly_backend.database import (
     init_db,
@@ -79,6 +75,7 @@ DATE_PATTERN = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 # OpenAI-compatible models (kept for backward compat)
 # ---------------------------------------------------------------------------
 
+
 class Message(BaseModel):
     role: str
     content: Any
@@ -98,6 +95,7 @@ class ChatCompletionsRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _flatten_content(content: Any) -> str:
     if isinstance(content, str):
@@ -126,10 +124,34 @@ def _extract_ticker(text: str) -> str | None:
     for match in TICKER_PATTERN.finditer(text):
         value = match.group(1)
         if value not in {
-            "BUY", "SELL", "HOLD", "USD", "VND", "JSON", "POST", "GET",
-            "THE", "AND", "FOR", "NOT", "WITH", "FROM", "THAT", "THIS",
-            "TRADER", "ANALYST", "ADVISOR", "RESEARCHER", "MARKET",
-            "RISK", "HIGH", "LOW", "MEDIUM", "TERM", "ESG", "ETF",
+            "BUY",
+            "SELL",
+            "HOLD",
+            "USD",
+            "VND",
+            "JSON",
+            "POST",
+            "GET",
+            "THE",
+            "AND",
+            "FOR",
+            "NOT",
+            "WITH",
+            "FROM",
+            "THAT",
+            "THIS",
+            "TRADER",
+            "ANALYST",
+            "ADVISOR",
+            "RESEARCHER",
+            "MARKET",
+            "RISK",
+            "HIGH",
+            "LOW",
+            "MEDIUM",
+            "TERM",
+            "ESG",
+            "ETF",
         }:
             return value
     return None
@@ -147,10 +169,17 @@ async def _discover_tickers(goals: str, user_context: str = "") -> list[dict]:
     The first one is the primary pick for deep analysis.
     """
     if not goals:
-        return [{"ticker": "SPY", "reason": "Broad market index — good default starting point"}]
+        return [
+            {
+                "ticker": "SPY",
+                "reason": "Broad market index — good default starting point",
+            }
+        ]
 
     api_key = os.getenv("OPENROUTER_API_KEY", "")
-    model = os.getenv("FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini"))
+    model = os.getenv(
+        "FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
     base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
     prompt = f"""You are a financial research assistant. Based on the user's investment goals below,
@@ -187,7 +216,7 @@ Rules:
             data = resp.json()
             content = data["choices"][0]["message"]["content"].strip()
             # Parse JSON array from response
-            json_match = re.search(r'\[.*\]', content, re.DOTALL)
+            json_match = re.search(r"\[.*\]", content, re.DOTALL)
             if json_match:
                 tickers = json.loads(json_match.group())
                 # Clean up tickers
@@ -195,20 +224,26 @@ Rules:
                 for t in tickers[:5]:
                     symbol = re.sub(r"[^A-Z]", "", t.get("ticker", "").upper())[:5]
                     if symbol:
-                        cleaned.append({"ticker": symbol, "reason": t.get("reason", "")})
+                        cleaned.append(
+                            {"ticker": symbol, "reason": t.get("reason", "")}
+                        )
                 if cleaned:
-                    logger.info(f"Discovered {len(cleaned)} tickers from goals: {[t['ticker'] for t in cleaned]}")
+                    logger.info(
+                        f"Discovered {len(cleaned)} tickers from goals: {[t['ticker'] for t in cleaned]}"
+                    )
                     return cleaned
     except Exception as e:
         logger.warning(f"Ticker discovery failed: {e}")
 
-    return [{"ticker": "SPY", "reason": "Broad market index — good default starting point"}]
+    return [
+        {"ticker": "SPY", "reason": "Broad market index — good default starting point"}
+    ]
 
 
 def _truncate_sentences(text: str, max_sentences: int = 3) -> str:
     if not text:
         return ""
-    sentences = re.split(r'(?<=[.!?])\s+', str(text))
+    sentences = re.split(r"(?<=[.!?])\s+", str(text))
     return " ".join(sentences[:max_sentences])
 
 
@@ -261,12 +296,14 @@ async def startup_event():
 # Health & models
 # ---------------------------------------------------------------------------
 
+
 @app.get("/healthz")
 async def healthz() -> dict:
     """Health check — verifies DB connectivity and agent server reachability."""
     db_ok = True
     try:
         from finly_backend.database import get_db
+
         with get_db() as conn:
             conn.execute("SELECT 1")
     except Exception:
@@ -303,6 +340,7 @@ def list_models() -> dict[str, Any]:
 # OpenAI-compatible chat completions (backward compat)
 # ---------------------------------------------------------------------------
 
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionsRequest):
     created = int(time.time())
@@ -312,9 +350,23 @@ async def chat_completions(request: ChatCompletionsRequest):
         raise HTTPException(status_code=400, detail="messages is required")
 
     prompt_text = _extract_last_user_text(request.messages)
-    ticker = (request.ticker or _extract_ticker(prompt_text) or os.getenv("FINLY_DEFAULT_TICKER") or "FPT").upper()
-    trade_date = request.trade_date or _extract_trade_date(prompt_text) or date.today().isoformat()
-    selected_analysts = request.selected_analysts or ["market", "social", "news", "fundamentals"]
+    ticker = (
+        request.ticker
+        or _extract_ticker(prompt_text)
+        or os.getenv("FINLY_DEFAULT_TICKER")
+        or "FPT"
+    ).upper()
+    trade_date = (
+        request.trade_date
+        or _extract_trade_date(prompt_text)
+        or date.today().isoformat()
+    )
+    selected_analysts = request.selected_analysts or [
+        "market",
+        "social",
+        "news",
+        "fundamentals",
+    ]
 
     try:
         result = await agent_client.call_pipeline(
@@ -370,7 +422,9 @@ async def chat_completions(request: ChatCompletionsRequest):
                 "object": "chat.completion.chunk",
                 "created": created,
                 "model": request.model,
-                "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+                "choices": [
+                    {"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}
+                ],
             }
         )
 
@@ -381,7 +435,9 @@ async def chat_completions(request: ChatCompletionsRequest):
                     "object": "chat.completion.chunk",
                     "created": created,
                     "model": request.model,
-                    "choices": [{"index": 0, "delta": {"content": part}, "finish_reason": None}],
+                    "choices": [
+                        {"index": 0, "delta": {"content": part}, "finish_reason": None}
+                    ],
                 }
             )
 
@@ -402,6 +458,7 @@ async def chat_completions(request: ChatCompletionsRequest):
 # ---------------------------------------------------------------------------
 # Onboarding & user profiles
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/onboarding")
 async def onboarding(req: OnboardingRequest) -> OnboardingResponse:
@@ -442,6 +499,7 @@ async def user_chat_history(user_id: str, limit: int = Query(default=20, le=100)
 # Portfolio import
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/portfolio/import")
 async def portfolio_import(req: PortfolioImportRequest) -> PortfolioResponse:
     """Import portfolio — modes: mock, csv, manual."""
@@ -460,6 +518,7 @@ async def portfolio_import(req: PortfolioImportRequest) -> PortfolioResponse:
 @app.get("/api/user/{user_id}/portfolio")
 async def user_portfolio(user_id: str):
     from finly_backend.database import get_portfolio
+
     items = get_portfolio(user_id)
     return PortfolioResponse(user_id=user_id, items=items)
 
@@ -467,6 +526,7 @@ async def user_portfolio(user_id: str):
 # ---------------------------------------------------------------------------
 # Intake conversation (goal extraction)
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/intake")
 async def intake_endpoint(req: IntakeRequest) -> IntakeResponse:
@@ -494,6 +554,7 @@ async def intake_endpoint(req: IntakeRequest) -> IntakeResponse:
 async def intake_reset(user_id: str = Query(...)):
     """Reset intake conversation to start fresh."""
     from finly_backend.intake import reset_intake
+
     reset_intake(user_id)
     return {"status": "ok", "message": "Intake conversation reset"}
 
@@ -501,6 +562,7 @@ async def intake_reset(user_id: str = Query(...)):
 # ---------------------------------------------------------------------------
 # Report generation (proxied to agent server)
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/report/generate")
 async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
@@ -513,7 +575,9 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
 
     user = get_user(req.user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found. Complete onboarding first.")
+        raise HTTPException(
+            status_code=404, detail="User not found. Complete onboarding first."
+        )
 
     user_context = build_user_context(req.user_id)
     goals_brief = user.get("goals_brief", "")
@@ -586,6 +650,7 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
 # Panel discussion (proxied to agent server)
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/report/chat")
 async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
     """Chat with the team — proxied to Agent Server's panel-chat endpoint."""
@@ -611,7 +676,9 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
         )
 
     user_context = build_user_context(req.user_id)
-    conversation_history = get_conversation_history(req.user_id, conv_type="panel", limit=20)
+    conversation_history = get_conversation_history(
+        req.user_id, conv_type="panel", limit=20
+    )
 
     # Record user message
     append_conversation(req.user_id, "panel", "user", req.message)
@@ -638,7 +705,11 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
     # Record each agent's response in DB
     for resp in agent_responses:
         append_conversation(
-            req.user_id, "panel", "assistant", resp["response"], agent_role=resp["agent_role"]
+            req.user_id,
+            "panel",
+            "assistant",
+            resp["response"],
+            agent_role=resp["agent_role"],
         )
 
     # Extract memories (fire and forget)
@@ -649,7 +720,9 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
         combined_response = "\n".join(
             f"[{r['agent_name']}]: {r['response']}" for r in agent_responses
         )
-        memory_updates = await extract_and_store_memories(req.user_id, req.message, combined_response)
+        memory_updates = await extract_and_store_memories(
+            req.user_id, req.message, combined_response
+        )
     except Exception as e:
         logger.warning(f"Memory extraction in panel failed: {e}")
 
@@ -665,12 +738,15 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
 # Report regeneration
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/report/regenerate")
 async def report_regenerate(req: ReportRegenerateRequest) -> ReportResponse:
     """Regenerate report with updated user context."""
     previous = get_latest_report(req.user_id)
     if not previous:
-        raise HTTPException(status_code=404, detail="No previous report found. Generate one first.")
+        raise HTTPException(
+            status_code=404, detail="No previous report found. Generate one first."
+        )
 
     ticker = previous.get("ticker", os.getenv("FINLY_DEFAULT_TICKER", "FPT"))
 
@@ -682,9 +758,11 @@ async def report_regenerate(req: ReportRegenerateRequest) -> ReportResponse:
 # User memories
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/user/{user_id}/memories")
 async def user_memories(user_id: str):
     from finly_backend.database import get_memories
+
     return get_memories(user_id)
 
 
@@ -697,6 +775,7 @@ async def user_reports(user_id: str, limit: int = Query(default=10, le=50)):
 # Simplified chat endpoint (proxied to agent server)
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """Simplified chat — proxies to agent pipeline and returns structured response."""
@@ -705,7 +784,11 @@ async def api_chat(req: ChatRequest):
 
     append_chat(req.user_id, "user", req.message)
 
-    ticker = req.ticker or _extract_ticker(req.message) or os.getenv("FINLY_DEFAULT_TICKER", "FPT")
+    ticker = (
+        req.ticker
+        or _extract_ticker(req.message)
+        or os.getenv("FINLY_DEFAULT_TICKER", "FPT")
+    )
     ticker = ticker.upper()
 
     user_context = build_user_context(req.user_id)
@@ -747,6 +830,7 @@ async def api_chat(req: ChatRequest):
 # Voice chat endpoint (proxied to agent server)
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/chat/voice")
 async def api_chat_voice(req: ChatRequest):
     """Chat + ElevenLabs TTS audio response. Falls back to JSON if TTS unavailable."""
@@ -754,7 +838,11 @@ async def api_chat_voice(req: ChatRequest):
 
     append_chat(req.user_id, "user", req.message)
 
-    ticker = req.ticker or _extract_ticker(req.message) or os.getenv("FINLY_DEFAULT_TICKER", "FPT")
+    ticker = (
+        req.ticker
+        or _extract_ticker(req.message)
+        or os.getenv("FINLY_DEFAULT_TICKER", "FPT")
+    )
     ticker = ticker.upper()
 
     user_context = build_user_context(req.user_id)
@@ -783,7 +871,10 @@ async def api_chat_voice(req: ChatRequest):
         return StreamingResponse(
             iter([audio_bytes]),
             media_type="audio/mpeg",
-            headers={"X-Finly-Ticker": result["ticker"], "X-Finly-Decision": result["decision"]},
+            headers={
+                "X-Finly-Ticker": result["ticker"],
+                "X-Finly-Decision": result["decision"],
+            },
         )
 
     return ChatResponse(
@@ -798,6 +889,7 @@ async def api_chat_voice(req: ChatRequest):
 # ---------------------------------------------------------------------------
 # Market data
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/market-data")
 async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
@@ -816,13 +908,19 @@ async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
             price = round(base * (1 + change_pct / 100))
             results.append(
                 MarketTicker(
-                    ticker=clean, price=price, change_pct=change_pct, currency="VND",
+                    ticker=clean,
+                    price=price,
+                    change_pct=change_pct,
+                    currency="VND",
                 ).model_dump()
             )
         else:
             results.append(
                 MarketTicker(
-                    ticker=raw_ticker, price=0.0, change_pct=0.0, currency="USD",
+                    ticker=raw_ticker,
+                    price=0.0,
+                    change_pct=0.0,
+                    currency="USD",
                 ).model_dump()
             )
     return results
@@ -832,6 +930,7 @@ async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
 # Heartbeat alerts
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/heartbeat/alerts")
 async def heartbeat_alerts(user_id: str = Query(default="broadcast")):
     alerts = get_pending_alerts(user_id)
@@ -839,7 +938,9 @@ async def heartbeat_alerts(user_id: str = Query(default="broadcast")):
 
 
 @app.post("/api/heartbeat/trigger")
-async def heartbeat_trigger(scenario: str = Query(...), user_id: str = Query(default="broadcast")):
+async def heartbeat_trigger(
+    scenario: str = Query(...), user_id: str = Query(default="broadcast")
+):
     try:
         alert = trigger_alert(scenario, user_id)
         return alert.model_dump()
@@ -924,6 +1025,7 @@ async def market_data_history(
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
+
 
 def run() -> None:
     import uvicorn

@@ -7,12 +7,10 @@ Designed to run on a separate port from the backend API server.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import re
 
-from datetime import date
 from typing import Any
 
 from dotenv import load_dotenv
@@ -34,6 +32,7 @@ logger = logging.getLogger("finly_agents.agent_server")
 # Request / response models
 # ---------------------------------------------------------------------------
 
+
 class PipelineRequest(BaseModel):
     ticker: str
     trade_date: str
@@ -54,6 +53,7 @@ class AgentPanelRequest(BaseModel):
 # Agent pipeline helpers (moved from server.py)
 # ---------------------------------------------------------------------------
 
+
 def _build_graph(model_name: str, selected_analysts: list[str]) -> TradingAgentsGraph:
     config = DEFAULT_CONFIG.copy()
     config["deep_think_llm"] = model_name
@@ -66,7 +66,9 @@ def _build_graph(model_name: str, selected_analysts: list[str]) -> TradingAgents
         "fundamental_data": os.getenv("FINLY_VENDOR_FUNDAMENTAL", "yfinance"),
         "news_data": os.getenv("FINLY_VENDOR_NEWS", "yfinance"),
     }
-    return TradingAgentsGraph(debug=False, config=config, selected_analysts=selected_analysts)
+    return TradingAgentsGraph(
+        debug=False, config=config, selected_analysts=selected_analysts
+    )
 
 
 def _run_pipeline(req: PipelineRequest) -> dict[str, Any]:
@@ -78,7 +80,9 @@ def _run_pipeline(req: PipelineRequest) -> dict[str, Any]:
     if req.portfolio_summary:
         user_context += f"\n\nCURRENT PORTFOLIO\n{req.portfolio_summary}"
 
-    final_state, decision = graph.propagate(req.ticker, req.trade_date, user_context=user_context)
+    final_state, decision = graph.propagate(
+        req.ticker, req.trade_date, user_context=user_context
+    )
 
     final_report = final_state.get("final_trade_decision", "")
     content = (
@@ -107,7 +111,7 @@ def _run_pipeline(req: PipelineRequest) -> dict[str, Any]:
 def _truncate_sentences(text: str, max_sentences: int = 3) -> str:
     if not text:
         return ""
-    sentences = re.split(r'(?<=[.!?])\s+', str(text))
+    sentences = re.split(r"(?<=[.!?])\s+", str(text))
     return " ".join(sentences[:max_sentences])
 
 
@@ -122,38 +126,46 @@ def _extract_specialist_insights(final_state: dict) -> list[dict]:
             analyst_parts.append(text)
     if analyst_parts:
         combined = "\n\n".join(analyst_parts)
-        insights.append({
-            "role": "analyst",
-            "summary": _truncate_sentences(combined, 3),
-            "full_analysis": combined,
-        })
+        insights.append(
+            {
+                "role": "analyst",
+                "summary": _truncate_sentences(combined, 3),
+                "full_analysis": combined,
+            }
+        )
 
     # Researcher — news
     news = final_state.get("news_report", "")
     if news:
-        insights.append({
-            "role": "researcher",
-            "summary": _truncate_sentences(news, 3),
-            "full_analysis": news,
-        })
+        insights.append(
+            {
+                "role": "researcher",
+                "summary": _truncate_sentences(news, 3),
+                "full_analysis": news,
+            }
+        )
 
     # Trader — market/technical
     market = final_state.get("market_report", "")
     if market:
-        insights.append({
-            "role": "trader",
-            "summary": _truncate_sentences(market, 3),
-            "full_analysis": market,
-        })
+        insights.append(
+            {
+                "role": "trader",
+                "summary": _truncate_sentences(market, 3),
+                "full_analysis": market,
+            }
+        )
 
     # Advisor — final trade decision
     ftd = final_state.get("final_trade_decision", "")
     if ftd:
-        insights.append({
-            "role": "advisor",
-            "summary": _truncate_sentences(ftd, 3),
-            "full_analysis": ftd,
-        })
+        insights.append(
+            {
+                "role": "advisor",
+                "summary": _truncate_sentences(ftd, 3),
+                "full_analysis": ftd,
+            }
+        )
 
     return insights
 
@@ -166,15 +178,29 @@ def _extract_agent_reasoning(final_state: dict) -> dict:
         "news_report": final_state.get("news_report", ""),
         "sentiment_report": final_state.get("sentiment_report", ""),
         "investment_debate": {
-            "bull_case": final_state.get("investment_debate_state", {}).get("bull_history", ""),
-            "bear_case": final_state.get("investment_debate_state", {}).get("bear_history", ""),
-            "judge_decision": final_state.get("investment_debate_state", {}).get("judge_decision", ""),
+            "bull_case": final_state.get("investment_debate_state", {}).get(
+                "bull_history", ""
+            ),
+            "bear_case": final_state.get("investment_debate_state", {}).get(
+                "bear_history", ""
+            ),
+            "judge_decision": final_state.get("investment_debate_state", {}).get(
+                "judge_decision", ""
+            ),
         },
         "risk_debate": {
-            "aggressive": final_state.get("risk_debate_state", {}).get("aggressive_history", ""),
-            "conservative": final_state.get("risk_debate_state", {}).get("conservative_history", ""),
-            "neutral": final_state.get("risk_debate_state", {}).get("neutral_history", ""),
-            "judge_decision": final_state.get("risk_debate_state", {}).get("judge_decision", ""),
+            "aggressive": final_state.get("risk_debate_state", {}).get(
+                "aggressive_history", ""
+            ),
+            "conservative": final_state.get("risk_debate_state", {}).get(
+                "conservative_history", ""
+            ),
+            "neutral": final_state.get("risk_debate_state", {}).get(
+                "neutral_history", ""
+            ),
+            "judge_decision": final_state.get("risk_debate_state", {}).get(
+                "judge_decision", ""
+            ),
         },
         "trader_plan": final_state.get("trader_investment_plan", ""),
         "investment_plan": final_state.get("investment_plan", ""),
@@ -242,7 +268,12 @@ for language complexity and tone.""",
     },
     "advisor": {
         "name": "Advisor",
-        "report_keys": ["fundamentals_report", "sentiment_report", "news_report", "market_report"],
+        "report_keys": [
+            "fundamentals_report",
+            "sentiment_report",
+            "news_report",
+            "market_report",
+        ],
         "system_prompt": """\
 You are Finly's Advisor. You pull together everything the Analyst, Researcher, and \
 Trader found and give a final recommendation that fits the user's personal situation — \
@@ -293,9 +324,13 @@ async def _call_agent(
         risk_debate = reasoning.get("risk_debate", {})
         debate_parts = []
         if inv_debate.get("judge_decision"):
-            debate_parts.append(f"Investment debate conclusion: {inv_debate['judge_decision']}")
+            debate_parts.append(
+                f"Investment debate conclusion: {inv_debate['judge_decision']}"
+            )
         if risk_debate.get("judge_decision"):
-            debate_parts.append(f"Risk debate conclusion: {risk_debate['judge_decision']}")
+            debate_parts.append(
+                f"Risk debate conclusion: {risk_debate['judge_decision']}"
+            )
         debate_summary = "\n".join(debate_parts) if debate_parts else "No debate data."
 
     fmt_kwargs = dict(
@@ -316,7 +351,9 @@ async def _call_agent(
     messages.append({"role": "user", "content": user_question})
 
     api_key = os.getenv("OPENROUTER_API_KEY", "")
-    model = os.getenv("FINLY_PANEL_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini"))
+    model = os.getenv(
+        "FINLY_PANEL_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
     base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
     try:
@@ -397,8 +434,11 @@ async def panel_chat(req: AgentPanelRequest):
     for agent_key, persona in AGENT_PERSONAS.items():
         tasks.append(
             _call_agent(
-                agent_key, persona, req.message,
-                req.report_data, req.user_context,
+                agent_key,
+                persona,
+                req.message,
+                req.report_data,
+                req.user_context,
                 req.conversation_history,
             )
         )
@@ -410,6 +450,7 @@ async def panel_chat(req: AgentPanelRequest):
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def run() -> None:
     import uvicorn

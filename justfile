@@ -5,6 +5,8 @@ default:
 
 setup: setup-frontend setup-python
 
+format-fix: format
+
 setup-frontend:
   cd apps/mobile && pnpm install --frozen-lockfile
 

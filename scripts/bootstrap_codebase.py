@@ -48,7 +48,9 @@ def ensure_destination(path: Path, force: bool) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def copy_template(template_root: Path, destination: Path, context: dict[str, str]) -> None:
+def copy_template(
+    template_root: Path, destination: Path, context: dict[str, str]
+) -> None:
     for source in collect_template_files(template_root):
         relative = source.relative_to(template_root)
         target = destination / relative

@@ -13,7 +13,7 @@ import os
 
 import httpx
 
-from finly_backend.database import get_memories, get_user, upsert_memory, delete_memory
+from finly_backend.database import get_memories, get_user, upsert_memory
 
 logger = logging.getLogger("finly_agents.memory")
 
@@ -65,9 +65,10 @@ async def extract_and_store_memories(
         return []
 
     existing = get_memories(user_id)
-    existing_str = "\n".join(
-        f"- {m['memory_key']}: {m['memory_value']}" for m in existing
-    ) or "None"
+    existing_str = (
+        "\n".join(f"- {m['memory_key']}: {m['memory_value']}" for m in existing)
+        or "None"
+    )
 
     prompt = EXTRACTION_PROMPT.format(
         risk_score=user.get("risk_score", 50),
@@ -79,7 +80,9 @@ async def extract_and_store_memories(
     )
 
     api_key = os.getenv("OPENROUTER_API_KEY", "")
-    model = os.getenv("FINLY_MEMORY_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini"))
+    model = os.getenv(
+        "FINLY_MEMORY_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
     base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
     try:
@@ -93,7 +96,10 @@ async def extract_and_store_memories(
                 json={
                     "model": model,
                     "messages": [
-                        {"role": "system", "content": "You extract structured memories from conversations. Respond with only a JSON array."},
+                        {
+                            "role": "system",
+                            "content": "You extract structured memories from conversations. Respond with only a JSON array.",
+                        },
                         {"role": "user", "content": prompt},
                     ],
                     "temperature": 0.3,
@@ -148,16 +154,24 @@ def _apply_preference_update(user_id: str, update_description: str) -> None:
         if user:
             new_risk = min(100, user["risk_score"] + 15)
             update_user_field(user_id, "risk_score", new_risk)
-            upsert_memory(user_id, "risk_auto_adjusted",
-                         f"Risk score increased to {new_risk} based on user preference", source="system")
+            upsert_memory(
+                user_id,
+                "risk_auto_adjusted",
+                f"Risk score increased to {new_risk} based on user preference",
+                source="system",
+            )
 
     elif "more conservative" in desc_lower or "lower risk" in desc_lower:
         user = get_user(user_id)
         if user:
             new_risk = max(0, user["risk_score"] - 15)
             update_user_field(user_id, "risk_score", new_risk)
-            upsert_memory(user_id, "risk_auto_adjusted",
-                         f"Risk score decreased to {new_risk} based on user preference", source="system")
+            upsert_memory(
+                user_id,
+                "risk_auto_adjusted",
+                f"Risk score decreased to {new_risk} based on user preference",
+                source="system",
+            )
 
     # Horizon adjustments
     if "long term" in desc_lower or "longer horizon" in desc_lower:

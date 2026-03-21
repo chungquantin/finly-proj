@@ -106,11 +106,17 @@ def import_manual(user_id: str, items: list[dict]) -> list[dict]:
     return get_portfolio(user_id)
 
 
-def import_portfolio(user_id: str, mode: str, items: list[dict] | None = None, csv_data: str | None = None) -> list[dict]:
+def import_portfolio(
+    user_id: str,
+    mode: str,
+    items: list[dict] | None = None,
+    csv_data: str | None = None,
+) -> list[dict]:
     """Unified portfolio import entry point."""
     if mode == "mock":
         # Determine profile type from user's risk score
         from finly_backend.database import get_user
+
         user = get_user(user_id)
         risk = user.get("risk_score", 50) if user else 50
         if risk <= 30:

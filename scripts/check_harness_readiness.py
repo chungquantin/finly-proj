@@ -83,17 +83,25 @@ def main() -> int:
     if "harness-template.md" not in design_index:
         errors.append("docs/design-docs/index.md must reference harness-template.md")
     if "harness-engineering-guide.md" not in design_index:
-        errors.append("docs/design-docs/index.md must reference harness-engineering-guide.md")
+        errors.append(
+            "docs/design-docs/index.md must reference harness-engineering-guide.md"
+        )
 
     harness_template = read_text("docs/design-docs/harness-template.md")
     if "AGENTS.md" not in harness_template or "execution plans" not in harness_template:
-        errors.append("docs/design-docs/harness-template.md must describe the core harness components")
+        errors.append(
+            "docs/design-docs/harness-template.md must describe the core harness components"
+        )
 
     harness_guide = read_text("docs/design-docs/harness-engineering-guide.md")
     if "bootstrap_codebase.py" not in harness_guide:
-        errors.append("docs/design-docs/harness-engineering-guide.md must reference the bootstrap script")
+        errors.append(
+            "docs/design-docs/harness-engineering-guide.md must reference the bootstrap script"
+        )
     if "web-nextjs" not in harness_guide:
-        errors.append("docs/design-docs/harness-engineering-guide.md must document the first supported repo-owned stack")
+        errors.append(
+            "docs/design-docs/harness-engineering-guide.md must document the first supported repo-owned stack"
+        )
 
     plans_doc = read_text("docs/PLANS.md")
     if "TEMPLATE.md" not in plans_doc:
@@ -101,7 +109,9 @@ def main() -> int:
 
     setup_skill = read_text(".agents/skills/codebase-setup/SKILL.md")
     if "bootstrap_codebase.py" not in setup_skill:
-        errors.append("codebase setup skill must prefer the bootstrap script for supported stacks")
+        errors.append(
+            "codebase setup skill must prefer the bootstrap script for supported stacks"
+        )
 
     quality = read_text("docs/QUALITY_SCORE.md")
     if "Current Gaps" not in quality:

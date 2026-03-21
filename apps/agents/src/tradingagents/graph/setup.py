@@ -1,11 +1,25 @@
 # TradingAgents/graph/setup.py
 
-from typing import Dict, Any
+from typing import Dict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
 
-from tradingagents.agents import *
+from tradingagents.agents import (
+    create_aggressive_debator,
+    create_bear_researcher,
+    create_bull_researcher,
+    create_conservative_debator,
+    create_fundamentals_analyst,
+    create_market_analyst,
+    create_msg_delete,
+    create_news_analyst,
+    create_neutral_debator,
+    create_research_manager,
+    create_risk_manager,
+    create_social_media_analyst,
+    create_trader,
+)
 from tradingagents.agents.utils.agent_states import AgentState
 
 from .conditional_logic import ConditionalLogic
@@ -58,9 +72,7 @@ class GraphSetup:
         tool_nodes = {}
 
         if "market" in selected_analysts:
-            analyst_nodes["market"] = create_market_analyst(
-                self.quick_thinking_llm
-            )
+            analyst_nodes["market"] = create_market_analyst(self.quick_thinking_llm)
             delete_nodes["market"] = create_msg_delete()
             tool_nodes["market"] = self.tool_nodes["market"]
 
@@ -72,9 +84,7 @@ class GraphSetup:
             tool_nodes["social"] = self.tool_nodes["social"]
 
         if "news" in selected_analysts:
-            analyst_nodes["news"] = create_news_analyst(
-                self.quick_thinking_llm
-            )
+            analyst_nodes["news"] = create_news_analyst(self.quick_thinking_llm)
             delete_nodes["news"] = create_msg_delete()
             tool_nodes["news"] = self.tool_nodes["news"]
 
@@ -147,7 +157,7 @@ class GraphSetup:
 
             # Connect to next analyst or to Bull Researcher if this is the last analyst
             if i < len(selected_analysts) - 1:
-                next_analyst = f"{selected_analysts[i+1].capitalize()} Analyst"
+                next_analyst = f"{selected_analysts[i + 1].capitalize()} Analyst"
                 workflow.add_edge(current_clear, next_analyst)
             else:
                 workflow.add_edge(current_clear, "Bull Researcher")

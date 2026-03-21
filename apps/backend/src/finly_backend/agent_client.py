@@ -56,14 +56,17 @@ async def call_pipeline(
         "trade_date": trade_date,
         "user_context": user_context,
         "portfolio_summary": portfolio_summary,
-        "selected_analysts": selected_analysts or ["market", "social", "news", "fundamentals"],
+        "selected_analysts": selected_analysts
+        or ["market", "social", "news", "fundamentals"],
     }
     if model_name:
         payload["model_name"] = model_name
 
     try:
         async with httpx.AsyncClient(timeout=_PIPELINE_TIMEOUT) as client:
-            resp = await client.post(f"{AGENT_SERVER_URL}/agent/run-pipeline", json=payload)
+            resp = await client.post(
+                f"{AGENT_SERVER_URL}/agent/run-pipeline", json=payload
+            )
             resp.raise_for_status()
             return resp.json()
     except httpx.ConnectError:
@@ -98,7 +101,9 @@ async def call_panel_chat(
 
     try:
         async with httpx.AsyncClient(timeout=_PANEL_TIMEOUT) as client:
-            resp = await client.post(f"{AGENT_SERVER_URL}/agent/panel-chat", json=payload)
+            resp = await client.post(
+                f"{AGENT_SERVER_URL}/agent/panel-chat", json=payload
+            )
             resp.raise_for_status()
             data = resp.json()
             return data.get("agent_responses", [])
@@ -108,6 +113,4 @@ async def call_panel_chat(
             "Start it with: finly-agent-server"
         )
     except httpx.TimeoutException:
-        raise AgentServerUnavailable(
-            "Agent server timed out during panel chat."
-        )
+        raise AgentServerUnavailable("Agent server timed out during panel chat.")

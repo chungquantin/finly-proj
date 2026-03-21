@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 # User / Onboarding
 # ---------------------------------------------------------------------------
 
+
 class UserProfile(BaseModel):
     user_id: str
     risk_score: int = Field(default=50, ge=0, le=100)
@@ -36,6 +37,7 @@ class OnboardingResponse(BaseModel):
 # Portfolio
 # ---------------------------------------------------------------------------
 
+
 class PortfolioItem(BaseModel):
     asset_type: str = "stock"  # stock | crypto
     ticker: str
@@ -60,6 +62,7 @@ class PortfolioResponse(BaseModel):
 # Intake (conversational goal extraction)
 # ---------------------------------------------------------------------------
 
+
 class IntakeRequest(BaseModel):
     user_id: str
     message: str
@@ -77,6 +80,7 @@ class IntakeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Chat
 # ---------------------------------------------------------------------------
+
 
 class ChatRequest(BaseModel):
     user_id: str = "anonymous"
@@ -103,6 +107,7 @@ class ChatResponse(BaseModel):
 # Report
 # ---------------------------------------------------------------------------
 
+
 class ReportGenerateRequest(BaseModel):
     user_id: str
     ticker: str | None = None  # if None, inferred from intake brief or default
@@ -122,7 +127,9 @@ class ReportResponse(BaseModel):
     summary: str
     full_report: str
     agent_reasoning: dict  # per-agent detailed reasoning
-    specialist_insights: list[SpecialistInsight] = []  # per-agent summary + full analysis
+    specialist_insights: list[
+        SpecialistInsight
+    ] = []  # per-agent summary + full analysis
     additional_tickers: list[TickerSuggestion] = []  # other recommended tickers
     intake_brief: str = ""
 
@@ -130,6 +137,7 @@ class ReportResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Panel discussion (chat with team)
 # ---------------------------------------------------------------------------
+
 
 class PanelChatRequest(BaseModel):
     user_id: str
@@ -154,6 +162,7 @@ class PanelChatResponse(BaseModel):
 # Report regeneration
 # ---------------------------------------------------------------------------
 
+
 class ReportRegenerateRequest(BaseModel):
     user_id: str
     report_id: str | None = None  # regenerate from latest if None
@@ -162,6 +171,7 @@ class ReportRegenerateRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Heartbeat (unchanged)
 # ---------------------------------------------------------------------------
+
 
 class HeartbeatAlert(BaseModel):
     alert_id: str

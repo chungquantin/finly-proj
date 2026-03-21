@@ -7,10 +7,11 @@ import os
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Any
 
-DB_PATH = os.getenv("FINLY_DB_PATH", os.path.join(os.path.dirname(__file__), "finly.db"))
+DB_PATH = os.getenv(
+    "FINLY_DB_PATH", os.path.join(os.path.dirname(__file__), "finly.db")
+)
 
 _CREATE_TABLES = """
 CREATE TABLE IF NOT EXISTS users (
@@ -105,6 +106,7 @@ def init_db() -> None:
 # Users
 # ---------------------------------------------------------------------------
 
+
 def upsert_user(
     user_id: str,
     risk_score: int = 50,
@@ -124,13 +126,17 @@ def upsert_user(
                    updated_at = datetime('now')""",
             (user_id, risk_score, horizon, knowledge, goals_brief),
         )
-        row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
         return dict(row)
 
 
 def get_user(user_id: str) -> dict | None:
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
         return dict(row) if row else None
 
 
@@ -143,13 +149,16 @@ def update_user_field(user_id: str, field: str, value: Any) -> dict | None:
             f"UPDATE users SET {field} = ?, updated_at = datetime('now') WHERE user_id = ?",
             (value, user_id),
         )
-        row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
         return dict(row) if row else None
 
 
 # ---------------------------------------------------------------------------
 # Portfolios
 # ---------------------------------------------------------------------------
+
 
 def add_portfolio_item(
     user_id: str,
@@ -164,9 +173,19 @@ def add_portfolio_item(
         conn.execute(
             """INSERT INTO portfolios (id, user_id, asset_type, ticker, quantity, avg_cost, wallet_address)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (item_id, user_id, asset_type, ticker.upper(), quantity, avg_cost, wallet_address),
+            (
+                item_id,
+                user_id,
+                asset_type,
+                ticker.upper(),
+                quantity,
+                avg_cost,
+                wallet_address,
+            ),
         )
-        row = conn.execute("SELECT * FROM portfolios WHERE id = ?", (item_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM portfolios WHERE id = ?", (item_id,)
+        ).fetchone()
         return dict(row)
 
 
@@ -187,6 +206,7 @@ def clear_portfolio(user_id: str) -> None:
 # Conversations
 # ---------------------------------------------------------------------------
 
+
 def append_conversation(
     user_id: str,
     conv_type: str,
@@ -200,9 +220,19 @@ def append_conversation(
         conn.execute(
             """INSERT INTO conversations (id, user_id, conv_type, role, agent_role, content, metadata_json)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (msg_id, user_id, conv_type, role, agent_role, content, json.dumps(metadata or {})),
+            (
+                msg_id,
+                user_id,
+                conv_type,
+                role,
+                agent_role,
+                content,
+                json.dumps(metadata or {}),
+            ),
         )
-        row = conn.execute("SELECT * FROM conversations WHERE id = ?", (msg_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM conversations WHERE id = ?", (msg_id,)
+        ).fetchone()
         return dict(row)
 
 
@@ -223,7 +253,10 @@ def get_conversation_history(
 # User Memories
 # ---------------------------------------------------------------------------
 
-def upsert_memory(user_id: str, key: str, value: str, source: str = "conversation") -> dict:
+
+def upsert_memory(
+    user_id: str, key: str, value: str, source: str = "conversation"
+) -> dict:
     mem_id = uuid.uuid4().hex[:12]
     with get_db() as conn:
         conn.execute(
@@ -236,7 +269,8 @@ def upsert_memory(user_id: str, key: str, value: str, source: str = "conversatio
             (mem_id, user_id, key, value, source),
         )
         row = conn.execute(
-            "SELECT * FROM user_memories WHERE user_id = ? AND memory_key = ?", (user_id, key)
+            "SELECT * FROM user_memories WHERE user_id = ? AND memory_key = ?",
+            (user_id, key),
         ).fetchone()
         return dict(row)
 
@@ -244,7 +278,8 @@ def upsert_memory(user_id: str, key: str, value: str, source: str = "conversatio
 def get_memories(user_id: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT * FROM user_memories WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
+            "SELECT * FROM user_memories WHERE user_id = ? ORDER BY updated_at DESC",
+            (user_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -261,7 +296,8 @@ def get_memory(user_id: str, key: str) -> str | None:
 def delete_memory(user_id: str, key: str) -> bool:
     with get_db() as conn:
         cursor = conn.execute(
-            "DELETE FROM user_memories WHERE user_id = ? AND memory_key = ?", (user_id, key)
+            "DELETE FROM user_memories WHERE user_id = ? AND memory_key = ?",
+            (user_id, key),
         )
         return cursor.rowcount > 0
 
@@ -269,6 +305,7 @@ def delete_memory(user_id: str, key: str) -> bool:
 # ---------------------------------------------------------------------------
 # Reports
 # ---------------------------------------------------------------------------
+
 
 def save_report(
     user_id: str,
@@ -284,9 +321,20 @@ def save_report(
         conn.execute(
             """INSERT INTO reports (id, user_id, ticker, decision, summary, full_report, agent_reasoning_json, intake_brief)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (report_id, user_id, ticker, decision, summary, full_report, json.dumps(agent_reasoning), intake_brief),
+            (
+                report_id,
+                user_id,
+                ticker,
+                decision,
+                summary,
+                full_report,
+                json.dumps(agent_reasoning),
+                intake_brief,
+            ),
         )
-        row = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM reports WHERE id = ?", (report_id,)
+        ).fetchone()
         return dict(row)
 
 

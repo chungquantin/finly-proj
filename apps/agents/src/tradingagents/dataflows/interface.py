@@ -1,5 +1,3 @@
-from typing import Annotated
-
 # Import from yfinance vendor
 from .y_finance import (
     get_YFin_data_online,
@@ -27,11 +25,20 @@ TOOLS_CATEGORIES = {
     },
     "fundamental_data": {
         "description": "Company fundamentals",
-        "tools": ["get_fundamentals", "get_balance_sheet", "get_cashflow", "get_income_statement"],
+        "tools": [
+            "get_fundamentals",
+            "get_balance_sheet",
+            "get_cashflow",
+            "get_income_statement",
+        ],
     },
     "news_data": {
         "description": "News and insider data",
-        "tools": ["get_news", "get_global_news", "get_insider_transactions"],
+        "tools": [
+            "get_news",
+            "get_global_news",
+            "get_insider_transactions",
+        ],
     },
 }
 
@@ -75,8 +82,10 @@ def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to yfinance (or VN mock data for VN tickers)."""
     # Vietnamese ticker mock data interception
     from finly_agents.mock_data import is_vn_ticker
+
     if args and isinstance(args[0], str) and is_vn_ticker(args[0]):
         from finly_agents import mock_data
+
         mock_fn = getattr(mock_data, f"{method}_mock", None)
         if mock_fn:
             return mock_fn(*args, **kwargs)

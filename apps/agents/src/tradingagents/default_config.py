@@ -13,8 +13,8 @@ DEFAULT_CONFIG = {
     "quick_think_llm": "openai/gpt-4.1-mini",
     "backend_url": "https://openrouter.ai/api/v1",
     # Provider-specific thinking configuration
-    "google_thinking_level": None,      # "high", "minimal", etc.
-    "openai_reasoning_effort": None,    # "medium", "high", "low"
+    "google_thinking_level": None,  # "high", "minimal", etc.
+    "openai_reasoning_effort": None,  # "medium", "high", "low"
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,
@@ -22,10 +22,10 @@ DEFAULT_CONFIG = {
     # Data vendor configuration
     # Category-level configuration (default for all tools in category)
     "data_vendors": {
-        "core_stock_apis": "yfinance",       # Options: alpha_vantage, yfinance, financial_datasets
+        "core_stock_apis": "yfinance",  # Options: alpha_vantage, yfinance, financial_datasets
         "technical_indicators": "yfinance",  # Options: alpha_vantage, yfinance
-        "fundamental_data": "yfinance",      # Options: alpha_vantage, yfinance, financial_datasets
-        "news_data": "yfinance",             # Options: alpha_vantage, yfinance
+        "fundamental_data": "yfinance",  # Options: alpha_vantage, yfinance, financial_datasets
+        "news_data": "yfinance",  # Options: alpha_vantage, yfinance
     },
     # Tool-level configuration (takes precedence over category-level)
     "tool_vendors": {

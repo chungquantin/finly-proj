@@ -166,9 +166,7 @@ function TagList({ items }: { items: string[] }) {
     <View className="mt-4 flex-row flex-wrap gap-2">
       {items.map((item) => (
         <View key={item} className="rounded-full bg-[#F3F5FA] px-3 py-2">
-          <Text className="text-[13px] font-medium text-[#445065]">
-            {item}
-          </Text>
+          <Text className="text-[13px] font-medium text-[#445065]">{item}</Text>
         </View>
       ))}
     </View>

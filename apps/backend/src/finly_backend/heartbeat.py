@@ -128,7 +128,9 @@ def trigger_alert(scenario_key: str, user_id: str = "broadcast") -> HeartbeatAle
 def get_pending_alerts(user_id: str = "broadcast") -> list[HeartbeatAlert]:
     """Return and clear pending alerts for a user."""
     user_alerts = _alert_queues.pop(user_id, [])
-    broadcast_alerts = _alert_queues.pop("broadcast", []) if user_id != "broadcast" else []
+    broadcast_alerts = (
+        _alert_queues.pop("broadcast", []) if user_id != "broadcast" else []
+    )
     # Deduplicate by alert_id
     seen = set()
     combined = []

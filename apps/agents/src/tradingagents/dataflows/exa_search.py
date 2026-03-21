@@ -7,7 +7,6 @@ news tools. Requires EXA_API_KEY env var.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
 
 import httpx
 
@@ -22,7 +21,13 @@ def _api_key() -> str:
     return key
 
 
-def _search(query: str, start_date: str, end_date: str, num_results: int = 10, category: str | None = None) -> list[dict]:
+def _search(
+    query: str,
+    start_date: str,
+    end_date: str,
+    num_results: int = 10,
+    category: str | None = None,
+) -> list[dict]:
     """Run an Exa search and return results."""
     headers = {
         "x-api-key": _api_key(),

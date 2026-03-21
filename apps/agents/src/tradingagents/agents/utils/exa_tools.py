@@ -35,6 +35,7 @@ def exa_search_news(
         str: Formatted news search results
     """
     from tradingagents.dataflows.exa_search import exa_search_news as _exa_search_news
+
     return _exa_search_news(ticker, start_date, end_date)
 
 
@@ -54,5 +55,8 @@ def exa_search_social(
     Returns:
         str: Formatted social media and sentiment results
     """
-    from tradingagents.dataflows.exa_search import exa_search_social as _exa_search_social
+    from tradingagents.dataflows.exa_search import (
+        exa_search_social as _exa_search_social,
+    )
+
     return _exa_search_social(ticker, start_date, end_date)

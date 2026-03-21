@@ -63,16 +63,20 @@ respond with a JSON block at the END of your message in this exact format:
 
 
 def _build_system_prompt(user: dict, follow_up_count: int) -> str:
-    from finly_backend.database import get_portfolio, get_memories
+    from finly_backend.database import get_portfolio
 
     portfolio = get_portfolio(user["user_id"])
-    portfolio_summary = "Empty" if not portfolio else ", ".join(
-        f"{p['ticker']} x{p['quantity']}" for p in portfolio
+    portfolio_summary = (
+        "Empty"
+        if not portfolio
+        else ", ".join(f"{p['ticker']} x{p['quantity']}" for p in portfolio)
     )
 
     memories = get_memories(user["user_id"])
-    memories_summary = "None yet" if not memories else "; ".join(
-        f"{m['memory_key']}: {m['memory_value']}" for m in memories[:10]
+    memories_summary = (
+        "None yet"
+        if not memories
+        else "; ".join(f"{m['memory_key']}: {m['memory_value']}" for m in memories[:10])
     )
 
     remaining = max(0, MAX_FOLLOW_UPS - follow_up_count)
@@ -93,7 +97,9 @@ def _count_follow_ups(user_id: str) -> int:
     return sum(1 for msg in history if msg["role"] == "assistant")
 
 
-def _build_messages(user_id: str, user: dict, new_message: str) -> tuple[list[dict], int]:
+def _build_messages(
+    user_id: str, user: dict, new_message: str
+) -> tuple[list[dict], int]:
     """Build the full message list for the LLM call."""
     follow_up_count = _count_follow_ups(user_id)
     system_prompt = _build_system_prompt(user, follow_up_count)
@@ -119,6 +125,7 @@ def _parse_response(text: str) -> tuple[str, bool, str | None]:
 
     # Look for ```json ... ``` block
     import re
+
     json_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
     if json_match:
         try:
@@ -128,7 +135,7 @@ def _parse_response(text: str) -> tuple[str, bool, str | None]:
         except json.JSONDecodeError:
             pass
         # Remove JSON block from display message
-        display_text = text[:json_match.start()].strip()
+        display_text = text[: json_match.start()].strip()
     else:
         # Try inline JSON at end
         json_match = re.search(r'\{[^{}]*"is_complete"[^{}]*\}', text)
@@ -139,7 +146,7 @@ def _parse_response(text: str) -> tuple[str, bool, str | None]:
                 goals_brief = data.get("goals_brief")
             except json.JSONDecodeError:
                 pass
-            display_text = text[:json_match.start()].strip()
+            display_text = text[: json_match.start()].strip()
         else:
             display_text = text.strip()
 
@@ -163,6 +170,7 @@ async def run_intake(user_id: str, message: str) -> dict:
     if not user:
         # Auto-create user with defaults
         from finly_backend.database import upsert_user
+
         user = upsert_user(user_id)
 
     # Record user message
@@ -179,7 +187,9 @@ async def run_intake(user_id: str, message: str) -> dict:
 
     # Call OpenRouter
     api_key = os.getenv("OPENROUTER_API_KEY", "")
-    model = os.getenv("FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini"))
+    model = os.getenv(
+        "FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
     base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -224,6 +234,7 @@ async def run_intake(user_id: str, message: str) -> dict:
 def reset_intake(user_id: str) -> None:
     """Clear intake conversation history to start fresh."""
     from finly_backend.database import get_db
+
     with get_db() as conn:
         conn.execute(
             "DELETE FROM conversations WHERE user_id = ? AND conv_type = 'intake'",

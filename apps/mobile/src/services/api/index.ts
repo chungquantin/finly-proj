@@ -171,9 +171,7 @@ export class Api {
   // General chat
   // -----------------------------------------------------------------------
 
-  async chat(
-    req: ChatRequest,
-  ): Promise<{ kind: "ok"; data: ChatResponse } | GeneralApiProblem> {
+  async chat(req: ChatRequest): Promise<{ kind: "ok"; data: ChatResponse } | GeneralApiProblem> {
     const response: ApiResponse<ChatResponse> = await this.apisauce.post("/api/chat", req, {
       timeout: 120000,
     })

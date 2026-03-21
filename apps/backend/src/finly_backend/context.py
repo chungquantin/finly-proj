@@ -76,10 +76,10 @@ def build_user_context(user_id: str) -> str:
 INVESTOR PROFILE
 - Risk tolerance: {risk}/100 ({risk_label})
 - Investment horizon: {HORIZON_LABELS.get(horizon, horizon)}
-- Knowledge level: {knowledge}/3 ({KNOWLEDGE_LABELS.get(knowledge, 'Unknown')})
+- Knowledge level: {knowledge}/3 ({KNOWLEDGE_LABELS.get(knowledge, "Unknown")})
 
 INVESTMENT GOALS
-{goals or 'Not specified yet.'}
+{goals or "Not specified yet."}
 
 CURRENT PORTFOLIO
 {portfolio_summary}

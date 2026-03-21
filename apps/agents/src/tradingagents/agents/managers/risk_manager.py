@@ -1,12 +1,5 @@
-import time
-import json
-
-
 def create_risk_manager(llm, memory):
     def risk_manager_node(state) -> dict:
-
-        company_name = state["company_of_interest"]
-
         history = state["risk_debate_state"]["history"]
         risk_debate_state = state["risk_debate_state"]
         market_research_report = state["market_report"]
@@ -52,8 +45,12 @@ Focus on actionable insights and continuous improvement. Build on past lessons, 
             "conservative_history": risk_debate_state["conservative_history"],
             "neutral_history": risk_debate_state["neutral_history"],
             "latest_speaker": "Judge",
-            "current_aggressive_response": risk_debate_state["current_aggressive_response"],
-            "current_conservative_response": risk_debate_state["current_conservative_response"],
+            "current_aggressive_response": risk_debate_state[
+                "current_aggressive_response"
+            ],
+            "current_conservative_response": risk_debate_state[
+                "current_conservative_response"
+            ],
             "current_neutral_response": risk_debate_state["current_neutral_response"],
             "count": risk_debate_state["count"],
         }

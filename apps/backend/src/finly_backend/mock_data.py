@@ -45,7 +45,7 @@ def _generate_ohlcv(symbol: str, days: int = 30) -> list[dict]:
             change = random.uniform(-0.025, 0.03)
             o = round(price)
             h = round(price * (1 + abs(change) + random.uniform(0, 0.01)))
-            l = round(price * (1 - abs(change) - random.uniform(0, 0.01)))
+            low = round(price * (1 - abs(change) - random.uniform(0, 0.01)))
             c = round(price * (1 + change))
             vol = random.randint(3_000_000, 15_000_000)
             rows.append(
@@ -53,7 +53,7 @@ def _generate_ohlcv(symbol: str, days: int = 30) -> list[dict]:
                     "Date": cur.strftime("%Y-%m-%d"),
                     "Open": o,
                     "High": h,
-                    "Low": l,
+                    "Low": low,
                     "Close": c,
                     "Volume": vol,
                 }
@@ -155,7 +155,9 @@ def get_fundamentals_mock(ticker: str, curr_date: str = None) -> str:
     return "\n".join(lines)
 
 
-def get_balance_sheet_mock(ticker: str, freq: str = "annual", curr_date: str = "") -> str:
+def get_balance_sheet_mock(
+    ticker: str, freq: str = "annual", curr_date: str = ""
+) -> str:
     clean = _clean(ticker)
     sheets = {
         "VCB": "Total Assets: 1,850T VND | Total Equity: 120T VND | Total Liabilities: 1,730T VND | Customer Deposits: 1,350T VND | Loans Outstanding: 1,200T VND",
@@ -177,7 +179,9 @@ def get_cashflow_mock(ticker: str, freq: str = "annual", curr_date: str = "") ->
     return f"Cash Flow ({freq}) for {clean}:\n{cfs.get(clean, cfs['FPT'])}"
 
 
-def get_income_statement_mock(ticker: str, freq: str = "annual", curr_date: str = "") -> str:
+def get_income_statement_mock(
+    ticker: str, freq: str = "annual", curr_date: str = ""
+) -> str:
     clean = _clean(ticker)
     inc = {
         "VCB": "Net Interest Income: 42T VND | Non-Interest Income: 12T VND | Provisions: -8T VND | Pre-tax Profit: 41T VND | Net Profit: 33T VND | YoY Growth: +18%",
@@ -203,26 +207,82 @@ def get_news_mock(ticker: str, start_date: str = "", end_date: str = "") -> str:
     clean = _clean(ticker)
     news = {
         "VCB": [
-            {"title": "Vietcombank posts record Q1 2026 profit of 11T VND, up 20% YoY", "source": "VnExpress", "date": "2026-03-18"},
-            {"title": "SBV keeps policy rates unchanged, boosting bank earnings outlook", "source": "Vietnam Investment Review", "date": "2026-03-15"},
-            {"title": "Vietcombank launches AI-powered mobile banking features", "source": "Nikkei Asia", "date": "2026-03-12"},
-            {"title": "Foreign investors net-buy VCB for 5th consecutive week", "source": "CafeF", "date": "2026-03-10"},
+            {
+                "title": "Vietcombank posts record Q1 2026 profit of 11T VND, up 20% YoY",
+                "source": "VnExpress",
+                "date": "2026-03-18",
+            },
+            {
+                "title": "SBV keeps policy rates unchanged, boosting bank earnings outlook",
+                "source": "Vietnam Investment Review",
+                "date": "2026-03-15",
+            },
+            {
+                "title": "Vietcombank launches AI-powered mobile banking features",
+                "source": "Nikkei Asia",
+                "date": "2026-03-12",
+            },
+            {
+                "title": "Foreign investors net-buy VCB for 5th consecutive week",
+                "source": "CafeF",
+                "date": "2026-03-10",
+            },
         ],
         "VNM": [
-            {"title": "Vinamilk expands organic dairy line to 3 new provinces", "source": "VnExpress", "date": "2026-03-17"},
-            {"title": "Vinamilk dividend yield remains attractive at 4.2% amid market volatility", "source": "SSI Research", "date": "2026-03-14"},
-            {"title": "Vietnam dairy market to grow 8% in 2026, Vinamilk positioned to capture share", "source": "Euromonitor", "date": "2026-03-09"},
+            {
+                "title": "Vinamilk expands organic dairy line to 3 new provinces",
+                "source": "VnExpress",
+                "date": "2026-03-17",
+            },
+            {
+                "title": "Vinamilk dividend yield remains attractive at 4.2% amid market volatility",
+                "source": "SSI Research",
+                "date": "2026-03-14",
+            },
+            {
+                "title": "Vietnam dairy market to grow 8% in 2026, Vinamilk positioned to capture share",
+                "source": "Euromonitor",
+                "date": "2026-03-09",
+            },
         ],
         "FPT": [
-            {"title": "FPT wins $200M AI transformation deal with Japanese automaker", "source": "Nikkei Asia", "date": "2026-03-19"},
-            {"title": "FPT Software revenue surges 28% YoY in Q1, driven by AI/cloud contracts", "source": "VnExpress", "date": "2026-03-16"},
-            {"title": "Vietnam's FPT targets $1B in overseas IT revenue by 2027", "source": "TechInAsia", "date": "2026-03-11"},
-            {"title": "FPT opens new AI R&D center in Da Nang with 2,000 engineer capacity", "source": "CafeF", "date": "2026-03-07"},
+            {
+                "title": "FPT wins $200M AI transformation deal with Japanese automaker",
+                "source": "Nikkei Asia",
+                "date": "2026-03-19",
+            },
+            {
+                "title": "FPT Software revenue surges 28% YoY in Q1, driven by AI/cloud contracts",
+                "source": "VnExpress",
+                "date": "2026-03-16",
+            },
+            {
+                "title": "Vietnam's FPT targets $1B in overseas IT revenue by 2027",
+                "source": "TechInAsia",
+                "date": "2026-03-11",
+            },
+            {
+                "title": "FPT opens new AI R&D center in Da Nang with 2,000 engineer capacity",
+                "source": "CafeF",
+                "date": "2026-03-07",
+            },
         ],
         "TPB": [
-            {"title": "TPBank digital customers surpass 10M milestone", "source": "VnExpress", "date": "2026-03-18"},
-            {"title": "TPBank Q1 pre-tax profit jumps 30% on strong retail lending", "source": "SSI Research", "date": "2026-03-14"},
-            {"title": "Moody's upgrades TPBank outlook to positive", "source": "Vietnam Investment Review", "date": "2026-03-08"},
+            {
+                "title": "TPBank digital customers surpass 10M milestone",
+                "source": "VnExpress",
+                "date": "2026-03-18",
+            },
+            {
+                "title": "TPBank Q1 pre-tax profit jumps 30% on strong retail lending",
+                "source": "SSI Research",
+                "date": "2026-03-14",
+            },
+            {
+                "title": "Moody's upgrades TPBank outlook to positive",
+                "source": "Vietnam Investment Review",
+                "date": "2026-03-08",
+            },
         ],
     }
     articles = news.get(clean, news["FPT"])
@@ -232,14 +292,40 @@ def get_news_mock(ticker: str, start_date: str = "", end_date: str = "") -> str:
     return "\n".join(lines)
 
 
-def get_global_news_mock(curr_date: str = "", look_back_days: int = 7, limit: int = 5) -> str:
+def get_global_news_mock(
+    curr_date: str = "", look_back_days: int = 7, limit: int = 5
+) -> str:
     articles = [
-        {"title": "Fed holds rates steady, signals potential cut in June 2026", "source": "Reuters", "date": "2026-03-19"},
-        {"title": "Vietnam GDP growth on track for 7.5% in 2026, World Bank says", "source": "World Bank", "date": "2026-03-17"},
-        {"title": "HOSE index hits 1,350 — new 12-month high on foreign inflows", "source": "Bloomberg", "date": "2026-03-16"},
-        {"title": "State Bank of Vietnam keeps refinancing rate at 4.5%, supporting credit growth", "source": "SBV", "date": "2026-03-14"},
-        {"title": "US-China trade tensions ease after March summit, boosting EM sentiment", "source": "CNBC", "date": "2026-03-12"},
-        {"title": "Vietnam approved for MSCI Emerging Market reclassification review in June", "source": "MSCI", "date": "2026-03-10"},
+        {
+            "title": "Fed holds rates steady, signals potential cut in June 2026",
+            "source": "Reuters",
+            "date": "2026-03-19",
+        },
+        {
+            "title": "Vietnam GDP growth on track for 7.5% in 2026, World Bank says",
+            "source": "World Bank",
+            "date": "2026-03-17",
+        },
+        {
+            "title": "HOSE index hits 1,350 — new 12-month high on foreign inflows",
+            "source": "Bloomberg",
+            "date": "2026-03-16",
+        },
+        {
+            "title": "State Bank of Vietnam keeps refinancing rate at 4.5%, supporting credit growth",
+            "source": "SBV",
+            "date": "2026-03-14",
+        },
+        {
+            "title": "US-China trade tensions ease after March summit, boosting EM sentiment",
+            "source": "CNBC",
+            "date": "2026-03-12",
+        },
+        {
+            "title": "Vietnam approved for MSCI Emerging Market reclassification review in June",
+            "source": "MSCI",
+            "date": "2026-03-10",
+        },
     ]
     lines = ["Global & Vietnam Market News:"]
     for a in articles[:limit]:
