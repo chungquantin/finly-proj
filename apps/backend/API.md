@@ -339,6 +339,29 @@ Same as `/api/chat` but returns audio (ElevenLabs TTS) if available.
 
 **Query Params:** `limit` (int, default 10, max 50)
 
+### `GET /api/user/{user_id}/tickers/{ticker}/reports`
+
+List all reports related to a ticker for a user (primary or related ticker match).
+
+**Query Params:** `limit` (int, default 20, max 100)
+
+**Response:**
+```json
+[
+  {
+    "report_id": "abc123",
+    "user_id": "user123",
+    "ticker": "TSLA",
+    "decision": "SELL",
+    "summary": "Short summary...",
+    "intake_brief": "User asked about EV exposure",
+    "created_at": "2026-03-21 11:22:33",
+    "relation_type": "primary",
+    "relation_reason": ""
+  }
+]
+```
+
 ---
 
 ## Market Data

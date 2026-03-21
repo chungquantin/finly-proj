@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Animated,
+  Image,
   PanResponder,
   Pressable,
   ScrollView,
@@ -20,10 +21,10 @@ import { useMarketData } from "@/services/marketData"
 import { usePortfolioGrowthHistory } from "@/services/portfolioHistory"
 import { useOnboardingStore } from "@/stores/onboardingStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
+import { getInvestorAvatarEmoji } from "@/utils/investorAvatar"
 import { boardMessages, teamAgents } from "@/utils/mockAppData"
 import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
-const avatarEmojis = ["😀", "😎", "🥳", "🦄", "🌈", "🚀", "🧠", "🐼", "🍀", "🎯"] as const
 const BORDER = "#EEF2F7"
 const COLLAPSED_VISIBLE_HEIGHT = 228
 const SNAP_THRESHOLD = 96
@@ -47,11 +48,11 @@ export default function HomeTab() {
   const financialKnowledge = useOnboardingStore((state) => state.financialKnowledge)
   const portfolioType = useOnboardingStore((state) => state.portfolioType)
   const { holdings, transactions, snapshot: portfolioSnapshot } = useSelectedPortfolioData()
-  const avatarEmoji = useMemo(
-    () => avatarEmojis[Math.floor(Math.random() * avatarEmojis.length)],
-    [],
+  const avatarEmoji = useMemo(() => getInvestorAvatarEmoji(investorName), [investorName])
+  const { quotes, isLoading, hasLiveQuotes } = useMarketData(
+    holdings.map((holding) => holding.ticker),
   )
-  const { quotes } = useMarketData(holdings.map((holding) => holding.ticker))
+  const showPortfolioSkeleton = isLoading && !hasLiveQuotes
   const enrichedHoldings = useMemo(
     () =>
       holdings.map((holding) => {
@@ -192,9 +193,13 @@ export default function HomeTab() {
                         {enrichedHoldings.length} holdings
                       </Text>
                     </View>
-                    <Text className="font-sans text-[29px] font-semibold text-[#0F1728] tracking-[-0.7px]">
-                      {money(totalValueUsd)}
-                    </Text>
+                    {showPortfolioSkeleton ? (
+                      <View className="h-8 w-32 rounded-full bg-[#EEF2F7]" />
+                    ) : (
+                      <Text className="font-sans text-[29px] font-semibold text-[#0F1728] tracking-[-0.7px]">
+                        {money(totalValueUsd)}
+                      </Text>
+                    )}
                   </View>
                 </MotiView>
 
@@ -212,17 +217,21 @@ export default function HomeTab() {
                   transition={{ delay: 280, duration: 420, type: "timing" }}
                 >
                   <View className="mt-1">
-                    {enrichedHoldings.map((holding) => (
-                      <HoldingRow
-                        key={holding.ticker}
-                        name={holding.name}
-                        logoUri={holding.logoUri}
-                        ticker={holding.ticker}
-                        value={money(holding.valueUsd)}
-                        allocationPercent={(holding.valueUsd / Math.max(totalValueUsd, 1)) * 100}
-                        changePercent={holding.changePercent}
-                      />
-                    ))}
+                    {showPortfolioSkeleton
+                      ? [0, 1, 2].map((item) => <HoldingRowSkeleton key={item} />)
+                      : enrichedHoldings.map((holding) => (
+                          <HoldingRow
+                            key={holding.ticker}
+                            name={holding.name}
+                            logoUri={holding.logoUri}
+                            ticker={holding.ticker}
+                            value={money(holding.valueUsd)}
+                            allocationPercent={
+                              (holding.valueUsd / Math.max(totalValueUsd, 1)) * 100
+                            }
+                            changePercent={holding.changePercent}
+                          />
+                        ))}
                   </View>
                 </MotiView>
               </View>
@@ -300,6 +309,26 @@ export default function HomeTab() {
         </Animated.View>
       </View>
     </SafeAreaView>
+  )
+}
+
+function HoldingRowSkeleton() {
+  return (
+    <View className="border-b border-[#EEF2F7] py-4">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          <View className="h-10 w-10 rounded-full bg-[#EEF2F7]" />
+          <View className="ml-3 gap-2">
+            <View className="h-5 w-16 rounded-full bg-[#EEF2F7]" />
+            <View className="h-4 w-24 rounded-full bg-[#EEF2F7]" />
+          </View>
+        </View>
+        <View className="items-end gap-2">
+          <View className="h-5 w-20 rounded-full bg-[#EEF2F7]" />
+          <View className="h-4 w-14 rounded-full bg-[#EEF2F7]" />
+        </View>
+      </View>
+    </View>
   )
 }
 
@@ -463,7 +492,11 @@ function AgentCard({
             className="h-12 w-12 items-center justify-center rounded-full"
             style={{ backgroundColor: avatar.palette.background }}
           >
-            <Text className="font-sans text-[20px]">{avatar.glyph}</Text>
+            <Image
+              source={avatar.image}
+              style={{ width: 48, height: 48, borderRadius: 999 }}
+              resizeMode="cover"
+            />
           </View>
           <View className="ml-3 flex-1">
             <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">{agent.name}</Text>
@@ -512,7 +545,11 @@ function StackedAgentAvatars({ agents }: { agents: (typeof teamAgents)[number][]
             className={`h-11 w-11 items-center justify-center rounded-full border-2 border-[#F6F8FF] ${index === 0 ? "" : "-ml-3"}`}
             style={{ backgroundColor: avatar.palette.background, zIndex: agents.length - index }}
           >
-            <Text className="font-sans text-[18px]">{avatar.glyph}</Text>
+            <Image
+              source={avatar.image}
+              style={{ width: 44, height: 44, borderRadius: 999 }}
+              resizeMode="cover"
+            />
           </View>
         )
       })}

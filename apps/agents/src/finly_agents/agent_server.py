@@ -7,6 +7,7 @@ Designed to run on a separate port from the backend API server.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -16,6 +17,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import httpx
@@ -26,6 +28,10 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 load_dotenv()
 
 logger = logging.getLogger("finly_agents.agent_server")
+
+
+def _sse_data(payload: dict[str, Any]) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 # ---------------------------------------------------------------------------
@@ -445,6 +451,46 @@ async def panel_chat(req: AgentPanelRequest):
 
     agent_responses = await asyncio.gather(*tasks)
     return {"agent_responses": list(agent_responses)}
+
+
+@app.post("/agent/panel-chat/stream")
+async def panel_chat_stream(req: AgentPanelRequest):
+    """Run panel discussion and stream each agent response when available."""
+
+    async def event_stream():
+        yield _sse_data({"type": "started"})
+
+        tasks_by_role: dict[asyncio.Task, str] = {}
+        for agent_key, persona in AGENT_PERSONAS.items():
+            task = asyncio.create_task(
+                _call_agent(
+                    agent_key,
+                    persona,
+                    req.message,
+                    req.report_data,
+                    req.user_context,
+                    req.conversation_history,
+                )
+            )
+            tasks_by_role[task] = agent_key
+
+        for task in asyncio.as_completed(tasks_by_role):
+            try:
+                response = await task
+            except Exception as e:  # defensive fallback; _call_agent already handles most errors
+                agent_key = tasks_by_role.get(task, "unknown")
+                logger.warning(f"Panel stream task failed for {agent_key}: {e}")
+                response = {
+                    "agent_role": agent_key,
+                    "agent_name": AGENT_PERSONAS.get(agent_key, {}).get("name", "Agent"),
+                    "response": "I'm having trouble responding right now. Please try again.",
+                }
+            yield _sse_data({"type": "agent_response", "response": response})
+
+        yield _sse_data({"type": "done"})
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 # ---------------------------------------------------------------------------

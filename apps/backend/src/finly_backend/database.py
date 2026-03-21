@@ -70,10 +70,22 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at    TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS report_tickers (
+    report_id      TEXT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    user_id        TEXT NOT NULL REFERENCES users(user_id),
+    ticker         TEXT NOT NULL,
+    relation_type  TEXT NOT NULL CHECK (relation_type IN ('primary', 'related')),
+    reason         TEXT DEFAULT '',
+    created_at     TEXT DEFAULT (datetime('now')),
+    UNIQUE(report_id, ticker)
+);
+
 CREATE INDEX IF NOT EXISTS idx_portfolios_user ON portfolios(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, conv_type);
 CREATE INDEX IF NOT EXISTS idx_memories_user ON user_memories(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_user ON reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_report_tickers_user_ticker ON report_tickers(user_id, ticker);
+CREATE INDEX IF NOT EXISTS idx_report_tickers_report ON report_tickers(report_id);
 """
 
 
@@ -113,6 +125,12 @@ def init_db() -> None:
             "reports",
             "specialist_insights_json",
             "TEXT DEFAULT '[]'",
+        )
+        _ensure_column(
+            conn,
+            "report_tickers",
+            "reason",
+            "TEXT DEFAULT ''",
         )
 
 
@@ -358,8 +376,11 @@ def save_report(
     agent_reasoning: dict,
     specialist_insights: list[dict],
     intake_brief: str = "",
+    additional_tickers: list[dict] | None = None,
 ) -> dict:
     report_id = uuid.uuid4().hex[:12]
+    normalized_primary = ticker.upper()
+    additional_tickers = additional_tickers or []
     with get_db() as conn:
         conn.execute(
             """INSERT INTO reports (id, user_id, ticker, decision, summary, full_report, agent_reasoning_json, specialist_insights_json, intake_brief)
@@ -367,7 +388,7 @@ def save_report(
             (
                 report_id,
                 user_id,
-                ticker,
+                normalized_primary,
                 decision,
                 summary,
                 full_report,
@@ -376,6 +397,21 @@ def save_report(
                 intake_brief,
             ),
         )
+        conn.execute(
+            """INSERT OR IGNORE INTO report_tickers (report_id, user_id, ticker, relation_type, reason)
+               VALUES (?, ?, ?, 'primary', '')""",
+            (report_id, user_id, normalized_primary),
+        )
+        for suggestion in additional_tickers:
+            raw_ticker = str(suggestion.get("ticker", "")).strip().upper()
+            if not raw_ticker or raw_ticker == normalized_primary:
+                continue
+            reason = str(suggestion.get("reason", "")).strip()
+            conn.execute(
+                """INSERT OR IGNORE INTO report_tickers (report_id, user_id, ticker, relation_type, reason)
+                   VALUES (?, ?, ?, 'related', ?)""",
+                (report_id, user_id, raw_ticker, reason),
+            )
         row = conn.execute(
             "SELECT * FROM reports WHERE id = ?", (report_id,)
         ).fetchone()
@@ -387,6 +423,44 @@ def get_reports(user_id: str, limit: int = 10) -> list[dict]:
         rows = conn.execute(
             "SELECT * FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
             (user_id, limit),
+        ).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            d["agent_reasoning"] = json.loads(d.pop("agent_reasoning_json", "{}"))
+            d["specialist_insights"] = json.loads(
+                d.pop("specialist_insights_json", "[]")
+            )
+            results.append(d)
+        return results
+
+
+def get_report_related_tickers(report_id: str) -> list[dict]:
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT ticker, reason FROM report_tickers
+               WHERE report_id = ? AND relation_type = 'related'
+               ORDER BY created_at ASC""",
+            (report_id,),
+        ).fetchall()
+        return [{"ticker": row["ticker"], "reason": row["reason"] or ""} for row in rows]
+
+
+def get_reports_for_ticker(user_id: str, ticker: str, limit: int = 20) -> list[dict]:
+    normalized_ticker = ticker.strip().upper()
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT
+                   r.*,
+                   rt.ticker AS related_ticker,
+                   rt.relation_type AS related_ticker_relation_type,
+                   rt.reason AS related_ticker_reason
+               FROM reports r
+               INNER JOIN report_tickers rt ON rt.report_id = r.id
+               WHERE r.user_id = ? AND rt.user_id = ? AND rt.ticker = ?
+               ORDER BY r.created_at DESC
+               LIMIT ?""",
+            (user_id, user_id, normalized_ticker, limit),
         ).fetchall()
         results = []
         for r in rows:
@@ -423,4 +497,5 @@ def get_report(report_id: str, user_id: str | None = None) -> dict | None:
         result["specialist_insights"] = json.loads(
             result.pop("specialist_insights_json", "[]")
         )
+        result["additional_tickers"] = get_report_related_tickers(report_id)
         return result

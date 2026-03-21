@@ -25,24 +25,26 @@ export async function fetchMarketData(tickers: string[]): Promise<MarketDataQuot
 }
 
 export function useMarketData(tickers: string[]): MarketDataState {
-  const [quotes, setQuotes] = useState<Record<string, MarketDataQuote>>({})
-  const [isLoading, setIsLoading] = useState(false)
   const tickerKey = useMemo(
     () => Array.from(new Set(tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean))).join(","),
     [tickers],
   )
   const stableTickers = useMemo(() => (tickerKey ? tickerKey.split(",") : []), [tickerKey])
+  const [quotes, setQuotes] = useState<Record<string, MarketDataQuote>>({})
+  const [isLoading, setIsLoading] = useState(Boolean(tickerKey && MARKET_DATA_URL))
 
   useEffect(() => {
     let isActive = true
 
     if (!tickerKey) {
       setQuotes({})
+      setIsLoading(false)
       return
     }
 
     if (!MARKET_DATA_URL) {
       setQuotes({})
+      setIsLoading(false)
       return
     }
 

@@ -1,4 +1,4 @@
-const avatarGlyphs = ["🦊", "🐼", "🦉", "🐯", "🦁", "🐬", "🦄", "🐻", "🦋", "🐙"] as const
+import type { ImageSourcePropType } from "react-native"
 
 const avatarPalettes = [
   { background: "#EEF3FF", accent: "#2453FF", ring: "#DCE5FF" },
@@ -12,10 +12,32 @@ const avatarPalettes = [
 const hashString = (value: string) =>
   value.split("").reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 7)
 
+const avatarImageByRole: Record<string, ImageSourcePropType> = {
+  advisor: require("../../assets/images/finly-avatars/finly-advisor.jpg"),
+  analyst: require("../../assets/images/finly-avatars/finly-analyst.jpg"),
+  researcher: require("../../assets/images/finly-avatars/finly-researcher.jpg"),
+  trader: require("../../assets/images/finly-avatars/finly-trader.jpg"),
+}
+
+const normalizeRoleKey = (value: string) => {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return "advisor"
+
+  if (normalized.includes("analyst")) return "analyst"
+  if (normalized.includes("research")) return "researcher"
+  if (normalized.includes("trader")) return "trader"
+  if (normalized.includes("advisor")) return "advisor"
+  if (normalized.includes("risk")) return "trader"
+  if (normalized.includes("portfolio")) return "advisor"
+
+  return normalized
+}
+
 export const getRandomAgentAvatar = (seed: string) => {
   const hash = hashString(seed)
+  const normalizedRole = normalizeRoleKey(seed)
   return {
-    glyph: avatarGlyphs[hash % avatarGlyphs.length],
+    image: avatarImageByRole[normalizedRole] ?? avatarImageByRole.advisor,
     palette: avatarPalettes[hash % avatarPalettes.length],
   }
 }

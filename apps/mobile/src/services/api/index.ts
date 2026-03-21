@@ -19,6 +19,7 @@ import type {
   PanelHistoryMessage,
   PanelChatRequest,
   PanelChatResponse,
+  PanelChatStreamEvent,
   PortfolioImportRequest,
   PortfolioResponse,
   ReportListItem,
@@ -342,6 +343,75 @@ export class Api {
       if (problem) return problem
     }
     return { kind: "ok", data: response.data! }
+  }
+
+  async panelChatStream(
+    req: PanelChatRequest,
+    onEvent: (event: PanelChatStreamEvent) => void,
+  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    try {
+      const url = `${this.config.url}/api/report/chat/stream`
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Accept": "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req),
+      })
+
+      if (!response.ok) {
+        return { kind: "bad-data" }
+      }
+
+      // Fallback for environments without ReadableStream support.
+      if (!response.body) {
+        const fallback = await this.panelChat(req)
+        if (fallback.kind !== "ok") return fallback
+        onEvent({ type: "started" })
+        for (const message of fallback.data.agent_responses) {
+          onEvent({ type: "agent_message_start", message })
+          onEvent({ type: "agent_message_delta", message, delta: message.response })
+          onEvent({ type: "agent_message_done", message })
+        }
+        onEvent({
+          type: "memory_updates",
+          memory_updates: fallback.data.memory_updates,
+        })
+        onEvent({ type: "done" })
+        return { kind: "ok" }
+      }
+
+      const decoder = new TextDecoder()
+      const reader = response.body.getReader()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const raw of lines) {
+          const line = raw.trim()
+          if (!line.startsWith("data:")) continue
+          const payload = line.slice(5).trim()
+          if (!payload || payload === "[DONE]") continue
+          try {
+            const event = JSON.parse(payload) as PanelChatStreamEvent
+            onEvent(event)
+          } catch {
+            // Ignore malformed SSE payloads from the network.
+          }
+        }
+      }
+
+      return { kind: "ok" }
+    } catch {
+      return { kind: "cannot-connect", temporary: true }
+    }
   }
 
   // -----------------------------------------------------------------------

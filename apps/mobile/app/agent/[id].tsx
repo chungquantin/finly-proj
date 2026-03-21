@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-imports */
 import { useEffect, useMemo, useState } from "react"
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native"
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -64,7 +64,13 @@ export default function AgentDetailRoute() {
                 borderColor: avatar?.palette.ring,
               }}
             >
-              <Text className="text-[42px]">{avatar?.glyph}</Text>
+              {avatar ? (
+                <Image
+                  source={avatar.image}
+                  style={{ width: 96, height: 96, borderRadius: 999 }}
+                  resizeMode="cover"
+                />
+              ) : null}
             </View>
             <Text className="mt-4 text-[31px] font-semibold text-[#111111]">{agent.role}</Text>
             <Text className="mt-1 text-[17px] leading-6 text-[#8E8E93]">{agent.specialty}</Text>

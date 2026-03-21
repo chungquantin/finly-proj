@@ -48,18 +48,8 @@ export default function PortfolioTab() {
   const { quotes, isLoading, hasLiveQuotes } = useMarketData(
     holdings.map((holding) => holding.ticker),
   )
-  const enrichedHoldings = useMemo(
-    () =>
-      holdings.map((holding) => {
-        const liveQuote = quotes[holding.ticker]
-        return {
-          ...holding,
-          valueUsd: liveQuote ? liveQuote.price * holding.shares : holding.valueUsd,
-          changePercent: liveQuote?.change_pct ?? holding.changePercent,
-        }
-      }),
-    [holdings, quotes],
-  )
+  const showPortfolioSkeleton = false
+  const enrichedHoldings = useMemo(() => holdings.map((holding) => ({ ...holding })), [holdings])
   const totalValueUsd = useMemo(
     () => enrichedHoldings.reduce((sum, holding) => sum + holding.valueUsd, 0),
     [enrichedHoldings],
@@ -76,7 +66,10 @@ export default function PortfolioTab() {
     if (!previousValueUsd) return portfolioSnapshot.dailyPnlPercent
     return ((totalValueUsd - previousValueUsd) / previousValueUsd) * 100
   }, [portfolioSnapshot.dailyPnlPercent, previousValueUsd, totalValueUsd])
-  const dailyPnlUsd = useMemo(() => totalValueUsd - previousValueUsd, [previousValueUsd, totalValueUsd])
+  const dailyPnlUsd = useMemo(
+    () => totalValueUsd - previousValueUsd,
+    [previousValueUsd, totalValueUsd],
+  )
   const totalPnlUsd = useMemo(
     () => totalValueUsd - portfolioSnapshot.investedUsd,
     [portfolioSnapshot.investedUsd, totalValueUsd],
@@ -171,31 +164,56 @@ export default function PortfolioTab() {
                 totalPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
               }`}
             >
-              {signedMoney(totalPnlUsd)}
+              {showPortfolioSkeleton ? " " : signedMoney(totalPnlUsd)}
             </Text>
+            {showPortfolioSkeleton ? <SkeletonBlock className="mt-2 h-10 w-40" /> : null}
 
-            <View className="mt-3 flex-row items-center">
+            <View className="mt-3 flex-row items-center gap-2">
+              {showPortfolioSkeleton ? (
+                <SkeletonBlock className="h-6 flex-1" />
+              ) : (
+                <Text
+                  className={`flex-1 font-sans text-[18px] font-semibold ${
+                    totalPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
+                  }`}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  numberOfLines={1}
+                >
+                  {signedMoney(totalPnlUsd)} ({signedPct(totalPnlPct)})
+                </Text>
+              )}
               <Text
-                className={`font-sans text-[28px] font-semibold ${
-                  totalPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
-                }`}
+                className="font-sans text-[18px] font-semibold text-[#0F1728]"
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                numberOfLines={1}
               >
-                {signedMoney(totalPnlUsd)} ({signedPct(totalPnlPct)})
-              </Text>
-              <Text className="ml-2 font-sans text-[28px] font-semibold text-[#0F1728]">
                 Total Gain/Loss
               </Text>
             </View>
 
-            <View className="mt-2 flex-row items-center">
+            <View className="mt-2 flex-row items-center gap-2">
+              {showPortfolioSkeleton ? (
+                <SkeletonBlock className="h-6 flex-1" />
+              ) : (
+                <Text
+                  className={`flex-1 font-sans text-[18px] font-semibold ${
+                    dailyPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
+                  }`}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  numberOfLines={1}
+                >
+                  {signedMoney(dailyPnlUsd)} ({signedPct(dailyChangePct)})
+                </Text>
+              )}
               <Text
-                className={`font-sans text-[28px] font-semibold ${
-                  dailyPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
-                }`}
+                className="font-sans text-[18px] font-semibold text-[#0F1728]"
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                numberOfLines={1}
               >
-                {signedMoney(dailyPnlUsd)} ({signedPct(dailyChangePct)})
-              </Text>
-              <Text className="ml-2 font-sans text-[28px] font-semibold text-[#0F1728]">
                 Day&apos;s Gain/Loss
               </Text>
             </View>
@@ -257,51 +275,54 @@ export default function PortfolioTab() {
                   })}
                 </View>
 
-                {sortedHoldings.map((holding) => (
-                  <Pressable
-                    key={holding.ticker}
-                    className="border-b border-[#EEF2F7] py-4 last:border-b-0"
-                    onPress={() => router.push(`/holding/${holding.ticker}`)}
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center">
-                        <TickerLogo ticker={holding.ticker} logoUri={holding.logoUri} />
-                        <View className="ml-3">
+                {showPortfolioSkeleton ? (
+                  <HoldingsSkeleton />
+                ) : (
+                  sortedHoldings.map((holding) => (
+                    <Pressable
+                      key={holding.ticker}
+                      className="border-b border-[#EEF2F7] py-4 last:border-b-0"
+                      onPress={() => router.push(`/holding/${holding.ticker}`)}
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center">
+                          <TickerLogo ticker={holding.ticker} logoUri={holding.logoUri} />
+                          <View className="ml-3">
+                            <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
+                              {holding.ticker}
+                            </Text>
+                            <Text className="font-sans text-[15px] text-[#7A8699]">
+                              {holding.name}
+                            </Text>
+                          </View>
+                        </View>
+                        <View className="items-end">
                           <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
-                            {holding.ticker}
+                            {money(holding.valueUsd)}
                           </Text>
-                          <Text className="font-sans text-[15px] text-[#7A8699]">
-                            {holding.name}
+                          <Text
+                            className={`font-sans text-[15px] ${holding.totalGainUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
+                          >
+                            {signedMoney(holding.totalGainUsd)}
                           </Text>
                         </View>
                       </View>
-                      <View className="items-end">
-                        <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
-                          {money(holding.valueUsd)}
-                        </Text>
-                        <Text
-                          className={`font-sans text-[15px] ${holding.changePercent >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
-                        >
-                          {holding.changePercent >= 0 ? "+" : ""}
-                          {holding.changePercent}%
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="mt-2 flex-row items-center justify-between">
-                      <Text className="font-sans text-[13px] text-[#7A8699]">
-                        {holding.shares} shares
-                      </Text>
-                      <View className="flex-row items-center">
+                      <View className="mt-2 flex-row items-center justify-between">
                         <Text className="font-sans text-[13px] text-[#7A8699]">
-                          Allocation {holding.allocationPercent}%
+                          {holding.shares} shares
                         </Text>
-                        <Text className="ml-2 font-sans text-[13px] text-[#2453FF]">
-                          View board
-                        </Text>
+                        <View className="flex-row items-center">
+                          <Text className="font-sans text-[13px] text-[#7A8699]">
+                            Allocation {holding.allocationPercent}%
+                          </Text>
+                          <Text className="ml-2 font-sans text-[13px] text-[#2453FF]">
+                            View board
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  </Pressable>
-                ))}
+                    </Pressable>
+                  ))
+                )}
               </>
             ) : watchlistRows.length === 0 ? (
               <View className="mt-4 rounded-[20px] bg-[#F6F8FF] p-4">
@@ -369,8 +390,8 @@ export default function PortfolioTab() {
 
 function Tag({ label }: { label: string }) {
   return (
-    <View className="rounded-full bg-[#F3F6FC] px-3 py-2">
-      <Text className="font-sans text-[13px] text-[#6B7586]">{label}</Text>
+    <View className="rounded-full bg-[#F3F6FC] px-3 py-1.5">
+      <Text className="font-sans text-[11px] text-[#6B7586]">{label}</Text>
     </View>
   )
 }
@@ -399,6 +420,39 @@ function SegmentTab({
     </Pressable>
   )
 }
+
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return <View className={`rounded-full bg-[#EEF2F7] ${className}`} />
+}
+
+function HoldingsSkeleton() {
+  return (
+    <View className="mt-2">
+      {[0, 1, 2].map((item) => (
+        <View key={item} className="border-b border-[#EEF2F7] py-4 last:border-b-0">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <View className="h-10 w-10 rounded-full bg-[#EEF2F7]" />
+              <View className="ml-3 gap-2">
+                <SkeletonBlock className="h-5 w-16" />
+                <SkeletonBlock className="h-4 w-24" />
+              </View>
+            </View>
+            <View className="items-end gap-2">
+              <SkeletonBlock className="h-5 w-20" />
+              <SkeletonBlock className="h-4 w-14" />
+            </View>
+          </View>
+          <View className="mt-2 flex-row items-center justify-between">
+            <SkeletonBlock className="h-4 w-20" />
+            <SkeletonBlock className="h-4 w-28" />
+          </View>
+        </View>
+      ))}
+    </View>
+  )
+}
+
 const $scrollContent = {
   paddingBottom: 120,
 }

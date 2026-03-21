@@ -45,12 +45,14 @@ from finly_backend.models import (
     VoiceOnboardingProfile,
     VoiceOnboardingRequest,
     VoiceOnboardingResponse,
+    TickerReportListItem,
 )
 from finly_backend.database import (
     init_db,
     get_user,
     get_report,
     get_reports,
+    get_reports_for_ticker,
     get_latest_report,
     save_report,
 )
@@ -775,6 +777,7 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
         agent_reasoning=agent_reasoning,
         specialist_insights=specialist_insights,
         intake_brief=goals_brief,
+        additional_tickers=additional_tickers,
     )
 
     append_chat(req.user_id, "assistant", f"Report generated for {ticker}: {summary}")
@@ -895,6 +898,134 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
     )
 
 
+@app.post("/api/report/chat/stream")
+async def report_chat_stream(req: PanelChatRequest):
+    """Stream panel-chat specialist responses for progressive UI rendering."""
+    from finly_backend.context import build_user_context
+    from finly_backend.database import append_conversation, get_conversation_history
+
+    report = (
+        get_report(req.report_id, user_id=req.user_id)
+        if req.report_id
+        else get_latest_report(req.user_id)
+    )
+
+    if not report:
+        async def no_report_stream():
+            message = "No report has been generated yet. Please generate a report first."
+            fallback = {
+                "agent_role": "system",
+                "agent_name": "Finly",
+                "response": message,
+            }
+            yield _sse_data({"type": "started"})
+            yield _sse_data({"type": "agent_message_start", "message": fallback})
+            for part in _split_chunks(message, chunk_size=60):
+                yield _sse_data({"type": "agent_message_delta", "message": fallback, "delta": part})
+            yield _sse_data({"type": "agent_message_done", "message": fallback})
+            yield _sse_data({"type": "done"})
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(no_report_stream(), media_type="text/event-stream")
+
+    user_context = build_user_context(req.user_id)
+    conversation_history = get_conversation_history(
+        req.user_id,
+        conv_type="panel",
+        limit=20,
+        metadata_filters={"report_id": report["id"]},
+    )
+
+    append_conversation(
+        req.user_id,
+        "panel",
+        "user",
+        req.message,
+        metadata={"report_id": report["id"]},
+    )
+
+    report_data = {
+        "agent_reasoning": report.get("agent_reasoning", {}),
+        "summary": report.get("summary", ""),
+    }
+
+    async def event_stream():
+        yield _sse_data({"type": "started"})
+        collected_responses: list[dict[str, str]] = []
+
+        try:
+            async for event in agent_client.call_panel_chat_stream(
+                message=req.message,
+                report_data=report_data,
+                user_context=user_context,
+                conversation_history=conversation_history,
+            ):
+                if event.get("type") != "agent_response":
+                    continue
+                response = event.get("response") or {}
+                agent_role = str(response.get("agent_role", "")).strip() or "advisor"
+                agent_name = str(response.get("agent_name", "")).strip() or "Advisor"
+                response_text = str(response.get("response", "")).strip()
+                message = {
+                    "agent_role": agent_role,
+                    "agent_name": agent_name,
+                    "response": response_text,
+                }
+
+                yield _sse_data({"type": "agent_message_start", "message": message})
+                for part in _split_chunks(response_text, chunk_size=60):
+                    yield _sse_data(
+                        {
+                            "type": "agent_message_delta",
+                            "message": message,
+                            "delta": part,
+                        }
+                    )
+                yield _sse_data({"type": "agent_message_done", "message": message})
+
+                append_conversation(
+                    req.user_id,
+                    "panel",
+                    "assistant",
+                    response_text,
+                    agent_role=agent_role,
+                    metadata={"report_id": report["id"]},
+                )
+                collected_responses.append(message)
+        except AgentServerUnavailable as e:
+            yield _sse_data({"type": "error", "message": str(e)})
+            yield _sse_data({"type": "done"})
+            yield "data: [DONE]\n\n"
+            return
+        except Exception as e:
+            logger.exception("Panel chat stream failed")
+            yield _sse_data({"type": "error", "message": str(e)})
+            yield _sse_data({"type": "done"})
+            yield "data: [DONE]\n\n"
+            return
+
+        memory_updates: list[str] = []
+        try:
+            from finly_backend.memory import extract_and_store_memories
+
+            combined_response = "\n".join(
+                f"[{item['agent_name']}]: {item['response']}" for item in collected_responses
+            )
+            memory_updates = await extract_and_store_memories(
+                req.user_id,
+                req.message,
+                combined_response,
+            )
+        except Exception as e:
+            logger.warning(f"Memory extraction in panel stream failed: {e}")
+
+        yield _sse_data({"type": "memory_updates", "memory_updates": memory_updates or []})
+        yield _sse_data({"type": "done"})
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 # ---------------------------------------------------------------------------
 # Report regeneration
 # ---------------------------------------------------------------------------
@@ -934,7 +1065,7 @@ async def report_detail(report_id: str, user_id: str = Query(...)) -> ReportResp
         full_report=report.get("full_report", ""),
         agent_reasoning=report.get("agent_reasoning", {}),
         specialist_insights=report.get("specialist_insights", []),
-        additional_tickers=[],
+        additional_tickers=report.get("additional_tickers", []),
         intake_brief=report.get("intake_brief", ""),
     )
 
@@ -974,6 +1105,29 @@ async def user_memories(user_id: str):
 @app.get("/api/user/{user_id}/reports")
 async def user_reports(user_id: str, limit: int = Query(default=10, le=50)):
     return get_reports(user_id, limit=limit)
+
+
+@app.get("/api/user/{user_id}/tickers/{ticker}/reports")
+async def user_ticker_reports(
+    user_id: str,
+    ticker: str,
+    limit: int = Query(default=20, le=100),
+) -> list[TickerReportListItem]:
+    reports = get_reports_for_ticker(user_id, ticker, limit=limit)
+    return [
+        TickerReportListItem(
+            report_id=report["id"],
+            user_id=report["user_id"],
+            ticker=report["ticker"],
+            decision=report.get("decision", ""),
+            summary=report.get("summary", ""),
+            intake_brief=report.get("intake_brief", ""),
+            created_at=report.get("created_at", ""),
+            relation_type=report.get("related_ticker_relation_type", "primary"),
+            relation_reason=report.get("related_ticker_reason", "") or "",
+        )
+        for report in reports
+    ]
 
 
 # ---------------------------------------------------------------------------

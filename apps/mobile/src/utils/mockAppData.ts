@@ -37,7 +37,7 @@ export type Holding = {
 export type BoardMessage = {
   id: string
   author: string
-  role: "user" | "portfolio-manager" | "market-analyst" | "risk-assessor" | "researcher"
+  role: "user" | "portfolio-manager" | "market-analyst" | "trader" | "researcher"
   avatar: string
   message: string
   time: string
@@ -147,41 +147,37 @@ export const teamAgents: TeamAgent[] = [
     ],
   },
   {
-    id: "risk-assessor",
+    id: "trader",
     name: "Noor",
     avatar: "NO",
-    role: "Risk Assessor",
-    specialty: "Drawdown and volatility guardrails",
-    bio: "Noor pressure-tests every proposed move against loss limits, concentration constraints, and volatility shock scenarios before the team acts.",
+    role: "Trader",
+    specialty: "Execution and position timing",
+    bio: "Noor turns team conviction into clear trade plans with staged entries, exits, and sizing discipline under changing market conditions.",
     mandate:
-      "Protect downside by enforcing exposure guardrails, stress assumptions, and escalation rules for fast-changing conditions.",
+      "Convert team insights into executable trade actions with clear timing, sizing, and risk-aware order plans.",
     status: "monitoring",
     confidence: 0.88,
     lastUpdate: "1m ago",
-    location: "Risk Control",
-    decisionStyle: "Guardrail-first, disciplined",
+    location: "Execution Desk",
+    decisionStyle: "Tactical, timing-aware",
     timeHorizon: "Intraday to 1 month",
-    riskBias: "Defensive",
-    coverage: "Drawdown, volatility, exposure limits",
+    riskBias: "Balanced",
+    coverage: "Entries, exits, and position management",
     responseCadence: "Continuous monitoring",
-    primaryObjective: "Keep portfolio losses contained while preserving room for selective upside.",
-    focusAreas: ["VaR", "Concentration", "Stop-loss discipline", "Scenario stress"],
+    primaryObjective:
+      "Execute high-conviction ideas with disciplined entries and exits while keeping portfolio risk in range.",
+    focusAreas: ["Entry timing", "Scale-in plans", "Profit-taking", "Stop discipline"],
     strengths: [
-      "Flags hidden correlation risk across seemingly different names",
-      "Maintains discipline when conviction runs ahead of evidence",
-      "Escalates fast when volatility regimes break",
+      "Builds clear, staged execution plans instead of all-in moves",
+      "Balances momentum follow-through with disciplined risk controls",
+      "Adjusts quickly when price action invalidates a setup",
     ],
-    watchlist: [
-      "Single-name concentration",
-      "Correlation clusters",
-      "Event risk calendar",
-      "Liquidity gaps",
-    ],
+    watchlist: ["Breakout confirmations", "Failed breakouts", "Volume spikes", "Liquidity shifts"],
     attributes: [
-      { label: "Portfolio VaR", value: "4.8%" },
-      { label: "Stress Scenarios", value: "12 active" },
-      { label: "Loss Trigger", value: "-6% weekly" },
-      { label: "Monitoring Mode", value: "Elevated" },
+      { label: "Execution Accuracy", value: "83%" },
+      { label: "Avg Entry Windows", value: "2.4 tranches" },
+      { label: "Risk Trigger", value: "-5% per setup" },
+      { label: "Monitoring Mode", value: "Active" },
     ],
   },
   {
@@ -270,7 +266,7 @@ export const boardThreads: BoardThread[] = [
       "The board wants to keep NVIDIA as a core winner, but only add into controlled weakness.",
     updatedAt: "2m ago",
     unreadCount: 2,
-    participantAgentIds: ["portfolio-manager", "market-analyst", "risk-assessor"],
+    participantAgentIds: ["portfolio-manager", "market-analyst", "trader"],
     messages: [
       {
         id: "1",
@@ -301,7 +297,7 @@ export const boardThreads: BoardThread[] = [
       {
         id: "4",
         author: "Noor",
-        role: "risk-assessor",
+        role: "trader",
         avatar: "NO",
         message:
           "Risk is acceptable if we stagger entries and keep the add below 2% NAV this week.",
@@ -320,7 +316,7 @@ export const boardThreads: BoardThread[] = [
       "The board wants to reduce Tesla exposure on strength while volatility stays elevated.",
     updatedAt: "9m ago",
     unreadCount: 0,
-    participantAgentIds: ["portfolio-manager", "risk-assessor"],
+    participantAgentIds: ["portfolio-manager", "trader"],
     messages: [
       {
         id: "1",
@@ -333,7 +329,7 @@ export const boardThreads: BoardThread[] = [
       {
         id: "2",
         author: "Noor",
-        role: "risk-assessor",
+        role: "trader",
         avatar: "NO",
         message:
           "Yes. The name still carries outsized single-name volatility relative to our current portfolio guardrails.",
@@ -401,7 +397,7 @@ export const boardThreads: BoardThread[] = [
     summary: "Apple is viewed as a steadier large-cap add while the board rotates toward quality.",
     updatedAt: "21m ago",
     unreadCount: 0,
-    participantAgentIds: ["portfolio-manager", "researcher", "risk-assessor"],
+    participantAgentIds: ["portfolio-manager", "researcher", "trader"],
     messages: [
       {
         id: "1",

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import os
+import json
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -114,3 +116,44 @@ async def call_panel_chat(
         )
     except httpx.TimeoutException:
         raise AgentServerUnavailable("Agent server timed out during panel chat.")
+
+
+async def call_panel_chat_stream(
+    message: str,
+    report_data: dict,
+    user_context: str = "",
+    conversation_history: list[dict] | None = None,
+) -> AsyncIterator[dict]:
+    """Call the streaming panel chat endpoint and yield SSE payloads."""
+    payload = {
+        "message": message,
+        "report_data": report_data,
+        "user_context": user_context,
+        "conversation_history": conversation_history or [],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST", f"{AGENT_SERVER_URL}/agent/panel-chat/stream", json=payload
+            ) as resp:
+                resp.raise_for_status()
+                async for raw_line in resp.aiter_lines():
+                    line = (raw_line or "").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if not data or data == "[DONE]":
+                        continue
+                    try:
+                        yield json.loads(data)
+                    except Exception:
+                        logger.warning("Invalid panel stream payload from agent server")
+                        continue
+    except httpx.ConnectError:
+        raise AgentServerUnavailable(
+            f"Agent server at {AGENT_SERVER_URL} is not reachable. "
+            "Start it with: finly-agent-server"
+        )
+    except httpx.TimeoutException:
+        raise AgentServerUnavailable("Agent server timed out during panel chat stream.")

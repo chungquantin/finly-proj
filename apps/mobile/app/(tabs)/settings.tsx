@@ -10,6 +10,7 @@ import {
   RiskExpertise,
   useOnboardingStore,
 } from "@/stores/onboardingStore"
+import { getInvestorAvatarEmoji } from "@/utils/investorAvatar"
 
 const riskLevels: RiskExpertise[] = ["beginner", "intermediate", "expert"]
 const horizons: InvestmentHorizon[] = ["short", "medium", "long"]
@@ -38,6 +39,7 @@ export default function SettingsTab() {
   }
 
   const hasName = name.trim().length > 0
+  const avatarEmoji = getInvestorAvatarEmoji(name)
   const profileTitle = hasName ? name.trim() : "Your investor profile"
   const profileSubtitle = [
     riskLabel(riskExpertise),
@@ -58,7 +60,7 @@ export default function SettingsTab() {
             <View className="flex-row items-center justify-between">
               <View className="h-14 w-14 items-center justify-center rounded-full bg-[#2453FF]">
                 <Text className="font-sans text-[22px] font-semibold text-white">
-                  {(hasName ? name.trim()[0] : "F").toUpperCase()}
+                  {avatarEmoji}
                 </Text>
               </View>
               <View className="rounded-full bg-[#EEF3FF] px-3 py-2">

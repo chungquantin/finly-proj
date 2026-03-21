@@ -5,6 +5,7 @@ import { api } from "@/services/api"
 import type {
   AgentPanelMessage,
   PanelHistoryMessage,
+  PanelChatStreamEvent,
   ReportListItem,
   ReportResponse,
 } from "@/services/api/types"
@@ -74,6 +75,7 @@ type AgentBoardState = PersistedAgentBoardState & {
 const LEGACY_STORAGE_KEY = "finly.agent.board.v1"
 const STORAGE_KEY_PREFIX = "finly.agent.board.v2"
 const PARTICIPANT_AGENT_IDS = ["advisor", "analyst", "researcher", "trader"]
+const ADVISOR_AUTHOR = "Advisor"
 
 const nowIso = () => new Date().toISOString()
 
@@ -85,6 +87,25 @@ const toDecision = (decision?: string): ThreadDecision => {
   if (value === "BUY") return "Buy"
   if (value === "SELL") return "Sell"
   return "Position"
+}
+
+const resolveAgentRoleKey = (value?: string | null) => {
+  const normalized = (value ?? "").trim().toLowerCase()
+  if (!normalized) return "advisor"
+  if (normalized.includes("advisor")) return "advisor"
+  if (normalized.includes("analyst")) return "analyst"
+  if (normalized.includes("research")) return "researcher"
+  if (normalized.includes("trader")) return "trader"
+  return "advisor"
+}
+
+const resolveAgentAuthor = (value?: string | null) => {
+  const role = resolveAgentRoleKey(value)
+  if (role === "advisor") return "Advisor"
+  if (role === "analyst") return "Analyst"
+  if (role === "researcher") return "Researcher"
+  if (role === "trader") return "Trader"
+  return ADVISOR_AUTHOR
 }
 
 const buildThreadTitle = (prompt: string, report?: ReportResponse) => {
@@ -202,6 +223,16 @@ const parsePersistedState = (raw: string | null): PersistedAgentBoardState | nul
 
 const normalizeThread = (thread: AgentThread): AgentThread => ({
   ...thread,
+  messages: (thread.messages ?? []).map((message) => {
+    if (message.role === "assistant" && message.author === "Finly") {
+      return {
+        ...message,
+        author: ADVISOR_AUTHOR,
+        agentRole: resolveAgentRoleKey(message.agentRole),
+      }
+    }
+    return message
+  }),
   reportVersions:
     Array.isArray(thread.reportVersions) && thread.reportVersions.length > 0
       ? thread.reportVersions
@@ -248,9 +279,10 @@ const mapPanelHistoryMessage = (item: PanelHistoryMessage): AgentThreadMessage =
   }
 
   if (item.role === "assistant") {
-    return createMessage("agent", item.agent_role || "Finly", item.content, "panel", {
+    const agentRole = resolveAgentRoleKey(item.agent_role)
+    return createMessage("agent", resolveAgentAuthor(item.agent_role), item.content, "panel", {
       createdAt: item.created_at,
-      agentRole: item.agent_role ?? undefined,
+      agentRole,
     })
   }
 
@@ -329,7 +361,15 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
         void playBase64Audio(result.data.audio_b64)
       }
 
-      const assistantMessage = createMessage("assistant", "Finly", result.data.message, "intake")
+      const assistantMessage = createMessage(
+        "assistant",
+        ADVISOR_AUTHOR,
+        result.data.message,
+        "intake",
+        {
+          agentRole: "advisor",
+        },
+      )
 
       set((state) => ({
         threads: state.threads.map((item) => {
@@ -428,9 +468,10 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
       const assistantMessage = createMessage(
         "assistant",
-        "Finly",
+        ADVISOR_AUTHOR,
         intakeResult.data.message,
         "intake",
+        { agentRole: "advisor" },
       )
 
       set((state) => ({
@@ -473,13 +514,110 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
       return
     }
 
-    const panelResult = await api.panelChat({
-      user_id: existing.userId,
-      report_id: existing.reportId,
-      message: prompt,
-    })
+    const pendingMessageIdsByRole: Record<string, string> = {}
+    let latestMemoryUpdates: string[] = []
+    let streamError: string | null = null
 
-    if (panelResult.kind !== "ok") {
+    const streamResult = await api.panelChatStream(
+      {
+        user_id: existing.userId,
+        report_id: existing.reportId,
+        message: prompt,
+      },
+      (event: PanelChatStreamEvent) => {
+        if (event.type === "error") {
+          streamError = "Team chat failed. Please try again."
+          return
+        }
+
+        if (event.type === "memory_updates") {
+          latestMemoryUpdates = event.memory_updates ?? []
+          return
+        }
+
+        if (!event.message) return
+        const message = event.message as AgentPanelMessage
+        const roleKey = message.agent_role || message.agent_name.toLowerCase()
+
+        if (event.type === "agent_message_start") {
+          const id = makeId(`stream_${roleKey}`)
+          pendingMessageIdsByRole[roleKey] = id
+          set((state) => ({
+            threads: state.threads.map((thread) => {
+              if (thread.id !== threadId) return thread
+              return {
+                ...thread,
+                messages: [
+                  ...thread.messages,
+                  {
+                    id,
+                    role: "agent",
+                    author: message.agent_name,
+                    content: "",
+                    kind: "panel",
+                    createdAt: nowIso(),
+                    agentRole: message.agent_role,
+                  },
+                ],
+              }
+            }),
+          }))
+          return
+        }
+
+        if (event.type === "agent_message_delta") {
+          const id = pendingMessageIdsByRole[roleKey]
+          if (!id) return
+          const delta = event.delta ?? ""
+          set((state) => ({
+            threads: state.threads.map((thread) => {
+              if (thread.id !== threadId) return thread
+              return {
+                ...thread,
+                messages: thread.messages.map((item) =>
+                  item.id === id ? { ...item, content: `${item.content}${delta}` } : item,
+                ),
+              }
+            }),
+          }))
+          return
+        }
+
+        if (event.type === "agent_message_done") {
+          const id = pendingMessageIdsByRole[roleKey]
+          if (!id) {
+            set((state) => ({
+              threads: state.threads.map((thread) => {
+                if (thread.id !== threadId) return thread
+                return {
+                  ...thread,
+                  messages: [
+                    ...thread.messages,
+                    createMessage("agent", message.agent_name, message.response, "panel", {
+                      agentRole: message.agent_role,
+                    }),
+                  ],
+                }
+              }),
+            }))
+            return
+          }
+          set((state) => ({
+            threads: state.threads.map((thread) => {
+              if (thread.id !== threadId) return thread
+              return {
+                ...thread,
+                messages: thread.messages.map((item) =>
+                  item.id === id ? { ...item, content: message.response } : item,
+                ),
+              }
+            }),
+          }))
+        }
+      },
+    )
+
+    if (streamResult.kind !== "ok" || streamError) {
       set((state) => ({
         threads: state.threads.map((thread) =>
           thread.id === threadId
@@ -487,7 +625,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
                 ...thread,
                 stage: "error",
                 isBusy: false,
-                lastError: "Team chat failed. Please try again.",
+                lastError: streamError || "Team chat failed. Please try again.",
               }
             : thread,
         ),
@@ -495,18 +633,12 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
       return
     }
 
-    const agentMessages = panelResult.data.agent_responses.map((response: AgentPanelMessage) =>
-      createMessage("agent", response.agent_name, response.response, "panel", {
-        agentRole: response.agent_role,
-      }),
-    )
-
     const memoryMessage =
-      panelResult.data.memory_updates.length > 0
+      latestMemoryUpdates.length > 0
         ? createMessage(
             "system",
             "Finly",
-            `Memory updated: ${panelResult.data.memory_updates.join(", ")}`,
+            `Memory updated: ${latestMemoryUpdates.join(", ")}`,
             "system",
           )
         : null
@@ -520,12 +652,8 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
           isBusy: false,
           lastError: undefined,
           updatedAt: nowIso(),
-          messages: [
-            ...thread.messages,
-            ...agentMessages,
-            ...(memoryMessage ? [memoryMessage] : []),
-          ],
-          memoryUpdates: panelResult.data.memory_updates,
+          messages: [...thread.messages, ...(memoryMessage ? [memoryMessage] : [])],
+          memoryUpdates: latestMemoryUpdates,
         }
       }),
     }))

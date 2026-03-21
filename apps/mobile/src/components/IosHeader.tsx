@@ -8,6 +8,8 @@ type IosHeaderProps = {
   onLeftPress?: () => void
   onRightPress?: () => void
   titleClassName?: string
+  rightLabelClassName?: string
+  rightContainerClassName?: string
 }
 
 export function IosHeader({
@@ -17,6 +19,8 @@ export function IosHeader({
   onLeftPress,
   onRightPress,
   titleClassName,
+  rightLabelClassName,
+  rightContainerClassName,
 }: IosHeaderProps) {
   return (
     <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
@@ -39,13 +43,25 @@ export function IosHeader({
 
       {onRightPress ? (
         <Pressable
-          className="h-10 min-w-10 items-center justify-center rounded-full border border-[#E9EEF7] bg-[#F6F8FD] px-2"
+          className={`h-10 min-w-10 items-center justify-center rounded-full border border-[#E9EEF7] bg-[#F6F8FD] px-2 ${rightContainerClassName ?? ""}`}
           onPress={onRightPress}
         >
-          <Text className="font-sans text-[15px] font-semibold text-[#7A8699]">
+          <Text
+            className={`font-sans text-[15px] font-semibold text-[#7A8699] ${rightLabelClassName ?? ""}`}
+          >
             {rightLabel ?? " "}
           </Text>
         </Pressable>
+      ) : rightLabel ? (
+        <View
+          className={`h-10 min-w-10 items-center justify-center px-2 ${rightContainerClassName ?? ""}`}
+        >
+          <Text
+            className={`font-sans text-[15px] font-semibold text-[#7A8699] ${rightLabelClassName ?? ""}`}
+          >
+            {rightLabel}
+          </Text>
+        </View>
       ) : (
         <View className="h-10 min-w-10 px-2" />
       )}

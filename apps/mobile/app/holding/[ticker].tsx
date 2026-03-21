@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 
 import { IosHeader } from "@/components/IosHeader"
 import { TickerLogo } from "@/components/TickerLogo"
+import { useAgentBoardStore } from "@/stores/agentBoardStore"
 import { boardThreads, holdingDecisions } from "@/utils/mockAppData"
 import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
@@ -14,11 +15,28 @@ const decisionColors = {
   Position: { background: "#EEF3FF", text: "#2453FF" },
 } as const
 
+const QUICK_PROMPT_TEMPLATES = [
+  "Should I add more {ticker} this month?",
+  "What would make you upgrade {ticker} from Position to Buy?",
+  "What are the main downside risks for {ticker} in the next quarter?",
+  "If I rotate out of {ticker}, what are better alternatives right now?",
+] as const
+
 export default function HoldingDetailRoute() {
   const router = useRouter()
   const { ticker } = useLocalSearchParams<{ ticker: string }>()
-  const { holdings } = useSelectedPortfolioData()
+  const { holdings, transactions } = useSelectedPortfolioData()
+  const startThread = useAgentBoardStore((state) => state.startThread)
   const holding = holdings.find((item) => item.ticker === ticker)
+  const holdingTransactions = transactions
+    .filter((transaction) => transaction.ticker === ticker)
+    .sort((left, right) => right.executedAt.localeCompare(left.executedAt))
+  const buyTransactions = holdingTransactions.filter((transaction) => transaction.side === "buy")
+  const totalGain = buyTransactions.reduce(
+    (sum, transaction) =>
+      sum + lotGainUsd(holding?.valueUsd ?? 0, holding?.shares ?? 0, transaction),
+    0,
+  )
   const decision =
     holdingDecisions.find((item) => item.ticker === ticker) ??
     (ticker
@@ -40,6 +58,9 @@ export default function HoldingDetailRoute() {
   const relatedThreads = boardThreads.filter((thread) =>
     decision?.relatedThreadIds.includes(thread.id),
   )
+  const quickPrompts = QUICK_PROMPT_TEMPLATES.map((template) =>
+    template.replace("{ticker}", (ticker ?? "").toUpperCase()),
+  )
 
   if (!holding || !decision) {
     return (
@@ -57,15 +78,21 @@ export default function HoldingDetailRoute() {
     )
   }
 
+  const handleCreateThread = (prompt: string) => {
+    const threadId = startThread(prompt)
+    router.push(`/thread/${threadId}`)
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-[#FBFCFF]">
       <ScrollView className="flex-1" contentContainerStyle={$content}>
         <IosHeader
           title={holding.ticker}
           leftLabel="‹"
-          rightLabel=""
+          rightLabel={formatSignedUsd(totalGain)}
           onLeftPress={() => router.back()}
           titleClassName="text-[20px] leading-[24px]"
+          rightLabelClassName={totalGain >= 0 ? "text-[#1F8A4C]" : "text-[#D64545]"}
         />
 
         <View className="px-4">
@@ -109,6 +136,56 @@ export default function HoldingDetailRoute() {
 
             <View className="mt-5 rounded-[24px] bg-[#FBFBFD] p-4">
               <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
+                Transactions
+              </Text>
+              <Text className="mt-1 font-sans text-[14px] text-[#7A8699]">
+                Time each share lot was bought
+              </Text>
+
+              <View className="mt-4 gap-3">
+                {buyTransactions.length ? (
+                  buyTransactions.map((transaction) => {
+                    const gain = lotGainUsd(holding.valueUsd, holding.shares, transaction)
+                    return (
+                      <View
+                        key={`${transaction.ticker}-${transaction.executedAt}-${transaction.quantity}-${transaction.price}`}
+                        className="rounded-[18px] border border-[#EEF2F7] bg-white px-4 py-3"
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <Text className="font-sans text-[15px] font-semibold text-[#0F1728]">
+                            Bought {transaction.quantity} shares
+                          </Text>
+                          <View className="items-end">
+                            <Text className="font-sans text-[14px] text-[#425168]">
+                              ${transaction.price.toFixed(2)}
+                            </Text>
+                            <Text
+                              className={`mt-0.5 font-sans text-[13px] font-semibold ${
+                                gain >= 0 ? "text-[#1F8A4C]" : "text-[#D64545]"
+                              }`}
+                            >
+                              {formatGain(gain)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">
+                          {formatExecutedAt(transaction.executedAt)}
+                        </Text>
+                      </View>
+                    )
+                  })
+                ) : (
+                  <View className="rounded-[18px] border border-[#EEF2F7] bg-white px-4 py-3">
+                    <Text className="font-sans text-[14px] text-[#7A8699]">
+                      No buy transactions recorded for this holding.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View className="mt-5 rounded-[24px] bg-[#FBFBFD] p-4">
+              <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
                 Decision rationale
               </Text>
               <View className="mt-4 gap-3">
@@ -127,6 +204,27 @@ export default function HoldingDetailRoute() {
               <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
                 Related conversation threads
               </Text>
+              <Pressable
+                className="mt-4 flex-row items-center justify-center rounded-[16px] bg-[#2453FF] px-4 py-3"
+                onPress={() =>
+                  handleCreateThread(`Build a fresh investment plan for ${holding.ticker}.`)
+                }
+              >
+                <Text className="font-sans text-[15px] font-semibold text-white">
+                  Create new conversation thread
+                </Text>
+              </Pressable>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {quickPrompts.map((prompt) => (
+                  <Pressable
+                    key={prompt}
+                    className="rounded-full border border-[#DCE6FF] bg-[#F4F7FF] px-3 py-2"
+                    onPress={() => handleCreateThread(prompt)}
+                  >
+                    <Text className="font-sans text-[13px] text-[#2453FF]">{prompt}</Text>
+                  </Pressable>
+                ))}
+              </View>
               <View className="mt-4 gap-3">
                 {relatedThreads.map((thread) => (
                   <Pressable
@@ -164,6 +262,40 @@ function Tag({ label }: { label: string }) {
       <Text className="font-sans text-[13px] text-[#607089]">{label}</Text>
     </View>
   )
+}
+
+function formatExecutedAt(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
+function lotGainUsd(
+  holdingValueUsd: number,
+  holdingShares: number,
+  transaction: { quantity: number; price: number },
+) {
+  if (!holdingShares) return 0
+  const currentPrice = holdingValueUsd / holdingShares
+  return (currentPrice - transaction.price) * transaction.quantity
+}
+
+function formatGain(value: number) {
+  const abs = Math.abs(value)
+  const sign = value >= 0 ? "+" : "-"
+  return `${sign}$${abs.toFixed(2)} gain`
+}
+
+function formatSignedUsd(value: number) {
+  const abs = Math.abs(value)
+  const sign = value >= 0 ? "+" : "-"
+  return `${sign}$${abs.toFixed(2)}`
 }
 
 const $content = {

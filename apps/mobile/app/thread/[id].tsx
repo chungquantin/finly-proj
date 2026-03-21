@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 /* eslint-disable no-restricted-imports */
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -17,6 +18,7 @@ import Markdown from "react-native-markdown-display"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { TickerLogo } from "@/components/TickerLogo"
+import { useMarketData } from "@/services/marketData"
 import { ThreadReportVersion, useAgentBoardStore } from "@/stores/agentBoardStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
 import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
@@ -75,7 +77,7 @@ const agentIdentityByRole: Record<string, string> = {
   "researcher": "Milo - Researcher",
   "trader": "Avery - Trader",
   "advisor": "Avery - Advisor",
-  "risk assessor": "Noor - Risk Assessor",
+  "risk assessor": "Noor - Trader",
   "portfolio manager": "Avery - Portfolio Manager",
 }
 
@@ -126,6 +128,23 @@ export default function ThreadDetailRoute() {
     )
   }, [reportVersions, selectedReportVersionId])
   const hasReadyReport = thread?.stage === "report_ready" && reportVersions.length > 0
+  const reportTickers = useMemo(() => {
+    if (!activeReportVersion) return []
+    const primaryTicker = activeReportVersion.report.ticker.trim().toUpperCase()
+    const relatedTickers = activeReportVersion.report.additional_tickers
+      .map((item) => item.ticker.trim().toUpperCase())
+      .filter(Boolean)
+    return Array.from(new Set([primaryTicker, ...relatedTickers].filter(Boolean)))
+  }, [activeReportVersion])
+  const { quotes } = useMarketData(reportTickers)
+  const holdingsByTicker = useMemo(
+    () =>
+      holdings.reduce<Record<string, (typeof holdings)[number]>>((acc, item) => {
+        acc[item.ticker.trim().toUpperCase()] = item
+        return acc
+      }, {}),
+    [holdings],
+  )
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true })
@@ -158,8 +177,12 @@ export default function ThreadDetailRoute() {
     )
   }
 
+  const normalizedTicker = thread.ticker.trim().toUpperCase()
+  const showThreadLogo = Boolean(normalizedTicker) && normalizedTicker !== "BOARD"
   const threadHolding = holdings.find((holding) => holding.ticker === thread.ticker)
-  const threadLogoUri = threadHolding?.logoUri ?? getTickerLogoUri(thread.ticker)
+  const threadLogoUri = showThreadLogo
+    ? threadHolding?.logoUri ?? getTickerLogoUri(thread.ticker)
+    : undefined
 
   const handleSend = async () => {
     const nextMessage = draft.trim()
@@ -177,6 +200,22 @@ export default function ThreadDetailRoute() {
   const handleCloseThread = () => {
     closeThread(thread.id)
     handleBack()
+  }
+  const resolveCurrentPrice = (ticker: string) => {
+    const normalizedTicker = ticker.trim().toUpperCase()
+    const liveQuote = quotes[normalizedTicker]?.price
+    if (typeof liveQuote === "number" && Number.isFinite(liveQuote)) return liveQuote
+
+    const holdingMatch = holdingsByTicker[normalizedTicker]
+    if (!holdingMatch || !holdingMatch.shares) return null
+
+    return holdingMatch.valueUsd / holdingMatch.shares
+  }
+  const handleOpenTickerDetail = (ticker: string) => {
+    const normalizedTicker = ticker.trim().toUpperCase()
+    if (!normalizedTicker || normalizedTicker === "BOARD") return
+    const isHeldTicker = Boolean(holdingsByTicker[normalizedTicker])
+    router.push(isHeldTicker ? `/holding/${normalizedTicker}` : `/watchlist/${normalizedTicker}`)
   }
 
   return (
@@ -196,9 +235,9 @@ export default function ThreadDetailRoute() {
             </Pressable>
 
             <View className="ml-3 flex-1 flex-row items-center">
-              <TickerLogo ticker={thread.ticker} logoUri={threadLogoUri} />
+              {showThreadLogo ? <TickerLogo ticker={thread.ticker} logoUri={threadLogoUri} /> : null}
 
-              <View className="ml-3 flex-1">
+              <View className={`${showThreadLogo ? "ml-3" : ""} flex-1`}>
                 <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
                   {thread.title}
                 </Text>
@@ -267,7 +306,7 @@ export default function ThreadDetailRoute() {
               <View className="mt-3 flex-row items-center">
                 <ActivityIndicator color={BLUE} />
                 <Text className="ml-3 font-sans text-[14px] text-[#607089]">
-                  Finly is working on this thread.
+                  Advisor is working on this thread.
                 </Text>
               </View>
             ) : null}
@@ -291,7 +330,10 @@ export default function ThreadDetailRoute() {
             {thread.messages.map((item) => {
               const isUser = item.role === "user"
               const isSystem = item.role === "system"
-              const avatar = !isUser && !isSystem ? getRandomAgentAvatar(item.author) : null
+              const displayAuthor =
+                item.role === "assistant" && item.author === "Finly" ? "Advisor" : item.author
+              const avatarSeed = item.agentRole || displayAuthor
+              const avatar = !isUser && !isSystem ? getRandomAgentAvatar(avatarSeed) : null
 
               return (
                 <View
@@ -312,6 +354,8 @@ export default function ThreadDetailRoute() {
                             version={activeReportVersion}
                             ctaLabel="View full report"
                             onPress={() => setIsFullReportVisible(true)}
+                            onTickerPress={handleOpenTickerDetail}
+                            resolvePrice={resolveCurrentPrice}
                           />
                         </View>
                       ) : null}
@@ -322,12 +366,18 @@ export default function ThreadDetailRoute() {
                         className="mr-2 h-8 w-8 items-center justify-center rounded-full"
                         style={{ backgroundColor: avatar?.palette.background ?? "#DDE7FF" }}
                       >
-                        <Text className="font-sans text-[16px]">{avatar?.glyph ?? "🧠"}</Text>
+                        {avatar ? (
+                          <Image
+                            source={avatar.image}
+                            style={{ width: 32, height: 32, borderRadius: 999 }}
+                            resizeMode="cover"
+                          />
+                        ) : null}
                       </View>
 
                       <View className="max-w-[78%]">
                         <Text className="mb-1 ml-1 font-sans text-[13px] text-[#98A1B2]">
-                          {item.author}
+                          {displayAuthor}
                         </Text>
                         <View
                           className="rounded-[20px] rounded-bl-[8px] border bg-[#F7F9FC] px-4 py-3"
@@ -360,7 +410,11 @@ export default function ThreadDetailRoute() {
                               }`}
                               style={{ backgroundColor: participant.palette.background }}
                             >
-                              <Text className="font-sans text-[14px]">{participant.glyph}</Text>
+                              <Image
+                                source={participant.image}
+                                style={{ width: 28, height: 28, borderRadius: 999 }}
+                                resizeMode="cover"
+                              />
                             </View>
                           ),
                         )}
@@ -395,7 +449,7 @@ export default function ThreadDetailRoute() {
                 }}
                 placeholder={
                   thread.stage === "intake"
-                    ? "Answer Finly's follow-up"
+                    ? "Answer Advisor's follow-up"
                     : "Ask the team to refine the report"
                 }
                 placeholderTextColor="#94A0B3"
@@ -534,6 +588,8 @@ export default function ThreadDetailRoute() {
                     ctaLabel="Open report versions for details"
                     showRelatedStocks
                     onReadFullReport={() => setIsFullReportVisible(true)}
+                    onTickerPress={handleOpenTickerDetail}
+                    resolvePrice={resolveCurrentPrice}
                   />
                 </ScrollView>
               ) : (
@@ -603,7 +659,11 @@ export default function ThreadDetailRoute() {
                                 className="h-9 w-9 items-center justify-center rounded-full"
                                 style={{ backgroundColor: avatar.palette.background }}
                               >
-                                <Text className="font-sans text-[16px]">{avatar.glyph}</Text>
+                                <Image
+                                  source={avatar.image}
+                                  style={{ width: 36, height: 36, borderRadius: 999 }}
+                                  resizeMode="cover"
+                                />
                               </View>
                               <Text className="ml-2 font-sans text-[14px] font-semibold text-[#0F1728]">
                                 {resolveAgentIdentity(insight.role)}
@@ -694,20 +754,27 @@ function ReportPreviewCard({
   onPress,
   showRelatedStocks = false,
   onReadFullReport,
+  onTickerPress,
+  resolvePrice,
 }: {
   version: ThreadReportVersion
   ctaLabel: string
   onPress?: () => void
   showRelatedStocks?: boolean
   onReadFullReport?: () => void
+  onTickerPress?: (ticker: string) => void
+  resolvePrice?: (ticker: string) => number | null
 }) {
+  const primaryTicker = version.report.ticker.trim().toUpperCase()
   const relatedTickers = version.report.additional_tickers
     .map((item) => item.ticker.trim().toUpperCase())
-    .filter((ticker) => ticker && ticker !== version.report.ticker.trim().toUpperCase())
+    .filter((ticker) => ticker && ticker !== primaryTicker)
   const displayedRelatedTickers = relatedTickers.slice(0, 4)
   const hiddenRelatedCount = Math.max(relatedTickers.length - displayedRelatedTickers.length, 0)
+  const currentPrice = resolvePrice?.(primaryTicker) ?? null
+  const currentPriceLabel = typeof currentPrice === "number" ? formatUsd(currentPrice) : "Price unavailable"
 
-  const content = (
+  return (
     <View className="rounded-[20px] border border-[#E3EBFF] bg-[#F5F8FF] px-4 py-3">
       <View className="flex-row items-center justify-between">
         <Text className="font-sans text-[12px] font-semibold tracking-[1px] text-[#5A74AD]">
@@ -723,6 +790,31 @@ function ReportPreviewCard({
       <View className="mt-2 self-start">
         <DecisionBadge decision={toDecisionLabel(version.report.decision)} />
       </View>
+      <View className="mt-3 rounded-[16px] border border-[#DCE5FA] bg-[#FFFFFF] px-3 py-2.5">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Pressable
+              onPress={() => onTickerPress?.(primaryTicker)}
+              disabled={!onTickerPress}
+              hitSlop={8}
+            >
+              <TickerLogo ticker={primaryTicker} logoUri={getTickerLogoUri(primaryTicker)} size={36} />
+            </Pressable>
+            <View className="ml-3">
+              <Text className="font-sans text-[12px] text-[#6B7586]">Ticker</Text>
+              <Text className="font-sans text-[15px] font-semibold text-[#0F1728]">
+                {primaryTicker}
+              </Text>
+            </View>
+          </View>
+          <View className="items-end">
+            <Text className="font-sans text-[12px] text-[#6B7586]">Current price</Text>
+            <Text className="font-sans text-[15px] font-semibold text-[#0F1728]">
+              {currentPriceLabel}
+            </Text>
+          </View>
+        </View>
+      </View>
       <Text className="mt-2 font-sans text-[14px] leading-5 text-[#4D5D75]" numberOfLines={2}>
         {version.report.summary}
       </Text>
@@ -735,7 +827,9 @@ function ReportPreviewCard({
           <View className="mt-2 flex-row items-center">
             {displayedRelatedTickers.map((ticker, index) => (
               <View key={ticker} className={index === 0 ? "" : "-ml-2"}>
-                <TickerLogo ticker={ticker} logoUri={getTickerLogoUri(ticker)} size={28} />
+                <Pressable onPress={() => onTickerPress?.(ticker)} disabled={!onTickerPress} hitSlop={8}>
+                  <TickerLogo ticker={ticker} logoUri={getTickerLogoUri(ticker)} size={28} />
+                </Pressable>
               </View>
             ))}
             {hiddenRelatedCount > 0 ? (
@@ -749,7 +843,13 @@ function ReportPreviewCard({
         </View>
       ) : null}
 
-      <Text className="mt-2 font-sans text-[13px] font-medium text-[#2453FF]">{ctaLabel}</Text>
+      {onPress ? (
+        <Pressable className="mt-2 self-start" onPress={onPress}>
+          <Text className="font-sans text-[13px] font-medium text-[#2453FF]">{ctaLabel}</Text>
+        </Pressable>
+      ) : (
+        <Text className="mt-2 font-sans text-[13px] font-medium text-[#2453FF]">{ctaLabel}</Text>
+      )}
       {onReadFullReport ? (
         <Pressable className="mt-2 self-start" onPress={onReadFullReport}>
           <Text className="font-sans text-[13px] font-semibold text-[#2453FF]">
@@ -759,10 +859,10 @@ function ReportPreviewCard({
       ) : null}
     </View>
   )
+}
 
-  if (!onPress) return content
-
-  return <Pressable onPress={onPress}>{content}</Pressable>
+function formatUsd(value: number) {
+  return `$${value.toFixed(2)}`
 }
 
 const $threadContent: ViewStyle = {

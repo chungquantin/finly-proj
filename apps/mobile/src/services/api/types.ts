@@ -181,6 +181,20 @@ export interface PanelChatResponse {
   memory_updates: string[]
 }
 
+export interface PanelChatStreamEvent {
+  type:
+    | "started"
+    | "agent_message_start"
+    | "agent_message_delta"
+    | "agent_message_done"
+    | "memory_updates"
+    | "error"
+    | "done"
+  message?: AgentPanelMessage
+  delta?: string
+  memory_updates?: string[]
+}
+
 export interface PanelHistoryMessage {
   id: string
   user_id: string

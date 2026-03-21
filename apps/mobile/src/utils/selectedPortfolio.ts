@@ -9,7 +9,9 @@ type SelectedHolding = {
   name: string
   logoUri?: string
   shares: number
+  costBasisUsd: number
   valueUsd: number
+  totalGainUsd: number
   changePercent: number
   allocationPercent: number
 }
@@ -174,7 +176,9 @@ export const useSelectedPortfolioData = (): SelectedPortfolioData => {
         name: tickerNames[holding.ticker] ?? holding.ticker,
         logoUri: getTickerLogoUri(holding.ticker),
         shares: holding.quantity,
+        costBasisUsd: round(costBasis),
         valueUsd,
+        totalGainUsd: round(valueUsd - costBasis),
         changePercent,
         allocationPercent: 0,
       }

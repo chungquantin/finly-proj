@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 /* eslint-disable no-restricted-imports */
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native"
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -218,7 +218,11 @@ export default function BoardTab() {
                             }`}
                             style={{ backgroundColor: avatar.palette.background }}
                           >
-                            <Text className="font-sans text-[15px]">{avatar.glyph}</Text>
+                            <Image
+                              source={avatar.image}
+                              style={{ width: 32, height: 32, borderRadius: 999 }}
+                              resizeMode="cover"
+                            />
                           </View>
                         )
                       })}

@@ -134,6 +134,18 @@ class ReportResponse(BaseModel):
     intake_brief: str = ""
 
 
+class TickerReportListItem(BaseModel):
+    report_id: str
+    user_id: str
+    ticker: str
+    decision: str
+    summary: str
+    intake_brief: str = ""
+    created_at: str
+    relation_type: str = "primary"
+    relation_reason: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Panel discussion (chat with team)
 # ---------------------------------------------------------------------------
