@@ -55,6 +55,8 @@ The current app does not expose the requested bottom-tab IA or the central board
 - 2026-03-21: Refreshed the agent detail screen to surface agent bio, mission, operating profile, focus tags, strengths, and attribute metrics.
 - 2026-03-21: Added Portfolio holdings sort controls for value, alphabet, and holdings count within the existing card UI.
 - 2026-03-21: Normalized badge/tag/status text rendering onto the shared mobile `Text` primitive and added an explicit web system font family to stop serif fallback on pills and chip labels.
+- 2026-03-21: Split Board into a thread inbox and a dedicated thread-detail route, backed by mock per-thread conversation data.
+- 2026-03-21: Added holding detail route with board decision, intake summary, rationale, and related thread links, and made Portfolio holdings navigable into that detail view.
 
 ## Verification
 
@@ -66,5 +68,6 @@ The current app does not expose the requested bottom-tab IA or the central board
   - Board visual hierarchy reviewed in code: header, left/right message grouping, and composer row now match the supplied chat reference more closely than the prior card-list design.
   - Portfolio holdings sort state reviewed in code: value sorts by `valueUsd` descending, alphabet sorts by ticker ascending, holdings sorts by share count descending.
   - Badge/tag text rendering reviewed in code: Home status pills, Portfolio chips/sort pills, agent detail badges/tags, and shared UI badge/avatar/button labels now all use the shared `Text` component instead of mixed raw `Text` + ad hoc `fontFamily` styling.
+  - Navigation wiring reviewed in code: Board thread cards push to `/thread/[id]`, and Portfolio holdings push to `/holding/[ticker]` with related thread deep links back into `/thread/[id]`.
 - Remaining risk:
-  - The composer row is presentational only; real input behavior and keyboard handling remain out of scope for this mock slice.
+  - Thread and holding data are mock-only; once real orchestration exists, thread identity and decision snapshots should come from the same source of truth.

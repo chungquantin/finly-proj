@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-imports */
 import { useMemo, useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
+import { useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { IosHeader } from "@/components/IosHeader"
@@ -24,6 +25,7 @@ const sortLabels = {
 type HoldingsSort = keyof typeof sortLabels
 
 export default function PortfolioTab() {
+  const router = useRouter()
   const [sortBy, setSortBy] = useState<HoldingsSort>("value")
   const { quotes } = useMarketData(holdings.map((holding) => holding.ticker))
   const enrichedHoldings = useMemo(
@@ -129,7 +131,11 @@ export default function PortfolioTab() {
             </View>
 
             {sortedHoldings.map((holding) => (
-              <View key={holding.ticker} className="border-b border-[#EEF2F7] py-4 last:border-b-0">
+              <Pressable
+                key={holding.ticker}
+                className="border-b border-[#EEF2F7] py-4 last:border-b-0"
+                onPress={() => router.push(`/holding/${holding.ticker}`)}
+              >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center">
                     <TickerLogo ticker={holding.ticker} logoUri={holding.logoUri} />
@@ -156,11 +162,14 @@ export default function PortfolioTab() {
                   <Text className="font-sans text-[13px] text-[#7A8699]">
                     {holding.shares} shares
                   </Text>
-                  <Text className="font-sans text-[13px] text-[#7A8699]">
-                    Allocation {holding.allocationPercent}%
-                  </Text>
+                  <View className="flex-row items-center">
+                    <Text className="font-sans text-[13px] text-[#7A8699]">
+                      Allocation {holding.allocationPercent}%
+                    </Text>
+                    <Text className="ml-2 font-sans text-[13px] text-[#2453FF]">View board</Text>
+                  </View>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
         </View>

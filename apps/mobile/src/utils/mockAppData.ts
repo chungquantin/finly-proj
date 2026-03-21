@@ -45,6 +45,30 @@ export type BoardMessage = {
   reaction?: string
 }
 
+export type BoardThread = {
+  id: string
+  title: string
+  ticker: string
+  decision: "Buy" | "Sell" | "Position"
+  intake: string
+  summary: string
+  updatedAt: string
+  unreadCount: number
+  participantAgentIds: string[]
+  messages: BoardMessage[]
+}
+
+export type HoldingDecision = {
+  ticker: string
+  decision: "Buy" | "Sell" | "Position"
+  intake: string
+  conviction: string
+  targetPosition: string
+  nextReview: string
+  rationale: string[]
+  relatedThreadIds: string[]
+}
+
 export const portfolioSnapshot = {
   totalValueUsd: 184230,
   dailyPnlUsd: 2140,
@@ -236,67 +260,236 @@ export const holdings: Holding[] = [
   },
 ]
 
-export const boardMessages: BoardMessage[] = [
+export const boardThreads: BoardThread[] = [
   {
-    id: "1",
-    author: "You",
-    role: "user",
-    avatar: "YU",
-    message: "Are we still rotating out of banks if CPI stays hot next week?",
-    time: "09:12",
+    id: "nvda-dip-plan",
+    title: "NVDA add on pullback",
+    ticker: "NVDA",
+    decision: "Buy",
+    intake: "Scale in if price retraces 3-5%",
+    summary:
+      "The board wants to keep NVIDIA as a core winner, but only add into controlled weakness.",
+    updatedAt: "2m ago",
+    unreadCount: 2,
+    participantAgentIds: ["portfolio-manager", "market-analyst", "risk-assessor"],
+    messages: [
+      {
+        id: "1",
+        author: "You",
+        role: "user",
+        avatar: "YU",
+        message: "Do we still want to add to NVDA if the rally cools off this week?",
+        time: "09:12",
+      },
+      {
+        id: "2",
+        author: "Avery",
+        role: "portfolio-manager",
+        avatar: "AV",
+        message: "Yes. I would only add in two clips and keep total position sizing capped at 9%.",
+        time: "09:13",
+        reaction: "📌",
+      },
+      {
+        id: "3",
+        author: "Kai",
+        role: "market-analyst",
+        avatar: "KA",
+        message:
+          "Momentum is still strong, but chasing strength here is lower quality than buying a controlled retrace.",
+        time: "09:14",
+      },
+      {
+        id: "4",
+        author: "Noor",
+        role: "risk-assessor",
+        avatar: "NO",
+        message:
+          "Risk is acceptable if we stagger entries and keep the add below 2% NAV this week.",
+        time: "09:15",
+        reaction: "🛡️",
+      },
+    ],
   },
   {
-    id: "2",
-    author: "Avery",
-    role: "portfolio-manager",
-    avatar: "AV",
-    message: "Yes. I would trim TPB by 3% first and build cash before adding any new risk.",
-    time: "09:13",
-    reaction: "📌",
+    id: "tsla-trim-risk",
+    title: "TSLA volatility trim",
+    ticker: "TSLA",
+    decision: "Sell",
+    intake: "Trim into spikes above current range",
+    summary:
+      "The board wants to reduce Tesla exposure on strength while volatility stays elevated.",
+    updatedAt: "9m ago",
+    unreadCount: 0,
+    participantAgentIds: ["portfolio-manager", "risk-assessor"],
+    messages: [
+      {
+        id: "1",
+        author: "You",
+        role: "user",
+        avatar: "YU",
+        message: "Should we still trim Tesla if it squeezes again this afternoon?",
+        time: "10:02",
+      },
+      {
+        id: "2",
+        author: "Noor",
+        role: "risk-assessor",
+        avatar: "NO",
+        message:
+          "Yes. The name still carries outsized single-name volatility relative to our current portfolio guardrails.",
+        time: "10:03",
+        reaction: "⚠️",
+      },
+      {
+        id: "3",
+        author: "Avery",
+        role: "portfolio-manager",
+        avatar: "AV",
+        message:
+          "I would trim 15% of the line into strength and rotate that capital into calmer large-cap exposure.",
+        time: "10:04",
+      },
+    ],
   },
   {
-    id: "3",
-    author: "Kai",
-    role: "market-analyst",
-    avatar: "KA",
-    message:
-      "Momentum is still constructive, but breadth is thinning. We should rotate gradually, not all at once.",
-    time: "09:13",
+    id: "msft-core-position",
+    title: "MSFT core hold",
+    ticker: "MSFT",
+    decision: "Position",
+    intake: "Hold core and add only on broad tech weakness",
+    summary:
+      "Microsoft stays a core holding. The board is not forcing a move without a better entry.",
+    updatedAt: "13m ago",
+    unreadCount: 1,
+    participantAgentIds: ["market-analyst", "researcher"],
+    messages: [
+      {
+        id: "1",
+        author: "You",
+        role: "user",
+        avatar: "YU",
+        message: "What is the board view on Microsoft after the recent AI headlines?",
+        time: "08:44",
+      },
+      {
+        id: "2",
+        author: "Kai",
+        role: "market-analyst",
+        avatar: "KA",
+        message:
+          "Leadership is intact. I would not chase, but I also would not reduce a quality core winner here.",
+        time: "08:45",
+      },
+      {
+        id: "3",
+        author: "Milo",
+        role: "researcher",
+        avatar: "MI",
+        message:
+          "Fundamental support remains strong and the AI narrative is still backed by visible enterprise demand.",
+        time: "08:46",
+        reaction: "🔥",
+      },
+    ],
   },
   {
-    id: "4",
-    author: "You",
-    role: "user",
-    avatar: "YU",
-    message: "Who feels strongest about utilities if we need a safer add?",
-    time: "09:14",
+    id: "aapl-defensive-build",
+    title: "AAPL defensive reload",
+    ticker: "AAPL",
+    decision: "Buy",
+    intake: "Accumulate slowly over the next two reviews",
+    summary: "Apple is viewed as a steadier large-cap add while the board rotates toward quality.",
+    updatedAt: "21m ago",
+    unreadCount: 0,
+    participantAgentIds: ["portfolio-manager", "researcher", "risk-assessor"],
+    messages: [
+      {
+        id: "1",
+        author: "You",
+        role: "user",
+        avatar: "YU",
+        message: "If we want something steadier, is Apple the right place to add next?",
+        time: "08:20",
+      },
+      {
+        id: "2",
+        author: "Milo",
+        role: "researcher",
+        avatar: "MI",
+        message:
+          "For a calmer quality add, yes. The setup is less explosive than NVIDIA but cleaner for staged accumulation.",
+        time: "08:21",
+      },
+      {
+        id: "3",
+        author: "Avery",
+        role: "portfolio-manager",
+        avatar: "AV",
+        message: "I would build the position across two review windows rather than all at once.",
+        time: "08:22",
+      },
+    ],
+  },
+]
+
+export const boardMessages: BoardMessage[] = boardThreads[0].messages
+
+export const holdingDecisions: HoldingDecision[] = [
+  {
+    ticker: "NVDA",
+    decision: "Buy",
+    intake: "Scale in if price retraces 3-5%",
+    conviction: "High",
+    targetPosition: "8% to 9% max weight",
+    nextReview: "After next earnings setup check",
+    rationale: [
+      "Leadership remains intact across AI infrastructure",
+      "Board prefers buying weakness over chasing breakouts",
+      "Risk remains manageable with staggered entries",
+    ],
+    relatedThreadIds: ["nvda-dip-plan", "msft-core-position"],
   },
   {
-    id: "5",
-    author: "Noor",
-    role: "risk-assessor",
-    avatar: "NO",
-    message:
-      "I am good with utilities if we keep new adds under 4% and protect the cash buffer above 10%.",
-    time: "09:15",
-    reaction: "🛡️",
+    ticker: "TSLA",
+    decision: "Sell",
+    intake: "Trim 15% of the position into strength",
+    conviction: "Medium",
+    targetPosition: "Reduce from 17.3% to near 14.5%",
+    nextReview: "On next volatility spike",
+    rationale: [
+      "Position is contributing outsized portfolio volatility",
+      "Board sees cleaner risk-adjusted opportunities elsewhere",
+      "Trimming preserves upside while lowering concentration",
+    ],
+    relatedThreadIds: ["tsla-trim-risk"],
   },
   {
-    id: "6",
-    author: "You",
-    role: "user",
-    avatar: "YU",
-    message: "What about FPT if tech leadership keeps holding into earnings?",
-    time: "09:16",
+    ticker: "MSFT",
+    decision: "Position",
+    intake: "Hold core and add only on broad tech weakness",
+    conviction: "High",
+    targetPosition: "Maintain near current 16.1% weight",
+    nextReview: "At next macro and earnings checkpoint",
+    rationale: [
+      "Core thesis remains intact",
+      "No urgency to chase after extended price action",
+      "Acts as quality exposure inside the growth sleeve",
+    ],
+    relatedThreadIds: ["msft-core-position", "nvda-dip-plan"],
   },
   {
-    id: "7",
-    author: "Milo",
-    role: "researcher",
-    avatar: "MI",
-    message:
-      "Still constructive. I found two catalysts and can drop a short note before lunch for the board.",
-    time: "09:17",
-    reaction: "🔥",
+    ticker: "AAPL",
+    decision: "Buy",
+    intake: "Accumulate gradually over two review windows",
+    conviction: "Medium",
+    targetPosition: "Increase toward 14% weight",
+    nextReview: "Next board rotation review",
+    rationale: [
+      "Board wants more stable mega-cap exposure",
+      "Apple improves quality balance versus higher-beta names",
+      "Gradual adds reduce timing risk",
+    ],
+    relatedThreadIds: ["aapl-defensive-build"],
   },
 ]
