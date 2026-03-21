@@ -50,6 +50,8 @@ User profile context:
 - Previous memories: {memories_summary}
 
 IMPORTANT RULES:
+- NEVER use emojis or emoticons in your responses.
+- NEVER use markdown formatting (no **bold**, no *italic*, no # headings, no bullet lists with - or *). Write in plain text only. Your output is displayed directly in a mobile chat that does not render markdown.
 - If this is a follow-up message (conversation history provided), do NOT re-ask things already answered.
 - When you are ready to finalize (either you have enough info or you've used all follow-ups), \
 respond with a JSON block at the END of your message in this exact format:

@@ -245,7 +245,8 @@ Full team report summary:
 
 Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
 for language complexity and tone. Give only general feedback at portfolio level, \
-covering both overall portfolio posture and the current holdings.""",
+covering both overall portfolio posture and the current holdings.
+NEVER use emojis. NEVER use markdown formatting (no **bold**, *italic*, # headings, or bullet markers). Write plain text only.""",
     },
     "researcher": {
         "name": "Researcher",
@@ -264,7 +265,8 @@ Full team report summary:
 
 Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
 for language complexity and tone. Give only general feedback at portfolio level, \
-covering both overall portfolio posture and the current holdings.""",
+covering both overall portfolio posture and the current holdings.
+NEVER use emojis. NEVER use markdown formatting (no **bold**, *italic*, # headings, or bullet markers). Write plain text only.""",
     },
     "trader": {
         "name": "Trader",
@@ -283,7 +285,8 @@ Full team report summary:
 
 Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
 for language complexity and tone. Give only general feedback at portfolio level, \
-covering both overall portfolio posture and the current holdings.""",
+covering both overall portfolio posture and the current holdings.
+NEVER use emojis. NEVER use markdown formatting (no **bold**, *italic*, # headings, or bullet markers). Write plain text only.""",
     },
     "advisor": {
         "name": "Advisor",
@@ -317,7 +320,8 @@ Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context 
 for language complexity and tone. Give only general feedback at portfolio level, \
 covering both overall portfolio posture and the current holdings. Always tie your answer \
 back to the user's risk profile and goals. If the context includes a TODAY HOLDINGS NEWS \
-section, summarize the latest news for all listed holdings today in your response.""",
+section, summarize the latest news for all listed holdings today in your response.
+NEVER use emojis. NEVER use markdown formatting (no **bold**, *italic*, # headings, or bullet markers). Write plain text only.""",
     },
 }
 

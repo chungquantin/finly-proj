@@ -1,4 +1,4 @@
-"""Conversational voice onboarding — extracts investor profile through natural dialogue.
+"""Conversational chat onboarding — extracts investor profile through natural dialogue.
 
 Uses OpenRouter LLM to chat with the user and extract: name, risk tolerance,
 investment horizon, and financial knowledge level. Max 4 turns before forcing completion.
@@ -24,21 +24,24 @@ logger = logging.getLogger("finly_backend.onboarding_chat")
 MAX_TURNS = 4
 
 ONBOARDING_SYSTEM_PROMPT = """\
-You are Finly, a warm and friendly AI investment advisor onboarding a new user via voice conversation.
+You are Finly, a warm and friendly AI investment advisor onboarding a new user via chat conversation.
 
 Your job is to naturally extract four pieces of information through casual conversation:
-1. **Name** — What the user wants to be called
-2. **Risk tolerance** — How comfortable they are with investment risk (map to: beginner/intermediate/expert)
-3. **Investment horizon** — How long they plan to invest (map to: short/medium/long)
-4. **Financial knowledge** — Their investing experience level (map to: novice/savvy/pro)
+1. Name — What the user wants to be called
+2. Risk tolerance — How comfortable they are with investment risk (map to: beginner/intermediate/expert)
+3. Investment horizon — How long they plan to invest (map to: short/medium/long)
+4. Financial knowledge — Their investing experience level (map to: novice/savvy/pro)
 
 CONVERSATION GUIDELINES:
-- Keep responses SHORT (2-3 sentences max) — this is voice, not text
+- Keep responses SHORT (2-3 sentences max) — this is chat, keep it concise
 - Be warm, casual, encouraging — like a friendly advisor, not a form
 - Ask about 1-2 things per turn, don't overwhelm
 - Use natural language, not jargon. E.g., "How long are you thinking of investing?" not "What is your investment horizon?"
 - If the user gives vague answers, that's fine — infer the best match
 - You can combine related questions naturally
+- NEVER use emojis or emoticons
+- NEVER use markdown formatting (no **bold**, no *italic*, no # headings, no bullet lists with - or *)
+- Write in plain text only. Your output is displayed directly in a mobile chat that does not render markdown.
 
 TURN COUNT: This is turn {turn_count} of {max_turns}. \
 {turn_guidance}
@@ -83,7 +86,7 @@ def _build_system_prompt(turn_count: int) -> str:
 
 
 def _count_turns(user_id: str) -> int:
-    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
+    history = get_conversation_history(user_id, conv_type="onboarding_chat", limit=100)
     return sum(1 for msg in history if msg["role"] == "assistant")
 
 
@@ -143,7 +146,7 @@ def _strip_json_tail_for_stream(text: str) -> str:
 
 
 async def run_onboarding_chat(user_id: str, message: str) -> dict:
-    """Run one turn of the voice onboarding conversation.
+    """Run one turn of the chat onboarding conversation.
 
     Returns: {user_id, message, is_complete, turn_count, profile}
     profile is populated when is_complete=True with {name, risk, horizon, knowledge}.
@@ -151,13 +154,13 @@ async def run_onboarding_chat(user_id: str, message: str) -> dict:
     turn_count = _count_turns(user_id)
 
     # Record user message
-    append_conversation(user_id, "onboarding_voice", "user", message)
+    append_conversation(user_id, "onboarding_chat", "user", message)
 
     # Build messages
     system_prompt = _build_system_prompt(turn_count + 1)
     messages = [{"role": "system", "content": system_prompt}]
 
-    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
+    history = get_conversation_history(user_id, conv_type="onboarding_chat", limit=100)
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -198,7 +201,7 @@ async def run_onboarding_chat(user_id: str, message: str) -> dict:
     display_text, is_complete, extracted = _parse_response(assistant_text)
 
     # Record assistant response
-    append_conversation(user_id, "onboarding_voice", "assistant", display_text)
+    append_conversation(user_id, "onboarding_chat", "assistant", display_text)
 
     new_turn_count = turn_count + 1
 
@@ -225,12 +228,12 @@ async def run_onboarding_chat_stream(user_id: str, message: str) -> AsyncIterato
     """Stream one onboarding turn token-by-token, then emit final structured result."""
     turn_count = _count_turns(user_id)
 
-    append_conversation(user_id, "onboarding_voice", "user", message)
+    append_conversation(user_id, "onboarding_chat", "user", message)
 
     system_prompt = _build_system_prompt(turn_count + 1)
     messages = [{"role": "system", "content": system_prompt}]
 
-    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
+    history = get_conversation_history(user_id, conv_type="onboarding_chat", limit=100)
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -298,7 +301,7 @@ async def run_onboarding_chat_stream(user_id: str, message: str) -> AsyncIterato
                     yield {"type": "delta", "delta": next_delta}
 
     display_text, is_complete, extracted = _parse_response(raw_text)
-    append_conversation(user_id, "onboarding_voice", "assistant", display_text)
+    append_conversation(user_id, "onboarding_chat", "assistant", display_text)
 
     new_turn_count = turn_count + 1
     profile = None
@@ -332,11 +335,11 @@ def get_initial_greeting() -> str:
 
 
 def reset_onboarding_chat(user_id: str) -> None:
-    """Clear onboarding voice conversation history."""
+    """Clear onboarding chat conversation history."""
     from finly_backend.database import get_db
 
     with get_db() as conn:
         conn.execute(
-            "DELETE FROM conversations WHERE user_id = ? AND conv_type = 'onboarding_voice'",
+            "DELETE FROM conversations WHERE user_id = ? AND conv_type = 'onboarding_chat'",
             (user_id,),
         )

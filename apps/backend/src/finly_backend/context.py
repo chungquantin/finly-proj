@@ -95,5 +95,12 @@ INSTRUCTIONS FOR AGENTS
 - If risk > 70, focus on growth opportunities.
 - Consider what they already own — don't suggest putting too much in one thing.
 - Reference any stored preferences from the user's memories.
+
+FORMATTING RULES (STRICT):
+- NEVER use emojis in your responses. No emoticons either.
+- NEVER use markdown formatting such as **bold**, *italic*, # headings, or bullet markers (-, *).
+- Write in plain text only. Use line breaks to separate ideas.
+- Do not use numbered lists with "1." prefix. If listing items, use natural sentence flow or simple line breaks.
+- Your output is displayed directly in a mobile app that does not render markdown. Raw markdown symbols will appear as ugly text to the user.
 """
     return context.strip()
