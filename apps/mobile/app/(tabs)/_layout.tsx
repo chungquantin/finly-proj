@@ -83,6 +83,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="heartbeat"
+        options={{
+          title: "Heartbeat",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} activeIcon="pulse" inactiveIcon="pulse-outline" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
