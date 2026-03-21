@@ -37,6 +37,7 @@ Current screens are functional but visually dense and inconsistent with the requ
 - 2026-03-21: Implement airy styling as compositional wrappers plus local class/style changes to avoid broad token churn.
 - 2026-03-21: Shift mobile typography to Apple system typography on iOS (San Francisco rendering via system font) and reduce oversized display text to the repo's iOS-native scale.
 - 2026-03-21: Refine the main mobile tabs toward Rainbow Wallet's visual language using SF-style system typography, pastel atmospheric backdrops, white frosted cards, compact circular action buttons, and token-list hierarchy.
+- 2026-03-21: Treat `Board` tab text rendering as the working reference path because it uses direct `react-native` `Text`, then bring the shared `@/components/Text` wrapper into NativeWind interop so class-based font and color styling works consistently across the main app.
 
 ## Progress Log
 
@@ -58,6 +59,10 @@ Current screens are functional but visually dense and inconsistent with the requ
 - 2026-03-21: Replaced Space Grotesk-driven mobile typography with system typography, updated shared text sizing tokens, and reduced oversized headings/buttons across onboarding and core tabs.
 - 2026-03-21: Restyled the tab shell, home, portfolio, board, settings, and agent detail routes to follow a Rainbow-inspired wallet composition while keeping Finly's product structure.
 - 2026-03-21: Reworked onboarding step 1 (`ThemeShowcaseScreen`) to match the live dashboard/tabs visual system with a wallet-style hero card, SF-scale typography, blue selection pills, and grouped white surfaces.
+- 2026-03-21: Fixed the shared `Text` wrapper by adding NativeWind `cssInterop` so `className` styles render correctly outside the `Board` screen; refreshed core tab colors toward the Rainbow reference palette while keeping layout and data unchanged.
+- 2026-03-21: Expanded the `home` tab's "Your Team" section from a two-column card grid to full-width stacked cards with stronger hierarchy, larger message text, and clearer metadata for easier mobile scanning.
+- 2026-03-21: Pulled the `home` tab's "Your Team" module out of the main portfolio container into an absolute full-width bottom sheet with a pull-up/full-screen expanded state and independent agent-list scrolling.
+- 2026-03-21: Replaced the static team-sheet toggle with a draggable snap header and added elevated shadow styling so the sheet reads and behaves like a floating layer.
 
 ## Verification
 
@@ -72,8 +77,12 @@ Current screens are functional but visually dense and inconsistent with the requ
   - `pnpm -C apps/mobile exec eslint app/(tabs)/_layout.tsx app/(tabs)/home.tsx app/(tabs)/portfolio.tsx app/(tabs)/board.tsx app/(tabs)/settings.tsx app/agent/[id].tsx src/components/IosHeader.tsx`
   - `pnpm -C apps/mobile exec eslint src/screens/ThemeShowcaseScreen.tsx`
   - `pnpm -C apps/mobile run compile`
-  - `python3 scripts/check_harness_readiness.py`
+  - `pnpm -C apps/mobile exec eslint --fix src/components/Text.tsx app/(tabs)/board.tsx app/(tabs)/portfolio.tsx app/(tabs)/home.tsx app/(tabs)/settings.tsx src/components/IosHeader.tsx app/(tabs)/_layout.tsx src/theme/colors.ts src/theme/typography.ts`
+  - `pnpm -C apps/mobile exec eslint src/components/Text.tsx app/(tabs)/board.tsx app/(tabs)/portfolio.tsx app/(tabs)/home.tsx app/(tabs)/settings.tsx src/components/IosHeader.tsx app/(tabs)/_layout.tsx src/theme/colors.ts src/theme/typography.ts`
+  - `pnpm -C apps/mobile exec eslint app/(tabs)/home.tsx`
+- `python3 scripts/check_harness_readiness.py`
 - Manual checks:
   - Confirmed onboarding flow navigation targets remained unchanged (`/onboarding/step-3/*`, `/onboarding/step-4`, `/dashboard`).
 - Remaining risk:
   - Visual parity with the exact reference may still need final device-level tuning (font rendering and spacing on smaller phones).
+  - Repo-wide TypeScript compile still has pre-existing failures outside this change (`src/config/index.ts`, `src/screens/DashboardScreen.tsx`, `src/utils/playAudio.ts`), so this pass validates the affected UI files with eslint rather than a clean global compile.

@@ -1,10 +1,9 @@
 /* eslint-disable no-restricted-imports */
 import { useMemo, useState } from "react"
-import { Pressable, ScrollView, View } from "react-native"
+import { Pressable, ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { IosHeader } from "@/components/IosHeader"
-import { Text } from "@/components/Text"
 import { TickerLogo } from "@/components/TickerLogo"
 import { useMarketData } from "@/services/marketData"
 import { holdings, portfolioSnapshot } from "@/utils/mockAppData"
@@ -70,24 +69,24 @@ export default function PortfolioTab() {
   }, [enrichedHoldings, sortBy])
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-[#FBFCFF]">
       <ScrollView className="flex-1" contentContainerStyle={$scrollContent}>
-        <IosHeader title="Portfolio" titleClassName="text-[24px] leading-[28px]" />
+        <IosHeader title="Portfolio" titleClassName="text-[20px] leading-[24px]" />
 
         <View className="px-4">
-          <View className="rounded-[30px] border border-[#F1F2F6] bg-white p-5">
-            <Text className="text-[13px] font-semibold tracking-[1.2px] text-[#8E8E93]">
+          <View className="rounded-[30px] border border-[#EEF2F7] bg-white p-5">
+            <Text className="font-sans text-[13px] font-semibold tracking-[1.2px] text-[#7A8699]">
               TOTAL VALUE
             </Text>
-            <Text className="mt-2 text-[34px] font-semibold leading-[40px] text-[#111111]">
+            <Text className="mt-2 font-sans text-[34px] font-semibold leading-[40px] tracking-[-0.8px] text-[#0F1728]">
               {money(totalValueUsd || portfolioSnapshot.totalValueUsd)}
             </Text>
             <View className="mt-2 flex-row items-center justify-between">
-              <Text className="text-[17px] font-semibold text-[#34C759]">
+              <Text className="font-sans text-[17px] font-semibold text-[#22B45A]">
                 {dailyChangePct >= 0 ? "+" : ""}
                 {dailyChangePct.toFixed(2)}% today
               </Text>
-              <Text className="text-[15px] text-[#8E8E93]">
+              <Text className="font-sans text-[15px] text-[#7A8699]">
                 Invested {money(portfolioSnapshot.investedUsd)}
               </Text>
             </View>
@@ -99,10 +98,10 @@ export default function PortfolioTab() {
             </View>
           </View>
 
-          <View className="mt-4 rounded-[30px] border border-[#F1F2F6] bg-white p-4">
+          <View className="mt-4 rounded-[30px] border border-[#EEF2F7] bg-white p-4">
             <View className="flex-row items-center justify-between">
-              <Text className="text-[24px] font-semibold text-[#111111]">Holdings</Text>
-              <Text className="text-[14px] text-[#8E8E93]">
+              <Text className="font-sans text-[24px] font-semibold text-[#0F1728]">Holdings</Text>
+              <Text className="font-sans text-[14px] text-[#7A8699]">
                 Sorted by {sortLabels[sortBy].toLowerCase()}
               </Text>
             </View>
@@ -115,13 +114,12 @@ export default function PortfolioTab() {
                   <Pressable
                     key={key}
                     className={`rounded-full border px-4 py-2 ${
-                      isActive ? "border-[#111111] bg-[#111111]" : "border-[#E6E9F2] bg-[#F8F9FC]"
+                      isActive ? "border-[#2453FF] bg-[#2453FF]" : "border-[#E6EAF2] bg-[#F6F8FF]"
                     }`}
                     onPress={() => setSortBy(key)}
                   >
                     <Text
-                      className={`text-[13px] ${isActive ? "text-white" : "text-[#6B7280]"}`}
-                      weight="medium"
+                      className={`font-sans text-[13px] ${isActive ? "text-white" : "text-[#6B7586]"}`}
                     >
                       {label}
                     </Text>
@@ -131,23 +129,23 @@ export default function PortfolioTab() {
             </View>
 
             {sortedHoldings.map((holding) => (
-              <View key={holding.ticker} className="border-b border-[#ECEEF4] py-4 last:border-b-0">
+              <View key={holding.ticker} className="border-b border-[#EEF2F7] py-4 last:border-b-0">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center">
                     <TickerLogo ticker={holding.ticker} logoUri={holding.logoUri} />
                     <View className="ml-3">
-                      <Text className="text-[20px] font-semibold text-[#111111]">
+                      <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
                         {holding.ticker}
                       </Text>
-                      <Text className="text-[15px] text-[#8E8E93]">{holding.name}</Text>
+                      <Text className="font-sans text-[15px] text-[#7A8699]">{holding.name}</Text>
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="text-[20px] font-semibold text-[#111111]">
+                    <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
                       {money(holding.valueUsd)}
                     </Text>
                     <Text
-                      className={`text-[15px] ${holding.changePercent >= 0 ? "text-[#34C759]" : "text-[#EF4444]"}`}
+                      className={`font-sans text-[15px] ${holding.changePercent >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
                     >
                       {holding.changePercent >= 0 ? "+" : ""}
                       {holding.changePercent}%
@@ -155,8 +153,10 @@ export default function PortfolioTab() {
                   </View>
                 </View>
                 <View className="mt-2 flex-row items-center justify-between">
-                  <Text className="text-[13px] text-[#8E8E93]">{holding.shares} shares</Text>
-                  <Text className="text-[13px] text-[#8E8E93]">
+                  <Text className="font-sans text-[13px] text-[#7A8699]">
+                    {holding.shares} shares
+                  </Text>
+                  <Text className="font-sans text-[13px] text-[#7A8699]">
                     Allocation {holding.allocationPercent}%
                   </Text>
                 </View>
@@ -171,10 +171,8 @@ export default function PortfolioTab() {
 
 function Tag({ label }: { label: string }) {
   return (
-    <View className="rounded-full bg-[#F3F5FA] px-3 py-2">
-      <Text className="text-[13px] text-[#6B7280]" weight="medium">
-        {label}
-      </Text>
+    <View className="rounded-full bg-[#F3F6FC] px-3 py-2">
+      <Text className="font-sans text-[13px] text-[#6B7586]">{label}</Text>
     </View>
   )
 }

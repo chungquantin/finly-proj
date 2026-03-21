@@ -37,17 +37,17 @@ export default function SettingsTab() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-[#FBFCFF]">
       <ScrollView className="flex-1" contentContainerStyle={$scrollContent}>
         <IosHeader title="Investor Profile" leftLabel="‹" rightLabel="" />
 
         <View className="px-4">
           <SectionCard>
-            <Text className="text-[22px] font-semibold text-[#111111]">Name</Text>
+            <Text className="font-sans text-[22px] font-semibold text-[#0F1728]">Name</Text>
             <TextInput
-              className="mt-3 rounded-[20px] border border-[#E7EAF2] bg-[#F8F9FC] px-4 py-3 text-[15px] text-[#111111]"
+              className="mt-3 rounded-[20px] border border-[#E7EAF2] bg-[#F6F8FF] px-4 py-3 text-[15px] text-[#0F1728]"
               placeholder="Enter your name"
-              placeholderTextColor="#A1A1AA"
+              placeholderTextColor="#98A1B2"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -56,7 +56,7 @@ export default function SettingsTab() {
           </SectionCard>
 
           <SectionCard className="mt-4">
-            <Text className="text-[22px] font-semibold text-[#111111]">Risk Profile</Text>
+            <Text className="font-sans text-[22px] font-semibold text-[#0F1728]">Risk Profile</Text>
             <View className="mt-3 flex-row gap-2">
               {riskLevels.map((risk) => (
                 <Chip
@@ -70,7 +70,9 @@ export default function SettingsTab() {
           </SectionCard>
 
           <SectionCard className="mt-4">
-            <Text className="text-[22px] font-semibold text-[#111111]">Investment Horizon</Text>
+            <Text className="font-sans text-[22px] font-semibold text-[#0F1728]">
+              Investment Horizon
+            </Text>
             <View className="mt-3 flex-row gap-2">
               {horizons.map((horizon) => (
                 <Chip
@@ -84,7 +86,9 @@ export default function SettingsTab() {
           </SectionCard>
 
           <SectionCard className="mt-4">
-            <Text className="text-[22px] font-semibold text-[#111111]">Financial Knowledge</Text>
+            <Text className="font-sans text-[22px] font-semibold text-[#0F1728]">
+              Financial Knowledge
+            </Text>
             <View className="mt-3 flex-row gap-2">
               {knowledgeLevels.map((level) => (
                 <Chip
@@ -98,11 +102,13 @@ export default function SettingsTab() {
           </SectionCard>
 
           <SectionCard className="mt-4">
-            <Text className="text-[15px] font-semibold text-[#8E8E93]">Wallet Address</Text>
+            <Text className="font-sans text-[15px] font-semibold text-[#7A8699]">
+              Wallet Address
+            </Text>
             <TextInput
-              className="mt-3 rounded-[20px] border border-[#E7EAF2] bg-[#F8F9FC] px-4 py-3 text-[15px] text-[#111111]"
+              className="mt-3 rounded-[20px] border border-[#E7EAF2] bg-[#F6F8FF] px-4 py-3 text-[15px] text-[#0F1728]"
               placeholder="0x..."
-              placeholderTextColor="#A1A1AA"
+              placeholderTextColor="#98A1B2"
               value={walletAddress}
               onChangeText={setWalletAddress}
               autoCapitalize="none"
@@ -113,7 +119,9 @@ export default function SettingsTab() {
             className="mt-5 h-14 items-center justify-center rounded-[22px] bg-[#FF3B30]"
             onPress={restartOnboarding}
           >
-            <Text className="text-[17px] font-semibold text-white">Reset & Restart Onboarding</Text>
+            <Text className="font-sans text-[17px] font-semibold text-white">
+              Reset & Restart Onboarding
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -123,7 +131,7 @@ export default function SettingsTab() {
 
 function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <View className={`rounded-[28px] border border-[#F1F2F6] bg-white p-4 ${className ?? ""}`}>
+    <View className={`rounded-[28px] border border-[#EEF2F7] bg-white p-4 ${className ?? ""}`}>
       {children}
     </View>
   )
@@ -140,10 +148,12 @@ function Chip({
 }) {
   return (
     <Pressable
-      className={`rounded-full px-4 py-2.5 ${selected ? "bg-[#2453FF]" : "bg-[#F1F3F8]"}`}
+      className={`rounded-full px-4 py-2.5 ${selected ? "bg-[#2453FF]" : "bg-[#F3F6FC]"}`}
       onPress={onPress}
     >
-      <Text className={`text-[15px] ${selected ? "text-white" : "text-[#6B7280]"}`}>{label}</Text>
+      <Text className={`font-sans text-[15px] ${selected ? "text-white" : "text-[#6B7586]"}`}>
+        {label}
+      </Text>
     </Pressable>
   )
 }

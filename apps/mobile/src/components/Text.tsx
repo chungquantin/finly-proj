@@ -3,6 +3,7 @@ import { ReactNode, forwardRef, ForwardedRef } from "react"
 import * as ReactNative from "react-native"
 import { StyleProp, TextProps as RNTextProps, TextStyle } from "react-native"
 import { TOptions } from "i18next"
+import { cssInterop } from "nativewind"
 
 import { isRTL, TxKeyPath } from "@/i18n"
 import { translate } from "@/i18n/translate"
@@ -57,37 +58,37 @@ export interface TextProps extends RNTextProps {
  * @param {TextProps} props - The props for the `Text` component.
  * @returns {JSX.Element} The rendered `Text` component.
  */
-export const Text = forwardRef(function Text(
-  props: TextProps,
-  ref: ForwardedRef<ReactNative.Text>,
-) {
-  const { weight, size, tx, txOptions, text, children, style: $styleOverride, ...rest } = props
-  const { themed } = useAppTheme()
+export const Text = cssInterop(
+  forwardRef(function Text(props: TextProps, ref: ForwardedRef<ReactNative.Text>) {
+    const { weight, size, tx, txOptions, text, children, style: $styleOverride, ...rest } = props
+    const { themed } = useAppTheme()
 
-  const i18nText = tx && translate(tx, txOptions)
-  const content = i18nText || text || children
+    const i18nText = tx && translate(tx, txOptions)
+    const content = i18nText || text || children
 
-  const preset: Presets = props.preset ?? "default"
-  const $styles: StyleProp<TextStyle> = [
-    $rtlStyle,
-    themed($presets[preset]),
-    weight && $fontWeightStyles[weight],
-    size && $sizeStyles[size],
-    $styleOverride,
-  ]
+    const preset: Presets = props.preset ?? "default"
+    const $styles: StyleProp<TextStyle> = [
+      $rtlStyle,
+      themed($presets[preset]),
+      weight && $fontWeightStyles[weight],
+      size && $sizeStyles[size],
+      $styleOverride,
+    ]
 
-  return (
-    <ReactNative.Text {...rest} style={$styles} ref={ref}>
-      {content}
-    </ReactNative.Text>
-  )
-})
+    return (
+      <ReactNative.Text {...rest} style={$styles} ref={ref}>
+        {content}
+      </ReactNative.Text>
+    )
+  }),
+  { className: "style" },
+)
 
 const $sizeStyles = {
-  xxl: { fontSize: 34, lineHeight: 41 } satisfies TextStyle,
-  xl: { fontSize: 28, lineHeight: 34 } satisfies TextStyle,
-  lg: { fontSize: 24, lineHeight: 30 } satisfies TextStyle,
-  md: { fontSize: 17, lineHeight: 22 } satisfies TextStyle,
+  xxl: { fontSize: 32, lineHeight: 38, letterSpacing: -0.6 } satisfies TextStyle,
+  xl: { fontSize: 27, lineHeight: 33, letterSpacing: -0.45 } satisfies TextStyle,
+  lg: { fontSize: 22, lineHeight: 28, letterSpacing: -0.3 } satisfies TextStyle,
+  md: { fontSize: 17, lineHeight: 22, letterSpacing: -0.15 } satisfies TextStyle,
   sm: { fontSize: 15, lineHeight: 20 } satisfies TextStyle,
   xs: { fontSize: 13, lineHeight: 18 } satisfies TextStyle,
   xxs: { fontSize: 11, lineHeight: 14 } satisfies TextStyle,

@@ -6,10 +6,10 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["System"],
-        medium: ["System"],
-        semi: ["System"],
-        bold: ["System"],
+        sans: ["Nunito_400Regular"],
+        medium: ["Nunito_500Medium"],
+        semi: ["Nunito_600SemiBold"],
+        bold: ["Nunito_700Bold"],
       },
       colors: {
         background: "#F9F9F9",

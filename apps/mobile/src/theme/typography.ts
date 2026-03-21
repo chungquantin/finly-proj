@@ -1,19 +1,25 @@
 import { Platform } from "react-native"
+import {
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+} from "@expo-google-fonts/nunito"
 
-export const customFontsToLoad = {}
+export const customFontsToLoad = {
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+}
 
 const fonts = {
-  systemSans: {
-    // Use the platform system sans family so native and web stay visually aligned.
-    light: Platform.select({ ios: "System", android: "sans-serif-light", web: "system-ui" })!,
-    normal: Platform.select({ ios: "System", android: "sans-serif", web: "system-ui" })!,
-    medium: Platform.select({ ios: "System", android: "sans-serif-medium", web: "system-ui" })!,
-    semiBold: Platform.select({
-      ios: "System",
-      android: "sans-serif-medium",
-      web: "system-ui",
-    })!,
-    bold: Platform.select({ ios: "System", android: "sans-serif", web: "system-ui" })!,
+  nunito: {
+    light: "Nunito_400Regular",
+    normal: "Nunito_400Regular",
+    medium: "Nunito_500Medium",
+    semiBold: "Nunito_600SemiBold",
+    bold: "Nunito_700Bold",
   },
   helveticaNeue: {
     // iOS only font.
@@ -47,11 +53,11 @@ export const typography = {
   /**
    * The primary font. Used in most places.
    */
-  primary: fonts.systemSans,
+  primary: fonts.nunito,
   /**
    * An alternate font used for perhaps titles and stuff.
    */
-  secondary: Platform.select({ ios: fonts.helveticaNeue, android: fonts.sansSerif }),
+  secondary: Platform.select({ ios: fonts.nunito, android: fonts.nunito, web: fonts.nunito }),
   /**
    * Lets get fancy with a monospace font!
    */

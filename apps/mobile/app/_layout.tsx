@@ -1,3 +1,6 @@
+import "react-native-reanimated"
+import "@/utils/gestureHandler"
+
 import { useEffect, useState } from "react"
 import { useFonts } from "expo-font"
 import { Slot, SplashScreen } from "expo-router"

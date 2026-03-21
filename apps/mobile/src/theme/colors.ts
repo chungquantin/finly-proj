@@ -1,45 +1,45 @@
 const palette = {
   neutral100: "#FFFFFF",
-  neutral200: "#F9F9F9",
-  neutral300: "#E5E7EB",
-  neutral400: "#D1D5DB",
-  neutral500: "#9CA3AF",
-  neutral600: "#666666",
-  neutral700: "#374151",
-  neutral800: "#191015",
-  neutral900: "#000000",
+  neutral200: "#F7F9FC",
+  neutral300: "#EEF2F7",
+  neutral400: "#DCE3EE",
+  neutral500: "#A3ACBB",
+  neutral600: "#72809A",
+  neutral700: "#445065",
+  neutral800: "#182033",
+  neutral900: "#0D1324",
 
-  primary100: "#F3E8FF",
-  primary200: "#E9D5FF",
-  primary300: "#D8B4FE",
-  primary400: "#C084FC",
-  primary500: "#A855F7",
-  primary600: "#9333EA",
+  primary100: "#EEF3FF",
+  primary200: "#DDE7FF",
+  primary300: "#BCD0FF",
+  primary400: "#7A9DFF",
+  primary500: "#2453FF",
+  primary600: "#1537CC",
 
-  secondary100: "#DBEAFE",
-  secondary200: "#BFDBFE",
-  secondary300: "#93C5FD",
-  secondary400: "#60A5FA",
-  secondary500: "#3B82F6",
+  secondary100: "#F3F6FF",
+  secondary200: "#E5ECFF",
+  secondary300: "#CEDBFF",
+  secondary400: "#9DB5FF",
+  secondary500: "#4C72FF",
 
-  accent100: "#FEF3C7",
-  accent200: "#FDE68A",
-  accent300: "#FCD34D",
-  accent400: "#FFD233",
-  accent500: "#F59E0B",
+  accent100: "#FFF4E8",
+  accent200: "#FFE4BF",
+  accent300: "#FFC978",
+  accent400: "#FFAE42",
+  accent500: "#F58A24",
 
-  success100: "#DCFCE7",
-  success500: "#4ADE80",
+  success100: "#EAFBF1",
+  success500: "#22B45A",
 
-  angry100: "#FEE2E2",
-  angry500: "#C03403",
+  angry100: "#FFECEC",
+  angry500: "#F04438",
 
-  pastelPink: "#FFCFE1",
-  pastelBlue: "#DBEAFE",
-  pastelWarm: "#FEF3C7",
+  pastelPink: "#FFE6EF",
+  pastelBlue: "#EEF3FF",
+  pastelWarm: "#FFF4E8",
 
-  overlay20: "rgba(25, 16, 21, 0.2)",
-  overlay50: "rgba(25, 16, 21, 0.5)",
+  overlay20: "rgba(13, 19, 36, 0.2)",
+  overlay50: "rgba(13, 19, 36, 0.5)",
 } as const
 
 export const colors = {
@@ -56,15 +56,15 @@ export const colors = {
   /**
    * The default text color in many components.
    */
-  text: palette.neutral800,
+  text: palette.neutral900,
   /**
    * Secondary text information.
    */
-  textDim: palette.neutral600,
+  textDim: palette.neutral700,
   /**
    * The default color of the screen background.
    */
-  background: palette.neutral200,
+  background: "#FBFCFF",
   /**
    * Main elevated surface for cards and sheets.
    */
@@ -78,7 +78,7 @@ export const colors = {
   /**
    * The default border color.
    */
-  border: palette.neutral400,
+  border: palette.neutral300,
   /**
    * The main tinting color.
    */
@@ -86,7 +86,7 @@ export const colors = {
   /**
    * The inactive tinting color.
    */
-  tintInactive: palette.neutral300,
+  tintInactive: palette.neutral400,
   /**
    * A subtle color used for lines.
    */

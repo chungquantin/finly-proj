@@ -3,6 +3,12 @@ import { View } from "react-native"
 import { Tabs } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 
+const ACTIVE_BLUE = "#2453FF"
+const INACTIVE_SURFACE = "#F3F6FC"
+const INACTIVE_ICON = "#7A8699"
+const LABEL_INACTIVE = "#6B7586"
+const LABEL_ACTIVE = "#0F1728"
+
 type TabIconProps = {
   focused: boolean
   activeIcon: keyof typeof Ionicons.glyphMap
@@ -13,8 +19,11 @@ function TabIcon({ focused, activeIcon, inactiveIcon }: TabIconProps) {
   const iconName = focused ? activeIcon : (inactiveIcon ?? activeIcon)
 
   return (
-    <View className={`rounded-full p-2.5 ${focused ? "bg-[#2453FF]" : "bg-[#F1F2F7]"}`}>
-      <Ionicons name={iconName} size={18} color={focused ? "#FFFFFF" : "#8E8E93"} />
+    <View
+      className="rounded-full p-2.5"
+      style={{ backgroundColor: focused ? ACTIVE_BLUE : INACTIVE_SURFACE }}
+    >
+      <Ionicons name={iconName} size={18} color={focused ? "#FFFFFF" : INACTIVE_ICON} />
     </View>
   )
 }
@@ -24,8 +33,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#111111",
-        tabBarInactiveTintColor: "#8E8E93",
+        tabBarActiveTintColor: LABEL_ACTIVE,
+        tabBarInactiveTintColor: LABEL_INACTIVE,
         tabBarStyle: {
           position: "absolute",
           left: 22,
@@ -34,15 +43,15 @@ export default function TabsLayout() {
           height: 88,
           borderTopWidth: 0,
           borderRadius: 30,
-          backgroundColor: "rgba(255,255,255,0.88)",
+          backgroundColor: "rgba(255,255,255,0.94)",
           borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.72)",
+          borderColor: "#EEF2F7",
           paddingTop: 10,
           paddingBottom: 16,
-          shadowColor: "#111111",
+          shadowColor: "#0F1728",
           shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.08,
-          shadowRadius: 24,
+          shadowOpacity: 0.06,
+          shadowRadius: 30,
           elevation: 10,
         },
         tabBarLabelStyle: {
