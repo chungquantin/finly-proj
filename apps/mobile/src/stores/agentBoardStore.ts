@@ -4,6 +4,7 @@ import { resolveScopedFinlyUserId } from "@/services/agentUser"
 import { api } from "@/services/api"
 import type {
   AgentPanelMessage,
+  IntakeStreamEvent,
   PanelHistoryMessage,
   PanelChatStreamEvent,
   ReportListItem,
@@ -11,7 +12,6 @@ import type {
 } from "@/services/api/types"
 import { useOnboardingStore } from "@/stores/onboardingStore"
 import { DEFAULT_STOCK_ACCOUNT_ID } from "@/utils/mockStockAccounts"
-import { playBase64Audio } from "@/utils/playAudio"
 import { loadString, saveString } from "@/utils/storage"
 
 type ThreadStage = "intake" | "report_loading" | "report_ready" | "error"
@@ -371,12 +371,88 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
       // New thread should start a fresh intake flow for this scoped user.
       await api.intakeReset(userId)
 
-      const result = await api.intake({
-        user_id: userId,
-        message: prompt,
+      const assistantMessageId = makeId("intake_stream")
+      let finalIntake: {
+        is_complete: boolean
+        follow_up_count: number
+        goals_brief: string | null
+        message: string
+      } | null = null
+      let intakeError: string | null = null
+
+      const result = await api.intakeStream({ user_id: userId, message: prompt }, (event) => {
+        const intakeEvent = event as IntakeStreamEvent
+        if (intakeEvent.type === "error") {
+          intakeError = "Unable to reach Finly intake. Please try again."
+          return
+        }
+        if (intakeEvent.type === "started") {
+          set((state) => ({
+            threads: state.threads.map((item) =>
+              item.id === threadId
+                ? {
+                    ...item,
+                    messages: [
+                      ...item.messages,
+                      {
+                        id: assistantMessageId,
+                        role: "assistant",
+                        author: ADVISOR_AUTHOR,
+                        content: "",
+                        kind: "intake",
+                        createdAt: nowIso(),
+                        agentRole: "advisor",
+                      },
+                    ],
+                  }
+                : item,
+            ),
+          }))
+          return
+        }
+        if (intakeEvent.type === "delta") {
+          const delta = intakeEvent.delta ?? ""
+          if (!delta) return
+          set((state) => ({
+            threads: state.threads.map((item) => {
+              if (item.id !== threadId) return item
+              return {
+                ...item,
+                messages: item.messages.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        content: `${msg.content}${delta}`,
+                      }
+                    : msg,
+                ),
+              }
+            }),
+          }))
+          return
+        }
+        if (intakeEvent.type === "done" && intakeEvent.result) {
+          finalIntake = intakeEvent.result
+          set((state) => ({
+            threads: state.threads.map((item) => {
+              if (item.id !== threadId) return item
+              return {
+                ...item,
+                messages: item.messages.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        content: intakeEvent.result?.message || msg.content,
+                      }
+                    : msg,
+                ),
+              }
+            }),
+          }))
+        }
       })
 
-      if (result.kind !== "ok") {
+      if (result.kind !== "ok" || intakeError || !finalIntake) {
         set((state) => ({
           threads: state.threads.map((item) =>
             item.id === threadId
@@ -384,7 +460,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
                   ...item,
                   stage: "error",
                   isBusy: false,
-                  lastError: "Unable to reach Finly intake. Please try again.",
+                  lastError: intakeError || "Unable to reach Finly intake. Please try again.",
                 }
               : item,
           ),
@@ -392,43 +468,28 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
         return
       }
 
-      if (result.data.audio_b64) {
-        void playBase64Audio(result.data.audio_b64)
-      }
-
-      const assistantMessage = createMessage(
-        "assistant",
-        ADVISOR_AUTHOR,
-        result.data.message,
-        "intake",
-        {
-          agentRole: "advisor",
-        },
-      )
-
       set((state) => ({
         threads: state.threads.map((item) => {
           if (item.id !== threadId) return item
           const nextThread: AgentThread = {
             ...item,
-            messages: [...item.messages, assistantMessage],
-            followUpCount: result.data.follow_up_count,
+            followUpCount: finalIntake.follow_up_count,
             updatedAt: nowIso(),
-            summary: result.data.goals_brief || result.data.message,
-            stage: result.data.is_complete ? "report_loading" : "intake",
-            isBusy: result.data.is_complete,
+            summary: finalIntake.goals_brief || finalIntake.message,
+            stage: finalIntake.is_complete ? "report_loading" : "intake",
+            isBusy: finalIntake.is_complete,
             lastError: undefined,
           }
           return nextThread
         }),
       }))
 
-      if (!result.data.is_complete) return
+      if (!finalIntake.is_complete) return
 
       const reportTicker = extractTickerCandidate(
         prompt,
-        result.data.goals_brief ?? "",
-        result.data.message ?? "",
+        finalIntake.goals_brief ?? "",
+        finalIntake.message ?? "",
       )
       const reportResult = await api.generateReport(
         reportTicker
@@ -488,12 +549,94 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
     }))
 
     if (existing.stage === "intake") {
-      const intakeResult = await api.intake({
-        user_id: existing.userId,
-        message: prompt,
-      })
+      const assistantMessageId = makeId("intake_stream")
+      let finalIntake: {
+        is_complete: boolean
+        follow_up_count: number
+        goals_brief: string | null
+        message: string
+      } | null = null
+      let intakeError: string | null = null
 
-      if (intakeResult.kind !== "ok") {
+      const intakeResult = await api.intakeStream(
+        {
+          user_id: existing.userId,
+          message: prompt,
+        },
+        (event) => {
+          const intakeEvent = event as IntakeStreamEvent
+          if (intakeEvent.type === "error") {
+            intakeError = "Unable to continue intake right now."
+            return
+          }
+          if (intakeEvent.type === "started") {
+            set((state) => ({
+              threads: state.threads.map((thread) =>
+                thread.id === threadId
+                  ? {
+                      ...thread,
+                      messages: [
+                        ...thread.messages,
+                        {
+                          id: assistantMessageId,
+                          role: "assistant",
+                          author: ADVISOR_AUTHOR,
+                          content: "",
+                          kind: "intake",
+                          createdAt: nowIso(),
+                          agentRole: "advisor",
+                        },
+                      ],
+                    }
+                  : thread,
+              ),
+            }))
+            return
+          }
+          if (intakeEvent.type === "delta") {
+            const delta = intakeEvent.delta ?? ""
+            if (!delta) return
+            set((state) => ({
+              threads: state.threads.map((thread) => {
+                if (thread.id !== threadId) return thread
+                return {
+                  ...thread,
+                  messages: thread.messages.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? {
+                          ...msg,
+                          content: `${msg.content}${delta}`,
+                        }
+                      : msg,
+                  ),
+                }
+              }),
+            }))
+            return
+          }
+          if (intakeEvent.type === "done" && intakeEvent.result) {
+            finalIntake = intakeEvent.result
+            set((state) => ({
+              threads: state.threads.map((thread) => {
+                if (thread.id !== threadId) return thread
+                return {
+                  ...thread,
+                  messages: thread.messages.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? {
+                          ...msg,
+                          content: intakeEvent.result?.message || msg.content,
+                        }
+                      : msg,
+                  ),
+                }
+              }),
+            }))
+          }
+        },
+      )
+
+      if (intakeResult.kind !== "ok" || intakeError || !finalIntake) {
         set((state) => ({
           threads: state.threads.map((thread) =>
             thread.id === threadId
@@ -501,7 +644,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
                   ...thread,
                   stage: "error",
                   isBusy: false,
-                  lastError: "Unable to continue intake right now.",
+                  lastError: intakeError || "Unable to continue intake right now.",
                 }
               : thread,
           ),
@@ -509,41 +652,28 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
         return
       }
 
-      if (intakeResult.data.audio_b64) {
-        void playBase64Audio(intakeResult.data.audio_b64)
-      }
-
-      const assistantMessage = createMessage(
-        "assistant",
-        ADVISOR_AUTHOR,
-        intakeResult.data.message,
-        "intake",
-        { agentRole: "advisor" },
-      )
-
       set((state) => ({
         threads: state.threads.map((thread) => {
           if (thread.id !== threadId) return thread
           return {
             ...thread,
-            messages: [...thread.messages, assistantMessage],
-            followUpCount: intakeResult.data.follow_up_count,
-            summary: intakeResult.data.goals_brief || intakeResult.data.message,
-            intake: intakeResult.data.goals_brief || thread.intake,
-            stage: intakeResult.data.is_complete ? "report_loading" : "intake",
-            isBusy: intakeResult.data.is_complete,
+            followUpCount: finalIntake.follow_up_count,
+            summary: finalIntake.goals_brief || finalIntake.message,
+            intake: finalIntake.goals_brief || thread.intake,
+            stage: finalIntake.is_complete ? "report_loading" : "intake",
+            isBusy: finalIntake.is_complete,
             lastError: undefined,
             updatedAt: nowIso(),
           }
         }),
       }))
 
-      if (!intakeResult.data.is_complete) return
+      if (!finalIntake.is_complete) return
 
       const reportTicker = extractTickerCandidate(
         existing.ticker !== "BOARD" ? existing.ticker : "",
         prompt,
-        intakeResult.data.goals_brief ?? "",
+        finalIntake.goals_brief ?? "",
         existing.intake,
       )
       const reportResult = await api.generateReport(

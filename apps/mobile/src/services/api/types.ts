@@ -111,6 +111,13 @@ export interface IntakeResponse {
   audio_b64?: string | null
 }
 
+export interface IntakeStreamEvent {
+  type: "started" | "delta" | "done" | "error"
+  delta?: string
+  result?: IntakeResponse
+  message?: string
+}
+
 // ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------

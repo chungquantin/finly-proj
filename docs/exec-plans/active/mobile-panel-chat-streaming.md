@@ -44,6 +44,7 @@ The current `/api/report/chat` flow blocks until all specialist responses comple
 - 2026-03-21: Added backend proxy endpoint `/api/report/chat/stream` with SSE chunk events, panel-conversation persistence, and post-stream memory extraction.
 - 2026-03-21: Added mobile API streaming client (`panelChatStream`) and store wiring to render specialist chat bubbles incrementally.
 - 2026-03-21: Switched agent-server stream to emit live token deltas per specialist and updated backend proxy to pass through those deltas.
+- 2026-03-21: Added intake streaming endpoint `/api/intake/stream` and mobile intake stream wiring so advisor intake messages render token-by-token in thread chat.
 
 ## Verification
 
@@ -52,6 +53,7 @@ The current `/api/report/chat` flow blocks until all specialist responses comple
   - `pnpm -C apps/mobile exec prettier --write 'src/services/api/index.ts' 'src/stores/agentBoardStore.ts'`
   - `pnpm -C apps/mobile exec eslint 'src/services/api/index.ts' 'src/services/api/types.ts' 'src/stores/agentBoardStore.ts'`
   - `python3 scripts/check_harness_readiness.py`
+  - `python3 -m py_compile apps/backend/src/finly_backend/intake.py apps/backend/src/finly_backend/server.py`
 - Manual checks:
   - Verified streaming event model emits incremental specialist text chunks and final memory updates.
 - Remaining risk:

@@ -12,6 +12,7 @@ import type {
   ChatResponse,
   IntakeRequest,
   IntakeResponse,
+  IntakeStreamEvent,
   MarketHistoryBatchResponse,
   MarketDataQuote,
   OnboardingRequest,
@@ -257,6 +258,62 @@ export class Api {
       if (problem) return problem
     }
     return { kind: "ok", data: response.data! }
+  }
+
+  async intakeStream(
+    req: IntakeRequest,
+    onEvent: (event: IntakeStreamEvent) => void,
+  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    try {
+      const url = `${this.config.url}/api/intake/stream`
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Accept": "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req),
+      })
+
+      if (!response.ok) return { kind: "bad-data" }
+
+      if (!response.body) {
+        const fallback = await this.intake(req)
+        if (fallback.kind !== "ok") return fallback
+        onEvent({ type: "started" })
+        onEvent({ type: "delta", delta: fallback.data.message })
+        onEvent({ type: "done", result: fallback.data })
+        return { kind: "ok" }
+      }
+
+      const decoder = new TextDecoder()
+      const reader = response.body.getReader()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const raw of lines) {
+          const line = raw.trim()
+          if (!line.startsWith("data:")) continue
+          const payload = line.slice(5).trim()
+          if (!payload || payload === "[DONE]") continue
+          try {
+            onEvent(JSON.parse(payload) as IntakeStreamEvent)
+          } catch {
+            // Ignore malformed SSE payloads.
+          }
+        }
+      }
+
+      return { kind: "ok" }
+    } catch {
+      return { kind: "cannot-connect", temporary: true }
+    }
   }
 
   async intakeReset(userId: string): Promise<{ kind: "ok" } | GeneralApiProblem> {
