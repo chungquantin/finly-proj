@@ -153,23 +153,23 @@ export default function BoardTab() {
           className="border-t border-[#EEF2F7] bg-white px-3 pt-3"
           style={{ paddingBottom: tabBarHeight + 12 }}
         >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Pressable className="mr-3 h-9 w-9 items-center justify-center" hitSlop={8}>
-                <Ionicons name="add-circle" size={26} color="#2453FF" />
+          <View className="flex-row items-center">
+            <View className="mr-3 flex-row items-center">
+              <Pressable className="mr-1 h-9 w-9 items-center justify-center" hitSlop={8}>
+                <Ionicons name="add-circle" size={24} color="#2453FF" />
               </Pressable>
-              <Pressable className="mr-3 h-9 w-9 items-center justify-center" hitSlop={8}>
-                <Ionicons name="camera" size={24} color="#2453FF" />
+              <Pressable className="mr-1 h-9 w-9 items-center justify-center" hitSlop={8}>
+                <Ionicons name="camera" size={22} color="#2453FF" />
               </Pressable>
-              <Pressable className="mr-3 h-9 w-9 items-center justify-center" hitSlop={8}>
-                <Ionicons name="image" size={24} color="#2453FF" />
+              <Pressable className="mr-1 h-9 w-9 items-center justify-center" hitSlop={8}>
+                <Ionicons name="image" size={22} color="#2453FF" />
               </Pressable>
               <Pressable className="h-9 w-9 items-center justify-center" hitSlop={8}>
-                <Ionicons name="mic" size={24} color="#2453FF" />
+                <Ionicons name="mic" size={22} color="#2453FF" />
               </Pressable>
             </View>
 
-            <View className="mx-3 flex-1 flex-row items-center rounded-full bg-[#F5F8FF] px-4 py-2.5">
+            <View className="flex-1 flex-row items-center rounded-full bg-[#F5F8FF] px-4 py-2.5">
               <TextInput
                 editable={false}
                 placeholder="Reply to the board"
@@ -179,8 +179,11 @@ export default function BoardTab() {
               <Ionicons name="happy" size={22} color="#2453FF" />
             </View>
 
-            <Pressable className="h-9 w-9 items-center justify-center" hitSlop={8}>
-              <Ionicons name="send" size={22} color="#2453FF" />
+            <Pressable
+              className="ml-2 h-10 w-10 items-center justify-center rounded-full bg-[#2453FF]"
+              hitSlop={8}
+            >
+              <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
         </View>
