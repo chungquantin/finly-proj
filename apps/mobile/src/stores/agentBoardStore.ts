@@ -4,6 +4,7 @@ import { resolveScopedFinlyUserId } from "@/services/agentUser"
 import { api } from "@/services/api"
 import type {
   AgentPanelMessage,
+  HeartbeatAlert,
   IntakeStreamEvent,
   PanelHistoryMessage,
   PanelChatStreamEvent,
@@ -722,6 +723,27 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
         if (event.type === "memory_updates") {
           latestMemoryUpdates = event.memory_updates ?? []
+          return
+        }
+
+        if (event.type === "heartbeat_alert" && event.alert) {
+          // Show alert as a system message in the thread
+          const alertMsg: AgentThreadMessage = {
+            id: makeId("alert"),
+            role: "system",
+            author: event.alert.attributed_to,
+            content: `🚨 **${event.alert.headline}**\n\n${event.alert.body}`,
+            kind: "panel",
+            createdAt: event.alert.timestamp,
+            agentRole: "system",
+          }
+          set((state) => ({
+            threads: state.threads.map((thread) =>
+              thread.id === threadId
+                ? { ...thread, messages: [...thread.messages, alertMsg] }
+                : thread,
+            ),
+          }))
           return
         }
 

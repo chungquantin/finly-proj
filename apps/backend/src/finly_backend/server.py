@@ -282,6 +282,49 @@ def _parse_target_agents(message: str) -> list[str]:
     return agents if agents else ["advisor"]
 
 
+# Keyword → scenario mapping for simulate command
+_SIMULATE_KEYWORDS: dict[str, str] = {
+    "price drop": "vcb_price_drop",
+    "drop": "vcb_price_drop",
+    "crash": "vcb_price_drop",
+    "earnings": "fpt_earnings_beat",
+    "earnings beat": "fpt_earnings_beat",
+    "dividend": "vnm_dividend",
+    "sector": "hose_sector_move",
+    "banking": "hose_sector_move",
+    "upgrade": "tpb_upgrade",
+    "fed": "global_fed_hold",
+    "rates": "global_fed_hold",
+    "insider": "vcb_insider_buy",
+    "insider buy": "vcb_insider_buy",
+    "contract": "fpt_contract_win",
+    "ai deal": "fpt_contract_win",
+    "oil": "hormuz_closure",
+    "hormuz": "hormuz_closure",
+    "geopolitical": "hormuz_closure",
+    "rsi": "rsi_threshold",
+    "overbought": "rsi_threshold",
+}
+
+
+def _detect_simulate(message: str) -> str | None:
+    """Return a scenario key if the message looks like a simulate command."""
+    lower = message.lower().strip()
+    if "simulate" not in lower:
+        return None
+    # Check for exact scenario key first
+    from finly_backend.heartbeat import SCENARIOS
+    for key in SCENARIOS:
+        if key in lower:
+            return key
+    # Then fuzzy keyword match
+    for keyword, scenario in _SIMULATE_KEYWORDS.items():
+        if keyword in lower:
+            return scenario
+    # Default to a random scenario for bare "simulate"
+    return "vcb_price_drop"
+
+
 def _sse_data(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
@@ -951,6 +994,62 @@ async def report_chat_stream(req: PanelChatRequest):
     """Stream panel-chat specialist responses for progressive UI rendering."""
     from finly_backend.context import build_user_context
     from finly_backend.database import append_conversation, get_conversation_history
+
+    # Check for simulate command first
+    scenario_key = _detect_simulate(req.message)
+    if scenario_key:
+        from finly_backend.heartbeat import trigger_alert, SCENARIOS
+
+        alert = trigger_alert(scenario_key, user_id=req.user_id)
+        scenario = SCENARIOS[scenario_key]
+
+        async def simulate_stream():
+            yield _sse_data({"type": "started"})
+            # Send the alert event so the mobile can show it
+            yield _sse_data({
+                "type": "heartbeat_alert",
+                "alert": {
+                    "alert_id": alert.alert_id,
+                    "timestamp": alert.timestamp,
+                    "ticker": alert.ticker,
+                    "alert_type": alert.alert_type,
+                    "headline": alert.headline,
+                    "body": alert.body,
+                    "attributed_to": alert.attributed_to,
+                    "severity": alert.severity,
+                },
+            })
+            # Also send an advisor message about it
+            advisor_msg = (
+                f"I've just triggered a simulated alert: **{scenario['headline']}**\n\n"
+                f"{scenario['body']}"
+            )
+            advisor_message = {
+                "agent_role": "advisor",
+                "agent_name": "Advisor",
+                "response": advisor_msg,
+            }
+            yield _sse_data({"type": "agent_message_start", "message": advisor_message})
+            for chunk in _split_chunks(advisor_msg, chunk_size=60):
+                yield _sse_data({"type": "agent_message_delta", "message": advisor_message, "delta": chunk})
+            yield _sse_data({"type": "agent_message_done", "message": advisor_message})
+
+            # Record in conversation history
+            append_conversation(
+                req.user_id, "panel", "user", req.message,
+                metadata={"report_id": "simulate"},
+            )
+            append_conversation(
+                req.user_id, "panel", "assistant", advisor_msg,
+                agent_role="advisor",
+                metadata={"report_id": "simulate"},
+            )
+
+            yield _sse_data({"type": "memory_updates", "memory_updates": []})
+            yield _sse_data({"type": "done"})
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(simulate_stream(), media_type="text/event-stream")
 
     report = (
         get_report(req.report_id, user_id=req.user_id)

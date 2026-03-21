@@ -196,11 +196,13 @@ export interface PanelChatStreamEvent {
     | "agent_message_delta"
     | "agent_message_done"
     | "memory_updates"
+    | "heartbeat_alert"
     | "error"
     | "done"
   message?: AgentPanelMessage
   delta?: string
   memory_updates?: string[]
+  alert?: HeartbeatAlert
 }
 
 export interface PanelHistoryMessage {
