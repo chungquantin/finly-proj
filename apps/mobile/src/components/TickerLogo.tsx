@@ -1,8 +1,9 @@
 /* eslint-disable no-restricted-imports */
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Image, View } from "react-native"
 
 import { Text } from "@/components/Text"
+import { getTickerLogoUris } from "@/utils/tickerLogo"
 
 type TickerLogoProps = {
   ticker: string
@@ -21,10 +22,22 @@ function shouldUseDarkBadge(ticker: string, logoUri?: string) {
 }
 
 export function TickerLogo({ ticker, logoUri, size = 48 }: TickerLogoProps) {
+  const candidateUris = useMemo(() => {
+    const fallbackUris = getTickerLogoUris(ticker)
+    if (!logoUri) return fallbackUris
+    return Array.from(new Set([logoUri, ...fallbackUris]))
+  }, [logoUri, ticker])
   const [hasError, setHasError] = useState(false)
-  const useDarkBadge = shouldUseDarkBadge(ticker, logoUri)
+  const [uriIndex, setUriIndex] = useState(0)
+  const activeUri = candidateUris[uriIndex]
+  const useDarkBadge = shouldUseDarkBadge(ticker, activeUri)
   const imageSize = Math.round(size * 0.58)
   const textSize = Math.max(10, Math.round(size * 0.31))
+
+  useEffect(() => {
+    setHasError(false)
+    setUriIndex(0)
+  }, [candidateUris])
 
   const badgeStyle = {
     width: size,
@@ -36,7 +49,7 @@ export function TickerLogo({ ticker, logoUri, size = 48 }: TickerLogoProps) {
     elevation: 3,
   } as const
 
-  if (!logoUri || hasError) {
+  if (!activeUri || hasError) {
     return (
       <View
         className={`items-center justify-center rounded-full border ${useDarkBadge ? "border-[#1F1F22] bg-[#111111]" : "border-[#F3F4F8] bg-white"}`}
@@ -59,10 +72,16 @@ export function TickerLogo({ ticker, logoUri, size = 48 }: TickerLogoProps) {
       style={badgeStyle}
     >
       <Image
-        source={{ uri: logoUri }}
+        source={{ uri: activeUri }}
         style={{ width: imageSize, height: imageSize }}
         resizeMode="contain"
-        onError={() => setHasError(true)}
+        onError={() => {
+          if (uriIndex < candidateUris.length - 1) {
+            setUriIndex((current) => current + 1)
+            return
+          }
+          setHasError(true)
+        }}
       />
     </View>
   )
