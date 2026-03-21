@@ -166,28 +166,13 @@ export default function PortfolioTab() {
             <Text className="font-sans text-[13px] font-semibold tracking-[1.2px] text-[#7A8699]">
               PROFIT / LOSS
             </Text>
-            <Text
-              className={`mt-2 font-sans text-[40px] font-semibold leading-[44px] tracking-[-0.8px] ${
-                totalPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
-              }`}
-            >
+            {/* Main profit/loss as h1, always black */}
+            <Text className="mt-2 font-sans text-[40px] font-bold leading-[44px] tracking-[-0.8px] text-black">
               {signedMoney(totalPnlUsd)}
             </Text>
 
+            {/* Day Gain/Loss row */}
             <View className="mt-3 flex-row items-center">
-              <Text
-                className={`font-sans text-[28px] font-semibold ${
-                  totalPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
-                }`}
-              >
-                {signedMoney(totalPnlUsd)} ({signedPct(totalPnlPct)})
-              </Text>
-              <Text className="ml-2 font-sans text-[28px] font-semibold text-[#0F1728]">
-                Total Gain/Loss
-              </Text>
-            </View>
-
-            <View className="mt-2 flex-row items-center">
               <Text
                 className={`font-sans text-[28px] font-semibold ${
                   dailyPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
@@ -196,7 +181,21 @@ export default function PortfolioTab() {
                 {signedMoney(dailyPnlUsd)} ({signedPct(dailyChangePct)})
               </Text>
               <Text className="ml-2 font-sans text-[28px] font-semibold text-[#0F1728]">
-                Day&apos;s Gain/Loss
+                {dailyPnlUsd >= 0 ? "Day Gain" : "Day Loss"}
+              </Text>
+            </View>
+
+            {/* Total Gain/Loss row */}
+            <View className="mt-2 flex-row items-center">
+              <Text
+                className={`font-sans text-[28px] font-semibold ${
+                  totalPnlUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"
+                }`}
+              >
+                {signedMoney(totalPnlUsd)} ({signedPct(totalPnlPct)})
+              </Text>
+              <Text className="ml-2 font-sans text-[28px] font-semibold text-[#0F1728]">
+                {totalPnlUsd >= 0 ? "Total Gain" : "Total Loss"}
               </Text>
             </View>
 
