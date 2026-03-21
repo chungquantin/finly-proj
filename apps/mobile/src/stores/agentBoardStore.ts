@@ -1,6 +1,6 @@
 import { create } from "zustand"
 
-import { FINLY_DEFAULT_USER_ID } from "@/services/agentUser"
+import { resolveScopedFinlyUserId } from "@/services/agentUser"
 import { api } from "@/services/api"
 import type {
   AgentPanelMessage,
@@ -8,6 +8,8 @@ import type {
   ReportListItem,
   ReportResponse,
 } from "@/services/api/types"
+import { useOnboardingStore } from "@/stores/onboardingStore"
+import { DEFAULT_STOCK_ACCOUNT_ID } from "@/utils/mockStockAccounts"
 import { playBase64Audio } from "@/utils/playAudio"
 import { loadString, saveString } from "@/utils/storage"
 
@@ -23,6 +25,13 @@ export type AgentThreadMessage = {
   kind: ThreadMessageKind
   createdAt: string
   agentRole?: string
+}
+
+export type ThreadReportVersion = {
+  id: string
+  sourceReportId: string
+  createdAt: string
+  report: ReportResponse
 }
 
 export type AgentThread = {
@@ -43,6 +52,7 @@ export type AgentThread = {
   lastError?: string
   reportId?: string
   report?: ReportResponse
+  reportVersions: ThreadReportVersion[]
   memoryUpdates: string[]
 }
 
@@ -51,7 +61,9 @@ type PersistedAgentBoardState = {
 }
 
 type AgentBoardState = PersistedAgentBoardState & {
+  accountScopeKey: string
   hydrated: boolean
+  switchAccountScope: (scopeKey: string) => Promise<void>
   startThread: (message: string) => string
   sendThreadMessage: (threadId: string, message: string) => Promise<void>
   regenerateReport: (threadId: string) => Promise<void>
@@ -59,7 +71,8 @@ type AgentBoardState = PersistedAgentBoardState & {
   refreshFromBackend: () => Promise<void>
 }
 
-const STORAGE_KEY = "finly.agent.board.v1"
+const LEGACY_STORAGE_KEY = "finly.agent.board.v1"
+const STORAGE_KEY_PREFIX = "finly.agent.board.v2"
 const PARTICIPANT_AGENT_IDS = ["advisor", "analyst", "researcher", "trader"]
 
 const nowIso = () => new Date().toISOString()
@@ -99,47 +112,48 @@ const createMessage = (
   agentRole: extras.agentRole,
 })
 
-const buildThreadFromReport = (report: ReportListItem): AgentThread => ({
-  id: report.id,
-  userId: report.user_id,
-  title: buildThreadTitle(report.intake_brief || report.summary, {
-    report_id: report.id,
-    user_id: report.user_id,
-    ticker: report.ticker,
-    decision: report.decision,
-    summary: report.summary,
-    full_report: report.full_report,
-    agent_reasoning: report.agent_reasoning,
-    specialist_insights: report.specialist_insights,
-    additional_tickers: [],
-    intake_brief: report.intake_brief,
-  }),
-  ticker: report.ticker,
-  decision: toDecision(report.decision),
-  intake: report.intake_brief || "Generated from saved report",
-  summary: report.summary,
-  updatedAt: report.created_at,
-  unreadCount: 0,
-  participantAgentIds: PARTICIPANT_AGENT_IDS,
-  messages: [],
-  stage: "report_ready",
-  followUpCount: 0,
-  isBusy: false,
-  reportId: report.id,
-  report: {
-    report_id: report.id,
-    user_id: report.user_id,
-    ticker: report.ticker,
-    decision: report.decision,
-    summary: report.summary,
-    full_report: report.full_report,
-    agent_reasoning: report.agent_reasoning,
-    specialist_insights: report.specialist_insights,
-    additional_tickers: [],
-    intake_brief: report.intake_brief,
-  },
-  memoryUpdates: [],
+const buildReportVersion = (report: ReportResponse, createdAt = nowIso()): ThreadReportVersion => ({
+  id: makeId("report_version"),
+  sourceReportId: report.report_id,
+  createdAt,
+  report,
 })
+
+const buildThreadFromReport = (report: ReportListItem): AgentThread => {
+  const initialReport: ReportResponse = {
+    report_id: report.id,
+    user_id: report.user_id,
+    ticker: report.ticker,
+    decision: report.decision,
+    summary: report.summary,
+    full_report: report.full_report,
+    agent_reasoning: report.agent_reasoning,
+    specialist_insights: report.specialist_insights,
+    additional_tickers: [],
+    intake_brief: report.intake_brief,
+  }
+
+  return {
+    id: report.id,
+    userId: report.user_id,
+    title: buildThreadTitle(report.intake_brief || report.summary, initialReport),
+    ticker: report.ticker,
+    decision: toDecision(report.decision),
+    intake: report.intake_brief || "Generated from saved report",
+    summary: report.summary,
+    updatedAt: report.created_at,
+    unreadCount: 0,
+    participantAgentIds: PARTICIPANT_AGENT_IDS,
+    messages: [],
+    stage: "report_ready",
+    followUpCount: 0,
+    isBusy: false,
+    reportId: report.id,
+    report: initialReport,
+    reportVersions: [buildReportVersion(initialReport, report.created_at)],
+    memoryUpdates: [],
+  }
+}
 
 const mergeThread = (threads: AgentThread[], nextThread: AgentThread) => {
   const existingIndex = threads.findIndex((thread) => thread.id === nextThread.id)
@@ -150,9 +164,27 @@ const mergeThread = (threads: AgentThread[], nextThread: AgentThread) => {
   return copy
 }
 
-const persistThreads = async (threads: AgentThread[]) => {
+const toStorageSafeScope = (scopeKey: string) => scopeKey.replace(/[^a-zA-Z0-9_-]/g, "_")
+
+const storageKeyForScope = (scopeKey: string) =>
+  `${STORAGE_KEY_PREFIX}.${toStorageSafeScope(scopeKey)}`
+
+const resolveAccountScopeKey = (
+  state: ReturnType<typeof useOnboardingStore.getState> = useOnboardingStore.getState(),
+) => {
+  if (state.portfolioType === "stock") {
+    return `stock:${state.stockAccountId ?? DEFAULT_STOCK_ACCOUNT_ID}`
+  }
+  if (state.portfolioType === "crypto") {
+    const wallet = state.walletAddress.trim().toLowerCase()
+    return `crypto:${wallet || "default"}`
+  }
+  return "default"
+}
+
+const persistThreads = async (threads: AgentThread[], scopeKey: string) => {
   const payload: PersistedAgentBoardState = { threads }
-  await saveString(STORAGE_KEY, JSON.stringify(payload))
+  await saveString(storageKeyForScope(scopeKey), JSON.stringify(payload))
 }
 
 const parsePersistedState = (raw: string | null): PersistedAgentBoardState | null => {
@@ -160,13 +192,27 @@ const parsePersistedState = (raw: string | null): PersistedAgentBoardState | nul
   try {
     const parsed = JSON.parse(raw) as PersistedAgentBoardState
     if (!Array.isArray(parsed.threads)) return null
-    return parsed
+    return {
+      threads: parsed.threads.map(normalizeThread),
+    }
   } catch {
     return null
   }
 }
 
+const normalizeThread = (thread: AgentThread): AgentThread => ({
+  ...thread,
+  reportVersions:
+    Array.isArray(thread.reportVersions) && thread.reportVersions.length > 0
+      ? thread.reportVersions
+      : thread.report
+        ? [buildReportVersion(thread.report, thread.updatedAt || nowIso())]
+        : [],
+  memoryUpdates: Array.isArray(thread.memoryUpdates) ? thread.memoryUpdates : [],
+})
+
 const syncReportIntoThread = (thread: AgentThread, report: ReportResponse): AgentThread => {
+  const normalizedThread = normalizeThread(thread)
   const reportNotice = createMessage(
     "system",
     "Finly",
@@ -174,9 +220,11 @@ const syncReportIntoThread = (thread: AgentThread, report: ReportResponse): Agen
     "system",
   )
 
+  const nextVersion = buildReportVersion(report)
+
   return {
-    ...thread,
-    title: buildThreadTitle(thread.intake || thread.title, report),
+    ...normalizedThread,
+    title: buildThreadTitle(normalizedThread.intake || normalizedThread.title, report),
     ticker: report.ticker,
     decision: toDecision(report.decision),
     summary: report.summary,
@@ -186,8 +234,9 @@ const syncReportIntoThread = (thread: AgentThread, report: ReportResponse): Agen
     lastError: undefined,
     reportId: report.report_id,
     report,
+    reportVersions: [...normalizedThread.reportVersions, nextVersion],
     participantAgentIds: PARTICIPANT_AGENT_IDS,
-    messages: [...thread.messages, reportNotice],
+    messages: [...normalizedThread.messages, reportNotice],
   }
 }
 
@@ -211,18 +260,31 @@ const mapPanelHistoryMessage = (item: PanelHistoryMessage): AgentThreadMessage =
 }
 
 export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
+  accountScopeKey: resolveAccountScopeKey(),
   threads: [],
   hydrated: false,
+  switchAccountScope: async (scopeKey) => {
+    if (!scopeKey || scopeKey === get().accountScopeKey) return
+
+    const persisted = parsePersistedState(await loadString(storageKeyForScope(scopeKey)))
+    set({
+      accountScopeKey: scopeKey,
+      threads: persisted?.threads ?? [],
+      hydrated: true,
+    })
+    await get().refreshFromBackend()
+  },
 
   startThread: (message) => {
     const prompt = message.trim()
     const threadId = makeId("thread")
     const createdAt = nowIso()
     const userMessage = createMessage("user", "You", prompt, "intake", { createdAt })
+    const userId = resolveScopedFinlyUserId(get().accountScopeKey)
 
     const thread: AgentThread = {
       id: threadId,
-      userId: FINLY_DEFAULT_USER_ID,
+      userId,
       title: buildThreadTitle(prompt),
       ticker: "BOARD",
       decision: "Position",
@@ -235,6 +297,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
       stage: "intake",
       followUpCount: 0,
       isBusy: true,
+      reportVersions: [],
       memoryUpdates: [],
     }
 
@@ -242,7 +305,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
     void (async () => {
       const result = await api.intake({
-        user_id: FINLY_DEFAULT_USER_ID,
+        user_id: userId,
         message: prompt,
       })
 
@@ -288,7 +351,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
       if (!result.data.is_complete) return
 
       const reportResult = await api.generateReport({
-        user_id: FINLY_DEFAULT_USER_ID,
+        user_id: userId,
       })
 
       set((state) => ({
@@ -513,11 +576,13 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
   },
 
   refreshFromBackend: async () => {
-    const reportsResult = await api.getReports(FINLY_DEFAULT_USER_ID)
+    const userId = resolveScopedFinlyUserId(get().accountScopeKey)
+    const reportsResult = await api.getReports(userId)
     if (reportsResult.kind !== "ok") {
       set({ hydrated: true })
       return
     }
+    const availableReportIds = new Set(reportsResult.reports.map((report) => report.id))
 
     const persisted = get().threads
     const existingReportIds = new Set(
@@ -533,6 +598,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
     for (const thread of nextThreads) {
       if (!thread.reportId || thread.messages.some((message) => message.kind === "panel")) continue
+      if (!availableReportIds.has(thread.reportId)) continue
       const historyResult = await api.getPanelHistory(thread.userId, thread.reportId)
       if (historyResult.kind !== "ok" || historyResult.messages.length === 0) continue
       const panelMessages = historyResult.messages.map(mapPanelHistoryMessage)
@@ -554,15 +620,35 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 }))
 
 void (async () => {
-  const persisted = parsePersistedState(await loadString(STORAGE_KEY))
+  const initialScopeKey = resolveAccountScopeKey()
+  let persisted = parsePersistedState(await loadString(storageKeyForScope(initialScopeKey)))
+  if (!persisted) {
+    persisted = parsePersistedState(await loadString(LEGACY_STORAGE_KEY))
+    if (persisted) {
+      await persistThreads(persisted.threads, initialScopeKey)
+    }
+  }
+
   if (persisted) {
-    useAgentBoardStore.setState({ threads: persisted.threads, hydrated: true })
+    useAgentBoardStore.setState({
+      accountScopeKey: initialScopeKey,
+      threads: persisted.threads,
+      hydrated: true,
+    })
   } else {
-    useAgentBoardStore.setState({ hydrated: true })
+    useAgentBoardStore.setState({ accountScopeKey: initialScopeKey, hydrated: true })
   }
   await useAgentBoardStore.getState().refreshFromBackend()
 })()
 
 useAgentBoardStore.subscribe((state) => {
-  void persistThreads(state.threads)
+  void persistThreads(state.threads, state.accountScopeKey)
+})
+
+let lastScopeKey = resolveAccountScopeKey()
+useOnboardingStore.subscribe((state) => {
+  const nextScopeKey = resolveAccountScopeKey(state)
+  if (nextScopeKey === lastScopeKey) return
+  lastScopeKey = nextScopeKey
+  void useAgentBoardStore.getState().switchAccountScope(nextScopeKey)
 })

@@ -9,6 +9,7 @@ import { TickerLogo } from "@/components/TickerLogo"
 import { useAgentBoardStore } from "@/stores/agentBoardStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
 import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
+import { getTickerLogoUri } from "@/utils/tickerLogo"
 
 const BLUE = "#2453FF"
 const BORDER = "#EEF2F7"
@@ -28,6 +29,17 @@ const formatTimestamp = (value: string) => {
     hour: "2-digit",
     minute: "2-digit",
   })
+}
+
+const toThreadPreview = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+
+  const finalReportIndex = trimmed.toLowerCase().indexOf("final report:")
+  const rawPreview =
+    finalReportIndex >= 0 ? trimmed.slice(finalReportIndex + "final report:".length) : trimmed
+
+  return rawPreview.replace(/\*\*/g, "").replace(/\s+/g, " ").trim()
 }
 
 export default function BoardTab() {
@@ -140,7 +152,8 @@ export default function BoardTab() {
                     <TickerLogo
                       ticker={thread.ticker}
                       logoUri={
-                        holdings.find((holding) => holding.ticker === thread.ticker)?.logoUri
+                        holdings.find((holding) => holding.ticker === thread.ticker)?.logoUri ??
+                        getTickerLogoUri(thread.ticker)
                       }
                     />
                     <Text className="ml-3 font-sans text-[16px] font-semibold text-[#0F1728]">
@@ -184,8 +197,12 @@ export default function BoardTab() {
                     </View>
                   </View>
 
-                  <Text className="mt-3 font-sans text-[15px] leading-6 text-[#425168]">
-                    {thread.lastError || thread.summary}
+                  <Text
+                    className="mt-3 font-sans text-[15px] leading-6 text-[#425168]"
+                    numberOfLines={3}
+                    ellipsizeMode="tail"
+                  >
+                    {toThreadPreview(thread.lastError || thread.summary)}
                   </Text>
 
                   <View className="mt-4 flex-row items-center justify-between">

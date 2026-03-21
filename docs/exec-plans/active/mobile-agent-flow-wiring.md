@@ -45,14 +45,19 @@ The backend and agent server already expose most of the intended product flow, b
 - 2026-03-21: Added backend support for persisted specialist insights, report detail reads, report-specific panel history, and regeneration by report id.
 - 2026-03-21: Added a persisted mobile agent-board store that runs intake, report generation, panel chat, memory updates, regeneration, and backend report sync.
 - 2026-03-21: Replaced the mock board and thread screens with the real backend-backed conversational flow and per-agent report breakdown.
+- 2026-03-21: Updated thread UX to keep reports out of the main conversation feed, add a navbar report-status icon with green ready tick, surface report-version history from store state, and show a bottom report preview card that opens full report details.
+- 2026-03-21: Scoped mobile agent-board state by selected account (storage namespace + backend user id suffix) and auto-switched board/thread data when onboarding account selection changes.
 
 ## Verification
 
 - Commands run:
+  - `pnpm -C apps/mobile exec eslint 'src/stores/agentBoardStore.ts' 'src/services/agentUser.ts'`
   - `python3 -m py_compile apps/backend/main.py $(find apps/backend/src -name '*.py' -not -path '*/__pycache__/*')`
   - `apps/agents/.venv/bin/ruff check apps/backend`
   - `pnpm -C apps/mobile exec prettier --write 'app/(tabs)/board.tsx' 'app/thread/[id].tsx' 'src/stores/agentBoardStore.ts' 'src/services/api/index.ts' 'src/services/api/types.ts' 'src/screens/OnboardingCompleteScreen.tsx' 'src/services/agentUser.ts'`
   - `pnpm -C apps/mobile exec eslint 'app/(tabs)/board.tsx' 'app/thread/[id].tsx' 'src/stores/agentBoardStore.ts' 'src/services/api/index.ts' 'src/services/api/types.ts' 'src/screens/OnboardingCompleteScreen.tsx' 'src/services/agentUser.ts'`
+  - `pnpm -C apps/mobile exec prettier --write 'app/thread/[id].tsx'`
+  - `pnpm -C apps/mobile exec eslint 'src/stores/agentBoardStore.ts' 'app/thread/[id].tsx'`
   - `git diff --check`
 - Manual checks:
   - Confirmed the mobile board flow now maps to intake first, then report generation, then team panel chat and regeneration.
