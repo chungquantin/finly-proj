@@ -7,5 +7,4 @@
  */
 export default {
   API_URL: "https://api.rss2json.com/v1/",
-  MARKET_DATA_URL: "http://127.0.0.1:8000",
 }

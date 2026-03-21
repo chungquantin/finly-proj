@@ -41,6 +41,7 @@ The current holdings UI shows static prices and percent moves, which breaks the 
 - 2026-03-21: Started plan.
 - 2026-03-21: Replaced the mocked FastAPI `/api/market-data` route with `yfinance`-backed quote retrieval using `Ticker.get_fast_info()` plus history fallback for previous close.
 - 2026-03-21: Added a mobile market-data service and updated the home and portfolio holdings views to derive live values and daily change from backend quotes while preserving mock fallback behavior.
+- 2026-03-21: Removed the mobile/web client's hardcoded `127.0.0.1:8000` fallback, reused configured backend URLs for market data, and skipped fetches when no valid market-data backend is configured.
 
 ## Verification
 
@@ -48,6 +49,7 @@ The current holdings UI shows static prices and percent moves, which breaks the 
   - `python3 -m py_compile apps/agents/src/finly_agents/server.py`
   - `pnpm -C apps/mobile run compile`
   - `pnpm -C apps/mobile exec eslint src/services/marketData.ts app/(tabs)/home.tsx app/(tabs)/portfolio.tsx src/config/config.dev.ts src/config/config.prod.ts`
+  - `pnpm -C apps/mobile exec eslint src/services/marketData.ts src/config/config.dev.ts src/config/config.prod.ts app/(tabs)/home.tsx app/(tabs)/portfolio.tsx`
 - Manual checks:
   - Confirmed the mobile views still have static fallback numbers when the market-data request fails.
 - Remaining risk:

@@ -9,4 +9,5 @@
 // Change this if your IP changes (check with `ipconfig`).
 export default {
   API_URL: "http://192.168.37.85:8000",
+  MARKET_DATA_URL: "http://192.168.37.85:8000",
 }

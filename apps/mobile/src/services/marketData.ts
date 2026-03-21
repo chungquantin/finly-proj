@@ -14,9 +14,13 @@ type MarketDataState = {
   isLoading: boolean
 }
 
-const MARKET_DATA_URL = Config.MARKET_DATA_URL ?? "http://127.0.0.1:8000"
+const MARKET_DATA_URL = resolveMarketDataUrl()
 
 export async function fetchMarketData(tickers: string[]): Promise<MarketDataQuote[]> {
+  if (!MARKET_DATA_URL) {
+    return []
+  }
+
   const params = new URLSearchParams({ tickers: tickers.join(",") })
   const response = await fetch(`${MARKET_DATA_URL}/api/market-data?${params.toString()}`)
 
@@ -37,6 +41,11 @@ export function useMarketData(tickers: string[]): MarketDataState {
     let isActive = true
 
     if (!stableTickers.length) {
+      setQuotes({})
+      return
+    }
+
+    if (!MARKET_DATA_URL) {
       setQuotes({})
       return
     }
@@ -68,4 +77,16 @@ export function useMarketData(tickers: string[]): MarketDataState {
   }, [stableTickers])
 
   return { quotes, isLoading }
+}
+
+function resolveMarketDataUrl() {
+  const candidates = [Config.MARKET_DATA_URL, Config.API_URL]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    if (candidate.includes("rss2json.com")) continue
+    return candidate.replace(/\/+$/, "")
+  }
+
+  return null
 }
