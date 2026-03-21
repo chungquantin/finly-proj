@@ -1,6 +1,8 @@
 README.md
 pyproject.toml
 src/finly_agents/__init__.py
+src/finly_agents/agent_client.py
+src/finly_agents/agent_server.py
 src/finly_agents/context.py
 src/finly_agents/database.py
 src/finly_agents/heartbeat.py
@@ -8,7 +10,6 @@ src/finly_agents/intake.py
 src/finly_agents/memory.py
 src/finly_agents/mock_data.py
 src/finly_agents/models.py
-src/finly_agents/panel.py
 src/finly_agents/portfolio.py
 src/finly_agents/profiles.py
 src/finly_agents/server.py
@@ -37,6 +38,7 @@ src/tradingagents/agents/trader/trader.py
 src/tradingagents/agents/utils/agent_states.py
 src/tradingagents/agents/utils/agent_utils.py
 src/tradingagents/agents/utils/core_stock_tools.py
+src/tradingagents/agents/utils/exa_tools.py
 src/tradingagents/agents/utils/fundamental_data_tools.py
 src/tradingagents/agents/utils/memory.py
 src/tradingagents/agents/utils/news_data_tools.py
@@ -49,6 +51,8 @@ src/tradingagents/dataflows/alpha_vantage_indicator.py
 src/tradingagents/dataflows/alpha_vantage_news.py
 src/tradingagents/dataflows/alpha_vantage_stock.py
 src/tradingagents/dataflows/config.py
+src/tradingagents/dataflows/exa_search.py
+src/tradingagents/dataflows/financial_datasets.py
 src/tradingagents/dataflows/interface.py
 src/tradingagents/dataflows/stockstats_utils.py
 src/tradingagents/dataflows/utils.py

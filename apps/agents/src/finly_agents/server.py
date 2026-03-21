@@ -17,6 +17,7 @@ import uuid
 from datetime import date
 from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +35,7 @@ from finly_agents.models import (
     IntakeResponse,
     MarketTicker,
     OnboardingRequest,
+    OnboardingResponse,
     PanelChatRequest,
     PanelChatResponse,
     PortfolioImportRequest,
@@ -42,6 +44,7 @@ from finly_agents.models import (
     ReportRegenerateRequest,
     ReportResponse,
     SpecialistInsight,
+    TickerSuggestion,
     UserProfile,
 )
 from finly_agents.database import (
@@ -121,7 +124,12 @@ def _extract_last_user_text(messages: list[Message]) -> str:
 def _extract_ticker(text: str) -> str | None:
     for match in TICKER_PATTERN.finditer(text):
         value = match.group(1)
-        if value not in {"BUY", "SELL", "HOLD", "USD", "VND", "JSON", "POST", "GET"}:
+        if value not in {
+            "BUY", "SELL", "HOLD", "USD", "VND", "JSON", "POST", "GET",
+            "THE", "AND", "FOR", "NOT", "WITH", "FROM", "THAT", "THIS",
+            "TRADER", "ANALYST", "ADVISOR", "RESEARCHER", "MARKET",
+            "RISK", "HIGH", "LOW", "MEDIUM", "TERM", "ESG", "ETF",
+        }:
             return value
     return None
 
@@ -129,6 +137,71 @@ def _extract_ticker(text: str) -> str | None:
 def _extract_trade_date(text: str) -> str | None:
     match = DATE_PATTERN.search(text)
     return match.group(1) if match else None
+
+
+async def _discover_tickers(goals: str, user_context: str = "") -> list[dict]:
+    """Use LLM to discover multiple tickers to analyze based on user goals.
+
+    Returns a list of dicts: [{"ticker": "ICLN", "reason": "..."}, ...]
+    The first one is the primary pick for deep analysis.
+    """
+    if not goals:
+        return [{"ticker": "SPY", "reason": "Broad market index — good default starting point"}]
+
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    model = os.getenv("FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini"))
+    base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+    prompt = f"""You are a financial research assistant. Based on the user's investment goals below,
+recommend 3-5 stock or ETF tickers that match their interests, ranked by relevance.
+
+USER GOALS: {goals}
+
+{f"USER CONTEXT: {user_context}" if user_context else ""}
+
+Rules:
+- Return a JSON array of objects: [{{"ticker": "ICLN", "reason": "Top green energy ETF with broad clean energy exposure"}}]
+- Pick real, actively traded US stocks or ETFs
+- Diversify across different approaches (e.g., an ETF + individual stocks, different sub-sectors)
+- First pick should be the strongest match for deep analysis
+- Keep reasons to 1 short sentence
+- Return ONLY the JSON array, nothing else"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.4,
+                    "max_tokens": 300,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"].strip()
+            # Parse JSON array from response
+            json_match = re.search(r'\[.*\]', content, re.DOTALL)
+            if json_match:
+                tickers = json.loads(json_match.group())
+                # Clean up tickers
+                cleaned = []
+                for t in tickers[:5]:
+                    symbol = re.sub(r"[^A-Z]", "", t.get("ticker", "").upper())[:5]
+                    if symbol:
+                        cleaned.append({"ticker": symbol, "reason": t.get("reason", "")})
+                if cleaned:
+                    logger.info(f"Discovered {len(cleaned)} tickers from goals: {[t['ticker'] for t in cleaned]}")
+                    return cleaned
+    except Exception as e:
+        logger.warning(f"Ticker discovery failed: {e}")
+
+    return [{"ticker": "SPY", "reason": "Broad market index — good default starting point"}]
 
 
 def _truncate_sentences(text: str, max_sentences: int = 3) -> str:
@@ -330,8 +403,25 @@ async def chat_completions(request: ChatCompletionsRequest):
 # ---------------------------------------------------------------------------
 
 @app.post("/api/onboarding")
-async def onboarding(req: OnboardingRequest) -> UserProfile:
-    return create_or_update_profile(req)
+async def onboarding(req: OnboardingRequest) -> OnboardingResponse:
+    import base64
+
+    from finly_agents.voice import text_to_speech
+
+    profile = create_or_update_profile(req)
+    welcome = (
+        f"Welcome to Finly! I've set up your profile. "
+        f"You're a {req.horizon}-term investor with a risk score of {req.risk_score}. "
+        f"Let's figure out what you'd like to invest in. "
+        f"Tell me about your investment goals or a stock you're interested in."
+    )
+    resp = OnboardingResponse(profile=profile, welcome_message=welcome)
+
+    audio_bytes = await text_to_speech(welcome)
+    if audio_bytes:
+        resp.audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
+
+    return resp
 
 
 @app.get("/api/user/{user_id}/profile")
@@ -379,11 +469,24 @@ async def user_portfolio(user_id: str):
 
 @app.post("/api/intake")
 async def intake_endpoint(req: IntakeRequest) -> IntakeResponse:
-    """Conversational intake — max 2 follow-ups, then produces goals brief."""
+    """Conversational intake — max 2 follow-ups, then produces goals brief.
+
+    Returns audio_b64 (base64 mp3) alongside text when ElevenLabs is configured.
+    """
+    import base64
+
     from finly_agents.intake import run_intake
+    from finly_agents.voice import text_to_speech
 
     result = await run_intake(req.user_id, req.message)
-    return IntakeResponse(**result)
+    resp = IntakeResponse(**result)
+
+    # Generate TTS for the assistant reply
+    audio_bytes = await text_to_speech(resp.message)
+    if audio_bytes:
+        resp.audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
+
+    return resp
 
 
 @app.post("/api/intake/reset")
@@ -419,12 +522,18 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
     if req.portfolio:
         portfolio_summary = _format_portfolio_summary(req.portfolio)
 
-    # Determine ticker
+    # Determine tickers — agents discover investments based on goals
+    additional_tickers: list[dict] = []
     ticker = req.ticker
     if not ticker and goals_brief:
-        ticker = _extract_ticker(goals_brief)
+        ticker = _extract_ticker(goals_brief)  # check if user mentioned one explicitly
     if not ticker:
-        ticker = os.getenv("FINLY_DEFAULT_TICKER", "FPT")
+        ticker = os.getenv("FINLY_DEFAULT_TICKER", "")
+    if not ticker:
+        # Let the LLM research and recommend tickers for the user's goals
+        discovered = await _discover_tickers(goals_brief, user_context)
+        ticker = discovered[0]["ticker"]
+        additional_tickers = discovered[1:]  # remaining as suggestions
     ticker = ticker.upper()
 
     try:
@@ -443,6 +552,7 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
     agent_reasoning = result.get("agent_reasoning", {})
     summary = result.get("summary", "")
     full_report = result.get("content", "")
+    specialist_insights = result.get("specialist_insights", [])
 
     # Save to database
     report = save_report(
@@ -465,6 +575,8 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
         summary=summary,
         full_report=full_report,
         agent_reasoning=agent_reasoning,
+        specialist_insights=specialist_insights,
+        additional_tickers=additional_tickers,
         intake_brief=goals_brief,
     )
 

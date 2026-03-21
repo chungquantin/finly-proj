@@ -26,6 +26,12 @@ class OnboardingRequest(BaseModel):
     knowledge: int = Field(default=1, ge=1, le=3)
 
 
+class OnboardingResponse(BaseModel):
+    profile: UserProfile
+    welcome_message: str = ""
+    audio_b64: str | None = None  # base64-encoded TTS audio (mp3)
+
+
 # ---------------------------------------------------------------------------
 # Portfolio
 # ---------------------------------------------------------------------------
@@ -65,6 +71,7 @@ class IntakeResponse(BaseModel):
     is_complete: bool = False  # true when intake is done
     follow_up_count: int = 0  # how many follow-ups so far
     goals_brief: str | None = None  # populated when is_complete=True
+    audio_b64: str | None = None  # base64-encoded TTS audio (mp3), if available
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +109,11 @@ class ReportGenerateRequest(BaseModel):
     portfolio: list[dict] | None = None  # optional — passed from mobile native storage
 
 
+class TickerSuggestion(BaseModel):
+    ticker: str
+    reason: str = ""
+
+
 class ReportResponse(BaseModel):
     report_id: str
     user_id: str
@@ -110,6 +122,8 @@ class ReportResponse(BaseModel):
     summary: str
     full_report: str
     agent_reasoning: dict  # per-agent detailed reasoning
+    specialist_insights: list[SpecialistInsight] = []  # per-agent summary + full analysis
+    additional_tickers: list[TickerSuggestion] = []  # other recommended tickers
     intake_brief: str = ""
 
 

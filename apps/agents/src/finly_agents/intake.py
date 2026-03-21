@@ -143,7 +143,15 @@ def _parse_response(text: str) -> tuple[str, bool, str | None]:
         else:
             display_text = text.strip()
 
-    return display_text or text.strip(), is_complete, goals_brief
+    # When complete, always show a clean message with the goals summary.
+    # The LLM's display text often references the JSON block we stripped,
+    # leaving broken sentences like "here's a summary:" with nothing after.
+    if is_complete and goals_brief:
+        display_text = f"Got it! I've captured your investment goals: {goals_brief}. You can now generate your report."
+    elif not display_text:
+        display_text = text.strip()
+
+    return display_text, is_complete, goals_brief
 
 
 async def run_intake(user_id: str, message: str) -> dict:

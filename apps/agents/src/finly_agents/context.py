@@ -54,6 +54,24 @@ def build_user_context(user_id: str) -> str:
             memory_lines.append(f"- {m['memory_key']}: {m['memory_value']}")
     memory_str = "\n".join(memory_lines) if memory_lines else "None"
 
+    # Knowledge-adaptive language instructions
+    if knowledge <= 1:
+        lang_instructions = """\
+- Use simple, everyday language — explain like you're talking to a friend who is new to investing.
+- Avoid jargon. If you must use a financial term, briefly explain what it means in parentheses.
+- Use analogies and relatable examples to explain concepts.
+- Say "the stock price went up" not "the equity appreciated"."""
+    elif knowledge == 2:
+        lang_instructions = """\
+- Use clear language with standard financial terms (P/E ratio, market cap, dividends, etc.).
+- You can reference common concepts without over-explaining, but still avoid obscure jargon.
+- Be concise — this investor knows the basics."""
+    else:
+        lang_instructions = """\
+- Use precise financial terminology freely (alpha, Sharpe ratio, DCF, sector rotation, etc.).
+- Include technical details and quantitative analysis where relevant.
+- This investor is experienced — be direct and data-driven, skip basic explanations."""
+
     context = f"""\
 INVESTOR PROFILE
 - Risk tolerance: {risk}/100 ({risk_label})
@@ -70,8 +88,7 @@ USER PREFERENCES & MEMORIES
 {memory_str}
 
 INSTRUCTIONS FOR AGENTS
-- Use simple, everyday language — explain like you're talking to a friend who is new to investing.
-- Avoid jargon. If you must use a financial term, briefly explain what it means.
+{lang_instructions}
 - Keep answers short: 1 paragraph for reports, 1-2 sentences for chat.
 - Match your advice to this investor's risk comfort and time horizon.
 - If risk < 40, focus on safety and protecting their money.

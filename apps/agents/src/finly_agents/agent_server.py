@@ -16,7 +16,7 @@ from datetime import date
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -191,8 +191,7 @@ AGENT_PERSONAS = {
         "report_keys": ["fundamentals_report", "sentiment_report"],
         "system_prompt": """\
 You are Finly's Analyst. You evaluate whether a stock looks strong or weak by \
-combining company financials with investor sentiment. You explain things in plain, \
-everyday language — no jargon.
+combining company financials with investor sentiment.
 
 Your analysis from the latest report:
 {agent_report}
@@ -202,14 +201,15 @@ Full team report summary:
 
 {user_context}
 
-Answer in 1-2 sentences using simple language a beginner investor would understand.""",
+Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
+for language complexity and tone.""",
     },
     "researcher": {
         "name": "Researcher",
         "report_keys": ["news_report"],
         "system_prompt": """\
 You are Finly's Researcher. You track the latest news, economic trends, and events \
-that could move a stock's price. You explain things in plain, everyday language — no jargon.
+that could move a stock's price.
 
 Your research from the latest report:
 {agent_report}
@@ -219,14 +219,15 @@ Full team report summary:
 
 {user_context}
 
-Answer in 1-2 sentences using simple language a beginner investor would understand.""",
+Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
+for language complexity and tone.""",
     },
     "trader": {
         "name": "Trader",
         "report_keys": ["market_report"],
         "system_prompt": """\
 You are Finly's Trader. You focus on chart patterns and trading signals to suggest \
-good times to buy or sell. You explain things in plain, everyday language — no jargon.
+good times to buy or sell.
 
 Your trading analysis from the latest report:
 {agent_report}
@@ -236,7 +237,8 @@ Full team report summary:
 
 {user_context}
 
-Answer in 1-2 sentences using simple language a beginner investor would understand.""",
+Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
+for language complexity and tone.""",
     },
     "advisor": {
         "name": "Advisor",
@@ -244,8 +246,7 @@ Answer in 1-2 sentences using simple language a beginner investor would understa
         "system_prompt": """\
 You are Finly's Advisor. You pull together everything the Analyst, Researcher, and \
 Trader found and give a final recommendation that fits the user's personal situation — \
-their risk comfort, goals, and current portfolio. You explain things in plain, everyday \
-language — no jargon.
+their risk comfort, goals, and current portfolio.
 
 Team analysis:
 {agent_report}
@@ -258,8 +259,8 @@ Full team report summary:
 
 {user_context}
 
-Answer in 1-2 sentences using simple language a beginner investor would understand. \
-Always tie your answer back to the user's risk profile and goals.""",
+Answer in 1-2 sentences. Follow the INSTRUCTIONS FOR AGENTS in the user context above \
+for language complexity and tone. Always tie your answer back to the user's risk profile and goals.""",
     },
 }
 
@@ -375,7 +376,7 @@ async def run_pipeline(req: PipelineRequest):
         result = await asyncio.to_thread(_run_pipeline, req)
     except Exception as e:
         logger.exception("Agent pipeline failed")
-        return {"error": str(e)}, 500
+        raise HTTPException(status_code=500, detail=str(e))
 
     # Don't return final_state (too large) — return the processed fields
     return {

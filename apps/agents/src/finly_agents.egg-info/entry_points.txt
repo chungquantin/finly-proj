@@ -1,2 +1,3 @@
 [console_scripts]
+finly-agent-server = finly_agents.agent_server:run
 finly-agents-api = finly_agents.server:run

@@ -23,11 +23,24 @@ def _api_key() -> str:
     return key
 
 
+class FinancialDatasetsError(Exception):
+    """Raised when the API returns an error so callers can fall back gracefully."""
+    pass
+
+
 def _get(path: str, params: dict | None = None) -> dict:
     headers = {"X-API-Key": _api_key()}
-    with httpx.Client(timeout=_TIMEOUT) as client:
+    with httpx.Client(timeout=_TIMEOUT, follow_redirects=True) as client:
         resp = client.get(f"{_BASE_URL}{path}", headers=headers, params=params or {})
-        resp.raise_for_status()
+        if resp.status_code == 402:
+            raise FinancialDatasetsError(
+                f"Financial Datasets API: Payment required for {params}. "
+                "This ticker/data may not be available on the current plan."
+            )
+        if resp.status_code >= 400:
+            raise FinancialDatasetsError(
+                f"Financial Datasets API error {resp.status_code} for {path}: {resp.text[:200]}"
+            )
         return resp.json()
 
 
@@ -41,12 +54,15 @@ def get_stock_data(
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
     """Get OHLCV stock price data from Financial Datasets API."""
-    data = _get("/prices", params={
-        "ticker": symbol.upper(),
-        "interval": "day",
-        "start_date": start_date,
-        "end_date": end_date,
-    })
+    try:
+        data = _get("/prices", params={
+            "ticker": symbol.upper(),
+            "interval": "day",
+            "start_date": start_date,
+            "end_date": end_date,
+        })
+    except FinancialDatasetsError as e:
+        return f"[Data unavailable] {e}"
 
     prices = data.get("prices", [])
     if not prices:
@@ -78,11 +94,14 @@ def get_fundamentals(
     curr_date: Annotated[str, "current date"] = None,
 ) -> str:
     """Get company fundamentals overview from Financial Datasets API."""
-    data = _get("/financials/metrics", params={
-        "ticker": ticker.upper(),
-        "period": "ttm",
-        "limit": 1,
-    })
+    try:
+        data = _get("/financials/metrics", params={
+            "ticker": ticker.upper(),
+            "period": "ttm",
+            "limit": 1,
+        })
+    except FinancialDatasetsError as e:
+        return f"[Data unavailable] {e}"
 
     metrics = data.get("financials", [])
     if not metrics:
@@ -129,11 +148,14 @@ def _get_financial_statement(
 ) -> str:
     """Generic financial statement fetcher."""
     period = "quarterly" if freq.lower() == "quarterly" else "annual"
-    data = _get(f"/financials/{statement_type}", params={
-        "ticker": ticker.upper(),
-        "period": period,
-        "limit": 4,
-    })
+    try:
+        data = _get(f"/financials/{statement_type}", params={
+            "ticker": ticker.upper(),
+            "period": period,
+            "limit": 4,
+        })
+    except FinancialDatasetsError as e:
+        return f"[Data unavailable] {e}"
 
     key = statement_type.replace("-", "_") + "s"
     statements = data.get(key, data.get("financials", []))

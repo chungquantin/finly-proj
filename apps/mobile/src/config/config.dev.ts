@@ -5,7 +5,8 @@
  *
  * https://reactnative.dev/docs/security#storing-sensitive-info
  */
+// Use your machine's LAN IP so the mobile device can reach the backend.
+// Change this if your IP changes (check with `ipconfig`).
 export default {
-  API_URL: "https://api.rss2json.com/v1/",
-  MARKET_DATA_URL: "http://127.0.0.1:8000",
+  API_URL: "http://192.168.37.85:8000",
 }
