@@ -7,10 +7,8 @@ import Config from "@/config"
 import { GeneralApiProblem, getGeneralApiProblem } from "./apiProblem"
 import type {
   ApiConfig,
-  ApiFeedResponse,
   ChatRequest,
   ChatResponse,
-  EpisodeItem,
   IntakeRequest,
   IntakeResponse,
   OnboardingRequest,
@@ -186,28 +184,6 @@ export class Api {
     return { kind: "ok", data: response.data! }
   }
 
-  // -----------------------------------------------------------------------
-  // Legacy demo method (kept for existing screens)
-  // -----------------------------------------------------------------------
-
-  async getEpisodes(): Promise<{ kind: "ok"; episodes: EpisodeItem[] } | GeneralApiProblem> {
-    const response: ApiResponse<ApiFeedResponse> = await this.apisauce.get(
-      `api.json?rss_url=https%3A%2F%2Ffeeds.simplecast.com%2FhEI_f9Dx`,
-    )
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return problem
-    }
-    try {
-      const episodes: EpisodeItem[] = response.data?.items.map((raw) => ({ ...raw })) ?? []
-      return { kind: "ok", episodes }
-    } catch (e) {
-      if (__DEV__ && e instanceof Error) {
-        console.error(`Bad data: ${e.message}\n${response.data}`, e.stack)
-      }
-      return { kind: "bad-data" }
-    }
-  }
 }
 
 // Singleton instance

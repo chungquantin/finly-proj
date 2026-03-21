@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel
@@ -38,4 +41,5 @@ async def text_to_speech(text: str) -> bytes | None:
         )
         if resp.status_code == 200:
             return resp.content
+        logger.warning("ElevenLabs TTS failed: status=%d body=%s", resp.status_code, resp.text[:200])
         return None

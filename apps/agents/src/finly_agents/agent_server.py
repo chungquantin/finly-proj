@@ -415,7 +415,7 @@ def run() -> None:
     import uvicorn
 
     host = os.getenv("FINLY_AGENTS_HOST", "0.0.0.0")
-    port = int(os.getenv("FINLY_AGENT_SERVER_PORT", "8001"))
+    port = int(os.getenv("PORT", os.getenv("FINLY_AGENT_SERVER_PORT", "8001")))
     uvicorn.run("finly_agents.agent_server:app", host=host, port=port, reload=False)
 
 

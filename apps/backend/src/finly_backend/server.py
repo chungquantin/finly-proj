@@ -64,6 +64,7 @@ from finly_backend.heartbeat import (
     get_pending_alerts,
     seed_demo_alerts,
     trigger_alert,
+    trigger_custom_alert,
 )
 
 load_dotenv()
@@ -846,6 +847,80 @@ async def heartbeat_trigger(scenario: str = Query(...), user_id: str = Query(def
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class CustomAlertRequest(BaseModel):
+    ticker: str
+    headline: str
+    body: str
+    severity: str = "info"
+    attributed_to: str = "Finly"
+    user_id: str = "broadcast"
+
+
+@app.post("/api/heartbeat/custom")
+async def heartbeat_custom(req: CustomAlertRequest):
+    alert = trigger_custom_alert(
+        ticker=req.ticker,
+        headline=req.headline,
+        body=req.body,
+        severity=req.severity,
+        attributed_to=req.attributed_to,
+        user_id=req.user_id,
+    )
+    return alert.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Market data
+# ---------------------------------------------------------------------------
+
+@app.get("/api/market-data/history")
+async def market_data_history(
+    ticker: str = Query(...),
+    period: str = Query(default="1mo"),
+    interval: str = Query(default="1d"),
+):
+    """Return OHLCV history for a ticker. Uses yfinance for US tickers, mock data for VN."""
+    from finly_backend.mock_data import is_vn_ticker, _generate_ohlcv
+
+    clean_ticker = ticker.upper().strip()
+    currency = "VND" if is_vn_ticker(clean_ticker) else "USD"
+
+    if is_vn_ticker(clean_ticker):
+        period_days = {"1d": 1, "5d": 5, "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365}.get(period, 30)
+        raw = _generate_ohlcv(clean_ticker, days=period_days)
+        data = [
+            {"date": r["Date"], "open": r["Open"], "high": r["High"],
+             "low": r["Low"], "close": r["Close"], "volume": r["Volume"]}
+            for r in raw
+        ]
+    else:
+        try:
+            import yfinance as yf
+            tk = yf.Ticker(clean_ticker)
+            hist = tk.history(period=period, interval=interval)
+            data = [
+                {
+                    "date": idx.strftime("%Y-%m-%d"),
+                    "open": round(row["Open"], 2),
+                    "high": round(row["High"], 2),
+                    "low": round(row["Low"], 2),
+                    "close": round(row["Close"], 2),
+                    "volume": int(row["Volume"]),
+                }
+                for idx, row in hist.iterrows()
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"yfinance error: {e}")
+
+    return {
+        "ticker": clean_ticker,
+        "currency": currency,
+        "period": period,
+        "interval": interval,
+        "data": data,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
@@ -854,7 +929,7 @@ def run() -> None:
     import uvicorn
 
     host = os.getenv("FINLY_BACKEND_HOST", "0.0.0.0")
-    port = int(os.getenv("FINLY_BACKEND_PORT", "8000"))
+    port = int(os.getenv("PORT", os.getenv("FINLY_BACKEND_PORT", "8000")))
     uvicorn.run("finly_backend.server:app", host=host, port=port, reload=False)
 
 

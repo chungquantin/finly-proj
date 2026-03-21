@@ -76,6 +76,22 @@ SCENARIOS: dict[str, dict] = {
         "attributed_to": "Fundamentals Analyst",
         "severity": "critical",
     },
+    "hormuz_closure": {
+        "ticker": "HOSE",
+        "alert_type": "sector_move",
+        "headline": "Strait of Hormuz closed — oil prices spike 12%",
+        "body": "Reports of a naval blockade in the Strait of Hormuz sent Brent crude up 12% in early trading. Vietnam's import-dependent industries face margin pressure. The Risk Assessor recommends reducing exposure to energy-intensive sectors and monitoring PVD, GAS closely.",
+        "attributed_to": "Risk Assessor",
+        "severity": "critical",
+    },
+    "rsi_threshold": {
+        "ticker": "VCB",
+        "alert_type": "price_drop",
+        "headline": "VCB RSI crosses above 70 — overbought signal",
+        "body": "VCB's 14-day RSI has moved above 70, indicating overbought conditions. Historically this has preceded 3-5% pullbacks within 5 trading days. The Market Analyst suggests tightening stop-losses or taking partial profits.",
+        "attributed_to": "Market Analyst",
+        "severity": "warning",
+    },
 }
 
 # In-memory alert queues: user_id -> list of alerts
@@ -121,6 +137,31 @@ def get_pending_alerts(user_id: str = "broadcast") -> list[HeartbeatAlert]:
             seen.add(a.alert_id)
             combined.append(a)
     return combined
+
+
+def trigger_custom_alert(
+    ticker: str,
+    headline: str,
+    body: str,
+    severity: str = "info",
+    attributed_to: str = "Finly",
+    user_id: str = "broadcast",
+) -> HeartbeatAlert:
+    """Create and enqueue a custom ad-hoc alert (not from SCENARIOS)."""
+    alert = HeartbeatAlert(
+        alert_id=uuid.uuid4().hex[:12],
+        timestamp=datetime.now().isoformat(),
+        ticker=ticker.upper(),
+        alert_type="custom",
+        headline=headline,
+        body=body,
+        attributed_to=attributed_to,
+        severity=severity,
+    )
+    _alert_queues.setdefault(user_id, []).append(alert)
+    if user_id != "broadcast":
+        _alert_queues.setdefault("broadcast", []).append(alert)
+    return alert
 
 
 def seed_demo_alerts() -> None:

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { BackHandler, Linking, Platform } from "react-native"
+import { ComponentProps } from "react"
 import {
+  NavigationContainer,
   NavigationState,
   PartialState,
   createNavigationContainerRef,
@@ -11,7 +13,16 @@ import type { PersistNavigationConfig } from "@/config/config.base"
 import * as storage from "@/utils/storage"
 import { useIsMounted } from "@/utils/useIsMounted"
 
-import type { AppStackParamList, NavigationProps } from "./navigationTypes"
+/**
+ * App stack param list — add your screen params here.
+ */
+export type AppStackParamList = {
+  // Add your screen params here
+  [key: string]: undefined | object
+}
+
+export interface NavigationProps
+  extends Partial<ComponentProps<typeof NavigationContainer<AppStackParamList>>> {}
 
 type Storage = typeof storage
 

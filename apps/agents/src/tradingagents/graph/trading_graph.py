@@ -36,7 +36,6 @@ from tradingagents.agents.utils.agent_utils import (
 from .conditional_logic import ConditionalLogic
 from .setup import GraphSetup
 from .propagation import Propagator
-from .reflection import Reflector
 from .signal_processing import SignalProcessor
 
 
@@ -122,7 +121,6 @@ class TradingAgentsGraph:
         )
 
         self.propagator = Propagator()
-        self.reflector = Reflector(self.quick_thinking_llm)
         self.signal_processor = SignalProcessor(self.quick_thinking_llm)
 
         # State tracking
@@ -207,7 +205,7 @@ class TradingAgentsGraph:
                     chunk["messages"][-1].pretty_print()
                     trace.append(chunk)
 
-            final_state = trace[-1]
+            final_state = trace[-1] if trace else self.graph.invoke(init_agent_state, **args)
         else:
             # Standard mode without tracing
             final_state = self.graph.invoke(init_agent_state, **args)
@@ -223,64 +221,45 @@ class TradingAgentsGraph:
 
     def _log_state(self, trade_date, final_state):
         """Log the final state to a JSON file."""
-        self.log_states_dict[str(trade_date)] = {
-            "company_of_interest": final_state["company_of_interest"],
-            "trade_date": final_state["trade_date"],
-            "market_report": final_state["market_report"],
-            "sentiment_report": final_state["sentiment_report"],
-            "news_report": final_state["news_report"],
-            "fundamentals_report": final_state["fundamentals_report"],
-            "investment_debate_state": {
-                "bull_history": final_state["investment_debate_state"]["bull_history"],
-                "bear_history": final_state["investment_debate_state"]["bear_history"],
-                "history": final_state["investment_debate_state"]["history"],
-                "current_response": final_state["investment_debate_state"][
-                    "current_response"
-                ],
-                "judge_decision": final_state["investment_debate_state"][
-                    "judge_decision"
-                ],
-            },
-            "trader_investment_decision": final_state["trader_investment_plan"],
-            "risk_debate_state": {
-                "aggressive_history": final_state["risk_debate_state"]["aggressive_history"],
-                "conservative_history": final_state["risk_debate_state"]["conservative_history"],
-                "neutral_history": final_state["risk_debate_state"]["neutral_history"],
-                "history": final_state["risk_debate_state"]["history"],
-                "judge_decision": final_state["risk_debate_state"]["judge_decision"],
-            },
-            "investment_plan": final_state["investment_plan"],
-            "final_trade_decision": final_state["final_trade_decision"],
-        }
+        try:
+            inv_debate = final_state.get("investment_debate_state", {})
+            risk_debate = final_state.get("risk_debate_state", {})
 
-        # Save to file
-        directory = Path(f"eval_results/{self.ticker}/TradingAgentsStrategy_logs/")
-        directory.mkdir(parents=True, exist_ok=True)
+            self.log_states_dict[str(trade_date)] = {
+                "company_of_interest": final_state.get("company_of_interest", ""),
+                "trade_date": final_state.get("trade_date", ""),
+                "market_report": final_state.get("market_report", ""),
+                "sentiment_report": final_state.get("sentiment_report", ""),
+                "news_report": final_state.get("news_report", ""),
+                "fundamentals_report": final_state.get("fundamentals_report", ""),
+                "investment_debate_state": {
+                    "bull_history": inv_debate.get("bull_history", []),
+                    "bear_history": inv_debate.get("bear_history", []),
+                    "history": inv_debate.get("history", []),
+                    "current_response": inv_debate.get("current_response", ""),
+                    "judge_decision": inv_debate.get("judge_decision", ""),
+                },
+                "trader_investment_decision": final_state.get("trader_investment_plan", ""),
+                "risk_debate_state": {
+                    "aggressive_history": risk_debate.get("aggressive_history", []),
+                    "conservative_history": risk_debate.get("conservative_history", []),
+                    "neutral_history": risk_debate.get("neutral_history", []),
+                    "history": risk_debate.get("history", []),
+                    "judge_decision": risk_debate.get("judge_decision", ""),
+                },
+                "investment_plan": final_state.get("investment_plan", ""),
+                "final_trade_decision": final_state.get("final_trade_decision", ""),
+            }
 
-        with open(
-            f"eval_results/{self.ticker}/TradingAgentsStrategy_logs/full_states_log_{trade_date}.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(self.log_states_dict, f, indent=4)
+            base_dir = Path(self.config.get("project_dir", ".")) / "eval_results"
+            directory = base_dir / self.ticker / "TradingAgentsStrategy_logs"
+            directory.mkdir(parents=True, exist_ok=True)
 
-    def reflect_and_remember(self, returns_losses):
-        """Reflect on decisions and update memory based on returns."""
-        self.reflector.reflect_bull_researcher(
-            self.curr_state, returns_losses, self.bull_memory
-        )
-        self.reflector.reflect_bear_researcher(
-            self.curr_state, returns_losses, self.bear_memory
-        )
-        self.reflector.reflect_trader(
-            self.curr_state, returns_losses, self.trader_memory
-        )
-        self.reflector.reflect_invest_judge(
-            self.curr_state, returns_losses, self.invest_judge_memory
-        )
-        self.reflector.reflect_risk_manager(
-            self.curr_state, returns_losses, self.risk_manager_memory
-        )
+            log_file = directory / f"full_states_log_{trade_date}.json"
+            with open(log_file, "w", encoding="utf-8") as f:
+                json.dump(self.log_states_dict, f, indent=4)
+        except Exception:
+            logging.getLogger(__name__).warning("Failed to log state for %s", trade_date, exc_info=True)
 
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""
