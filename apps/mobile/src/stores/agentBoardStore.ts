@@ -368,6 +368,9 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
     set((state) => ({ threads: [thread, ...state.threads] }))
 
     void (async () => {
+      // New thread should start a fresh intake flow for this scoped user.
+      await api.intakeReset(userId)
+
       const result = await api.intake({
         user_id: userId,
         message: prompt,

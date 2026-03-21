@@ -35,6 +35,7 @@ The current `/api/report/chat` flow blocks until all specialist responses comple
 
 - 2026-03-21: Use SSE payloads with typed events (`agent_message_start`, `agent_message_delta`, `agent_message_done`, `memory_updates`, `done`) to keep the transport simple and debuggable.
 - 2026-03-21: Keep `/api/report/chat` unchanged for compatibility and add `/api/report/chat/stream` for progressive UI updates.
+- 2026-03-21: Upgrade specialist streaming to true token-level deltas from model provider (`stream: true`) instead of backend-simulated chunking.
 
 ## Progress Log
 
@@ -42,6 +43,7 @@ The current `/api/report/chat` flow blocks until all specialist responses comple
 - 2026-03-21: Added streaming endpoint `/agent/panel-chat/stream` in `apps/agents` with SSE events per specialist response.
 - 2026-03-21: Added backend proxy endpoint `/api/report/chat/stream` with SSE chunk events, panel-conversation persistence, and post-stream memory extraction.
 - 2026-03-21: Added mobile API streaming client (`panelChatStream`) and store wiring to render specialist chat bubbles incrementally.
+- 2026-03-21: Switched agent-server stream to emit live token deltas per specialist and updated backend proxy to pass through those deltas.
 
 ## Verification
 

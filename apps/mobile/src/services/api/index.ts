@@ -163,12 +163,8 @@ export class Api {
     return { kind: "ok", data: response.data! }
   }
 
-  async voiceOnboardingReset(
-    userId: string,
-  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
-    const response = await this.apisauce.post(
-      `/api/onboarding/voice/reset?user_id=${userId}`,
-    )
+  async voiceOnboardingReset(userId: string): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    const response = await this.apisauce.post(`/api/onboarding/voice/reset?user_id=${userId}`)
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)
       if (problem) return problem

@@ -536,37 +536,85 @@ async def panel_chat(req: AgentPanelRequest):
 
 @app.post("/agent/panel-chat/stream")
 async def panel_chat_stream(req: AgentPanelRequest):
-    """Run panel discussion and stream each agent response when available."""
+    """Run panel discussion and stream specialist token deltas."""
 
     async def event_stream():
         yield _sse_data({"type": "started"})
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
-        tasks_by_role: dict[asyncio.Task, str] = {}
-        for agent_key, persona in AGENT_PERSONAS.items():
-            task = asyncio.create_task(
-                _call_agent(
-                    agent_key,
-                    persona,
-                    req.message,
-                    req.report_data,
-                    req.user_context,
-                    req.conversation_history,
-                )
-            )
-            tasks_by_role[task] = agent_key
-
-        for task in asyncio.as_completed(tasks_by_role):
+        async def _run_specialist(agent_key: str, persona: dict):
             try:
-                response = await task
-            except Exception as e:  # defensive fallback; _call_agent already handles most errors
-                agent_key = tasks_by_role.get(task, "unknown")
+                async for item in _stream_agent_events(
+                    agent_key=agent_key,
+                    persona=persona,
+                    user_question=req.message,
+                    report_data=req.report_data,
+                    user_context=req.user_context,
+                    conversation_history=req.conversation_history,
+                ):
+                    await queue.put(item)
+            except Exception as e:
                 logger.warning(f"Panel stream task failed for {agent_key}: {e}")
-                response = {
-                    "agent_role": agent_key,
-                    "agent_name": AGENT_PERSONAS.get(agent_key, {}).get("name", "Agent"),
-                    "response": "I'm having trouble responding right now. Please try again.",
-                }
-            yield _sse_data({"type": "agent_response", "response": response})
+                await queue.put(
+                    {
+                        "type": "done",
+                        "agent_role": agent_key,
+                        "agent_name": persona.get("name", "Agent"),
+                        "response": "I'm having trouble responding right now. Please try again.",
+                    }
+                )
+            finally:
+                await queue.put(None)
+
+        tasks = [
+            asyncio.create_task(_run_specialist(agent_key, persona))
+            for agent_key, persona in AGENT_PERSONAS.items()
+        ]
+
+        completed = 0
+        target = len(tasks)
+        while completed < target:
+            item = await queue.get()
+            if item is None:
+                completed += 1
+                continue
+            event_type = item.get("type")
+            if event_type == "start":
+                yield _sse_data(
+                    {
+                        "type": "agent_message_start",
+                        "message": {
+                            "agent_role": item.get("agent_role", ""),
+                            "agent_name": item.get("agent_name", ""),
+                            "response": "",
+                        },
+                    }
+                )
+            elif event_type == "delta":
+                yield _sse_data(
+                    {
+                        "type": "agent_message_delta",
+                        "message": {
+                            "agent_role": item.get("agent_role", ""),
+                            "agent_name": item.get("agent_name", ""),
+                            "response": "",
+                        },
+                        "delta": item.get("delta", ""),
+                    }
+                )
+            elif event_type == "done":
+                yield _sse_data(
+                    {
+                        "type": "agent_message_done",
+                        "message": {
+                            "agent_role": item.get("agent_role", ""),
+                            "agent_name": item.get("agent_name", ""),
+                            "response": item.get("response", ""),
+                        },
+                    }
+                )
+
+        await asyncio.gather(*tasks, return_exceptions=True)
 
         yield _sse_data({"type": "done"})
         yield "data: [DONE]\n\n"

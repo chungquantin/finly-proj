@@ -698,6 +698,31 @@ async def intake_endpoint(req: IntakeRequest) -> IntakeResponse:
     return resp
 
 
+@app.post("/api/intake/stream")
+async def intake_stream_endpoint(req: IntakeRequest):
+    """Streaming intake response for progressive advisor text rendering."""
+    from finly_backend.intake import run_intake_stream
+
+    async def event_stream():
+        try:
+            async for event in run_intake_stream(req.user_id, req.message):
+                event_type = str(event.get("type", "")).strip()
+                if event_type == "started":
+                    yield _sse_data({"type": "started"})
+                elif event_type == "delta":
+                    yield _sse_data({"type": "delta", "delta": str(event.get("delta", ""))})
+                elif event_type == "done":
+                    yield _sse_data({"type": "done", "result": event.get("result", {})})
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.exception("Intake stream failed")
+            yield _sse_data({"type": "error", "message": str(e)})
+            yield _sse_data({"type": "done"})
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @app.post("/api/intake/reset")
 async def intake_reset(user_id: str = Query(...)):
     """Reset intake conversation to start fresh."""
@@ -952,6 +977,7 @@ async def report_chat_stream(req: PanelChatRequest):
     async def event_stream():
         yield _sse_data({"type": "started"})
         collected_responses: list[dict[str, str]] = []
+        partial_text_by_role: dict[str, str] = {}
 
         try:
             async for event in agent_client.call_panel_chat_stream(
@@ -960,28 +986,104 @@ async def report_chat_stream(req: PanelChatRequest):
                 user_context=user_context,
                 conversation_history=conversation_history,
             ):
-                if event.get("type") != "agent_response":
+                event_type = str(event.get("type", "")).strip()
+                if event_type in {"started", "done"}:
                     continue
-                response = event.get("response") or {}
-                agent_role = str(response.get("agent_role", "")).strip() or "advisor"
-                agent_name = str(response.get("agent_name", "")).strip() or "Advisor"
-                response_text = str(response.get("response", "")).strip()
-                message = {
+
+                if event_type == "agent_response":
+                    response = event.get("response") if isinstance(event.get("response"), dict) else {}
+                    agent_role = str(response.get("agent_role", "")).strip() or "advisor"
+                    agent_name = str(response.get("agent_name", "")).strip() or "Advisor"
+                    response_text = str(response.get("response", "")).strip()
+                    yield _sse_data(
+                        {
+                            "type": "agent_message_start",
+                            "message": {
+                                "agent_role": agent_role,
+                                "agent_name": agent_name,
+                                "response": "",
+                            },
+                        }
+                    )
+                    if response_text:
+                        yield _sse_data(
+                            {
+                                "type": "agent_message_delta",
+                                "message": {
+                                    "agent_role": agent_role,
+                                    "agent_name": agent_name,
+                                    "response": "",
+                                },
+                                "delta": response_text,
+                            }
+                        )
+                    final_message = {
+                        "agent_role": agent_role,
+                        "agent_name": agent_name,
+                        "response": response_text,
+                    }
+                    yield _sse_data({"type": "agent_message_done", "message": final_message})
+                    append_conversation(
+                        req.user_id,
+                        "panel",
+                        "assistant",
+                        response_text,
+                        agent_role=agent_role,
+                        metadata={"report_id": report["id"]},
+                    )
+                    collected_responses.append(final_message)
+                    continue
+
+                message = event.get("message") if isinstance(event.get("message"), dict) else {}
+                agent_role = str(message.get("agent_role", "")).strip() or "advisor"
+                agent_name = str(message.get("agent_name", "")).strip() or "Advisor"
+
+                if event_type == "agent_message_start":
+                    partial_text_by_role[agent_role] = ""
+                    yield _sse_data(
+                        {
+                            "type": "agent_message_start",
+                            "message": {
+                                "agent_role": agent_role,
+                                "agent_name": agent_name,
+                                "response": "",
+                            },
+                        }
+                    )
+                    continue
+
+                if event_type == "agent_message_delta":
+                    delta = str(event.get("delta", ""))
+                    if not delta:
+                        continue
+                    partial_text_by_role[agent_role] = (
+                        f"{partial_text_by_role.get(agent_role, '')}{delta}"
+                    )
+                    yield _sse_data(
+                        {
+                            "type": "agent_message_delta",
+                            "message": {
+                                "agent_role": agent_role,
+                                "agent_name": agent_name,
+                                "response": "",
+                            },
+                            "delta": delta,
+                        }
+                    )
+                    continue
+
+                if event_type != "agent_message_done":
+                    continue
+
+                response_text = str(message.get("response", "")).strip()
+                if not response_text:
+                    response_text = partial_text_by_role.get(agent_role, "").strip()
+                final_message = {
                     "agent_role": agent_role,
                     "agent_name": agent_name,
                     "response": response_text,
                 }
-
-                yield _sse_data({"type": "agent_message_start", "message": message})
-                for part in _split_chunks(response_text, chunk_size=60):
-                    yield _sse_data(
-                        {
-                            "type": "agent_message_delta",
-                            "message": message,
-                            "delta": part,
-                        }
-                    )
-                yield _sse_data({"type": "agent_message_done", "message": message})
+                yield _sse_data({"type": "agent_message_done", "message": final_message})
 
                 append_conversation(
                     req.user_id,
@@ -991,7 +1093,7 @@ async def report_chat_stream(req: PanelChatRequest):
                     agent_role=agent_role,
                     metadata={"report_id": report["id"]},
                 )
-                collected_responses.append(message)
+                collected_responses.append(final_message)
         except AgentServerUnavailable as e:
             yield _sse_data({"type": "error", "message": str(e)})
             yield _sse_data({"type": "done"})

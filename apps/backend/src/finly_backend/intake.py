@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -97,9 +99,7 @@ def _count_follow_ups(user_id: str) -> int:
     return sum(1 for msg in history if msg["role"] == "assistant")
 
 
-def _build_messages(
-    user_id: str, user: dict, new_message: str
-) -> tuple[list[dict], int]:
+def _build_messages(user_id: str, user: dict) -> tuple[list[dict], int]:
     """Build the full message list for the LLM call."""
     follow_up_count = _count_follow_ups(user_id)
     system_prompt = _build_system_prompt(user, follow_up_count)
@@ -111,9 +111,6 @@ def _build_messages(
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
-    # Add the new user message
-    messages.append({"role": "user", "content": new_message})
-
     return messages, follow_up_count
 
 
@@ -124,8 +121,6 @@ def _parse_response(text: str) -> tuple[str, bool, str | None]:
     goals_brief = None
 
     # Look for ```json ... ``` block
-    import re
-
     json_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
     if json_match:
         try:
@@ -161,6 +156,19 @@ def _parse_response(text: str) -> tuple[str, bool, str | None]:
     return display_text, is_complete, goals_brief
 
 
+def _strip_json_tail_for_stream(text: str) -> str:
+    """Remove trailing JSON directive block for progressive UI display."""
+    fenced_idx = text.find("```json")
+    if fenced_idx >= 0:
+        return text[:fenced_idx].strip()
+
+    inline_json_idx = text.find('{"is_complete"')
+    if inline_json_idx >= 0:
+        return text[:inline_json_idx].strip()
+
+    return text
+
+
 async def run_intake(user_id: str, message: str) -> dict:
     """Run one turn of the intake conversation.
 
@@ -176,7 +184,7 @@ async def run_intake(user_id: str, message: str) -> dict:
     # Record user message
     append_conversation(user_id, "intake", "user", message)
 
-    messages, follow_up_count = _build_messages(user_id, user, message)
+    messages, follow_up_count = _build_messages(user_id, user)
 
     # Force completion if we've hit the follow-up cap
     if follow_up_count >= MAX_FOLLOW_UPS:
@@ -228,6 +236,100 @@ async def run_intake(user_id: str, message: str) -> dict:
         "is_complete": is_complete,
         "follow_up_count": new_follow_up_count,
         "goals_brief": goals_brief,
+    }
+
+
+async def run_intake_stream(user_id: str, message: str) -> AsyncIterator[dict]:
+    """Stream one intake turn token-by-token, then emit final structured result."""
+    user = get_user(user_id)
+    if not user:
+        from finly_backend.database import upsert_user
+
+        user = upsert_user(user_id)
+
+    append_conversation(user_id, "intake", "user", message)
+
+    messages, follow_up_count = _build_messages(user_id, user)
+    if follow_up_count >= MAX_FOLLOW_UPS:
+        messages[0]["content"] += (
+            "\n\nIMPORTANT: You have used all follow-up questions. You MUST now produce "
+            "the final brief with is_complete: true. Do NOT ask another question."
+        )
+
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    model = os.getenv(
+        "FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
+    base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+    yield {"type": "started"}
+
+    raw_text = ""
+    streamed_text = ""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream(
+            "POST",
+            f"{base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 800,
+                "stream": True,
+            },
+        ) as resp:
+            resp.raise_for_status()
+            async for raw_line in resp.aiter_lines():
+                line = (raw_line or "").strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload:
+                    continue
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                except Exception:
+                    continue
+                delta = (
+                    chunk.get("choices", [{}])[0]
+                    .get("delta", {})
+                    .get("content", "")
+                )
+                if not delta:
+                    continue
+
+                raw_text += str(delta)
+                visible = _strip_json_tail_for_stream(raw_text)
+                if len(visible) <= len(streamed_text):
+                    continue
+                next_delta = visible[len(streamed_text) :]
+                streamed_text = visible
+                if next_delta:
+                    yield {"type": "delta", "delta": next_delta}
+
+    display_text, is_complete, goals_brief = _parse_response(raw_text)
+    append_conversation(user_id, "intake", "assistant", display_text)
+
+    if is_complete and goals_brief:
+        update_user_field(user_id, "goals_brief", goals_brief)
+        upsert_memory(user_id, "investment_goals", goals_brief, source="intake")
+
+    new_follow_up_count = follow_up_count + 1
+    yield {
+        "type": "done",
+        "result": {
+            "user_id": user_id,
+            "message": display_text,
+            "is_complete": is_complete,
+            "follow_up_count": new_follow_up_count,
+            "goals_brief": goals_brief,
+        },
     }
 
 
