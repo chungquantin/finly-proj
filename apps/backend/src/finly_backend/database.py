@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS reports (
     summary       TEXT,
     full_report   TEXT,
     agent_reasoning_json TEXT DEFAULT '{}',
+    specialist_insights_json TEXT DEFAULT '[]',
     intake_brief  TEXT DEFAULT '',
     created_at    TEXT DEFAULT (datetime('now'))
 );
@@ -107,6 +108,28 @@ def get_db():
 def init_db() -> None:
     with get_db() as conn:
         conn.executescript(_CREATE_TABLES)
+        _ensure_column(
+            conn,
+            "reports",
+            "specialist_insights_json",
+            "TEXT DEFAULT '[]'",
+        )
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    columns = {
+        row["name"]
+        for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+    if column_name not in columns:
+        conn.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -244,16 +267,28 @@ def append_conversation(
 
 
 def get_conversation_history(
-    user_id: str, conv_type: str = "chat", limit: int = 50
+    user_id: str,
+    conv_type: str = "chat",
+    limit: int = 50,
+    metadata_filters: dict[str, Any] | None = None,
 ) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             """SELECT * FROM conversations
                WHERE user_id = ? AND conv_type = ?
                ORDER BY created_at DESC LIMIT ?""",
-            (user_id, conv_type, limit),
+            (user_id, conv_type, max(limit * 5, limit)),
         ).fetchall()
-        return [dict(r) for r in reversed(rows)]
+        results: list[dict] = []
+        for row in reversed(rows):
+            item = dict(row)
+            metadata = json.loads(item.get("metadata_json", "{}") or "{}")
+            item["metadata"] = metadata
+            if metadata_filters:
+                if not all(metadata.get(key) == value for key, value in metadata_filters.items()):
+                    continue
+            results.append(item)
+        return results[-limit:]
 
 
 # ---------------------------------------------------------------------------
@@ -321,13 +356,14 @@ def save_report(
     summary: str,
     full_report: str,
     agent_reasoning: dict,
+    specialist_insights: list[dict],
     intake_brief: str = "",
 ) -> dict:
     report_id = uuid.uuid4().hex[:12]
     with get_db() as conn:
         conn.execute(
-            """INSERT INTO reports (id, user_id, ticker, decision, summary, full_report, agent_reasoning_json, intake_brief)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO reports (id, user_id, ticker, decision, summary, full_report, agent_reasoning_json, specialist_insights_json, intake_brief)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 report_id,
                 user_id,
@@ -336,6 +372,7 @@ def save_report(
                 summary,
                 full_report,
                 json.dumps(agent_reasoning),
+                json.dumps(specialist_insights),
                 intake_brief,
             ),
         )
@@ -355,6 +392,9 @@ def get_reports(user_id: str, limit: int = 10) -> list[dict]:
         for r in rows:
             d = dict(r)
             d["agent_reasoning"] = json.loads(d.pop("agent_reasoning_json", "{}"))
+            d["specialist_insights"] = json.loads(
+                d.pop("specialist_insights_json", "[]")
+            )
             results.append(d)
         return results
 
@@ -362,3 +402,25 @@ def get_reports(user_id: str, limit: int = 10) -> list[dict]:
 def get_latest_report(user_id: str) -> dict | None:
     reports = get_reports(user_id, limit=1)
     return reports[0] if reports else None
+
+
+def get_report(report_id: str, user_id: str | None = None) -> dict | None:
+    with get_db() as conn:
+        if user_id:
+            row = conn.execute(
+                "SELECT * FROM reports WHERE id = ? AND user_id = ?",
+                (report_id, user_id),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM reports WHERE id = ?",
+                (report_id,),
+            ).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["agent_reasoning"] = json.loads(result.pop("agent_reasoning_json", "{}"))
+        result["specialist_insights"] = json.loads(
+            result.pop("specialist_insights_json", "[]")
+        )
+        return result
