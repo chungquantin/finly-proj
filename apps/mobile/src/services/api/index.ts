@@ -30,6 +30,8 @@ import type {
   UserProfile,
   VoiceOnboardingResponse,
   TickerNewsResponse,
+  HeartbeatRuleResponse,
+  HeartbeatResultResponse,
 } from "./types"
 
 export const DEFAULT_API_CONFIG: ApiConfig = {
@@ -526,6 +528,157 @@ export class Api {
       if (problem) return problem
     }
     return { kind: "ok", data: response.data! }
+  }
+
+  // -----------------------------------------------------------------------
+  // Heartbeat analysis
+  // -----------------------------------------------------------------------
+
+  async heartbeatAnalyzeStream(
+    userId: string,
+    tickers?: string[],
+    onEvent?: (event: Record<string, unknown>) => void,
+  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    try {
+      const url = `${this.config.url}/api/heartbeat/analyze`
+      const body: Record<string, unknown> = { user_id: userId }
+      if (tickers) body.tickers = tickers
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) return { kind: "bad-data" }
+      if (!response.body) return { kind: "bad-data" }
+
+      const decoder = new TextDecoder()
+      const reader = response.body.getReader()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const raw of lines) {
+          const line = raw.trim()
+          if (!line.startsWith("data:")) continue
+          const payload = line.slice(5).trim()
+          if (!payload || payload === "[DONE]") continue
+          try {
+            onEvent?.(JSON.parse(payload))
+          } catch {
+            // Ignore malformed SSE
+          }
+        }
+      }
+
+      return { kind: "ok" }
+    } catch {
+      return { kind: "cannot-connect", temporary: true }
+    }
+  }
+
+  async createHeartbeatRule(
+    userId: string,
+    rawRule: string,
+  ): Promise<{ kind: "ok"; rule: HeartbeatRuleResponse } | GeneralApiProblem> {
+    const response: ApiResponse<HeartbeatRuleResponse> = await this.apisauce.post(
+      "/api/heartbeat/rules",
+      { user_id: userId, raw_rule: rawRule },
+      { timeout: 30000 },
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", rule: response.data! }
+  }
+
+  async getHeartbeatRules(
+    userId: string,
+  ): Promise<{ kind: "ok"; rules: HeartbeatRuleResponse[] } | GeneralApiProblem> {
+    const response: ApiResponse<HeartbeatRuleResponse[]> = await this.apisauce.get(
+      `/api/heartbeat/rules?user_id=${encodeURIComponent(userId)}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", rules: response.data ?? [] }
+  }
+
+  async deleteHeartbeatRule(
+    ruleId: string,
+  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    const response = await this.apisauce.delete(`/api/heartbeat/rules/${ruleId}`)
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok" }
+  }
+
+  async toggleHeartbeatRule(
+    ruleId: string,
+  ): Promise<{ kind: "ok"; rule: HeartbeatRuleResponse } | GeneralApiProblem> {
+    const response: ApiResponse<HeartbeatRuleResponse> = await this.apisauce.patch(
+      `/api/heartbeat/rules/${ruleId}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", rule: response.data! }
+  }
+
+  async getHeartbeatResults(
+    userId: string,
+    unreadOnly = false,
+  ): Promise<{ kind: "ok"; results: HeartbeatResultResponse[] } | GeneralApiProblem> {
+    const query = new URLSearchParams({
+      user_id: userId,
+      unread_only: String(unreadOnly),
+    })
+    const response: ApiResponse<HeartbeatResultResponse[]> = await this.apisauce.get(
+      `/api/heartbeat/results?${query.toString()}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", results: response.data ?? [] }
+  }
+
+  async markHeartbeatResultRead(
+    resultId: string,
+  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    const response = await this.apisauce.post(`/api/heartbeat/results/${resultId}/read`)
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok" }
+  }
+
+  async getHeartbeatUnreadCount(
+    userId: string,
+  ): Promise<{ kind: "ok"; count: number } | GeneralApiProblem> {
+    const response: ApiResponse<{ count: number }> = await this.apisauce.get(
+      `/api/heartbeat/results/unread-count?user_id=${encodeURIComponent(userId)}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", count: response.data?.count ?? 0 }
   }
 
 }

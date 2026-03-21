@@ -251,3 +251,47 @@ class VoiceOnboardingResponse(BaseModel):
     turn_count: int = 0
     profile: VoiceOnboardingProfile | None = None
     transcript: str | None = None  # transcribed text from audio input
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat analysis
+# ---------------------------------------------------------------------------
+
+
+class HeartbeatAnalyzeRequest(BaseModel):
+    user_id: str
+    tickers: list[str] | None = None  # None = use portfolio tickers
+
+
+class HeartbeatRuleCreateRequest(BaseModel):
+    user_id: str
+    raw_rule: str  # "Alert me if AAPL drops more than 5%"
+
+
+class HeartbeatRuleParsed(BaseModel):
+    ticker: str
+    metric: str  # "price_change_pct", "price", "volume"
+    operator: str  # "gt", "lt", "gte", "lte"
+    threshold: float
+
+
+class HeartbeatRuleResponse(BaseModel):
+    id: str
+    user_id: str
+    raw_rule: str
+    parsed_condition: dict
+    is_active: bool
+    created_at: str
+
+
+class HeartbeatResultResponse(BaseModel):
+    id: str
+    user_id: str
+    rule_id: str | None
+    ticker: str
+    decision: str
+    summary: str
+    full_analysis: str
+    severity: str
+    is_read: bool
+    created_at: str

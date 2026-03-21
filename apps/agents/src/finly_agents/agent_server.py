@@ -56,6 +56,15 @@ class AgentPanelRequest(BaseModel):
     target_agents: list[str] | None = None  # e.g. ["advisor"], ["trader", "analyst"]; None = all
 
 
+class HeartbeatAnalyzeAgentRequest(BaseModel):
+    ticker: str
+    user_context: str = ""
+
+
+class ParseRuleRequest(BaseModel):
+    raw_rule: str
+
+
 # ---------------------------------------------------------------------------
 # Agent pipeline helpers (moved from server.py)
 # ---------------------------------------------------------------------------
@@ -630,6 +639,110 @@ async def panel_chat_stream(req: AgentPanelRequest):
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat analysis
+# ---------------------------------------------------------------------------
+
+
+def _run_heartbeat_pipeline(req: HeartbeatAnalyzeAgentRequest) -> dict[str, Any]:
+    """Execute the full agent pipeline for heartbeat analysis (blocking)."""
+    model_name = os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    graph = _build_graph(
+        model_name=model_name,
+        selected_analysts=["market", "social", "news", "fundamentals"],
+    )
+
+    from datetime import date as _date
+    trade_date = _date.today().isoformat()
+
+    final_state, decision = graph.propagate(
+        req.ticker, trade_date, user_context=req.user_context
+    )
+
+    final_report = final_state.get("final_trade_decision", "")
+    summary = _truncate_sentences(final_report, 3)
+    specialist_insights = _extract_specialist_insights(final_state)
+
+    decision_str = str(decision).strip().upper()
+    severity = "critical" if decision_str == "SELL" else "warning" if decision_str == "BUY" else "info"
+
+    return {
+        "ticker": req.ticker,
+        "decision": decision_str,
+        "summary": summary,
+        "full_analysis": final_report,
+        "severity": severity,
+        "specialist_insights": specialist_insights,
+    }
+
+
+@app.post("/agent/heartbeat-analyze")
+async def heartbeat_analyze(req: HeartbeatAnalyzeAgentRequest):
+    """Run full pipeline analysis for a single ticker (heartbeat)."""
+    try:
+        result = await asyncio.to_thread(_run_heartbeat_pipeline, req)
+    except Exception as e:
+        logger.exception("Heartbeat pipeline failed for %s", req.ticker)
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+@app.post("/agent/parse-rule")
+async def parse_rule(req: ParseRuleRequest):
+    """Use LLM to parse a natural language rule into structured condition."""
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    model = os.getenv(
+        "FINLY_PANEL_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
+    base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+    system_prompt = """\
+You parse investment monitoring rules from natural language into JSON.
+
+Return ONLY a JSON object with these fields:
+- ticker: string (stock symbol, uppercase)
+- metric: string (one of: "price", "price_change_pct", "volume")
+- operator: string (one of: "gt", "lt", "gte", "lte")
+- threshold: number
+
+Examples:
+"Alert me if AAPL drops more than 5%" -> {"ticker": "AAPL", "metric": "price_change_pct", "operator": "lt", "threshold": -5}
+"Notify when TSLA goes above $300" -> {"ticker": "TSLA", "metric": "price", "operator": "gt", "threshold": 300}
+"Tell me if VCB falls below 90000" -> {"ticker": "VCB", "metric": "price", "operator": "lt", "threshold": 90000}
+
+Return ONLY the JSON, no explanation."""
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": req.raw_rule},
+                    ],
+                    "temperature": 0,
+                    "max_tokens": 200,
+                },
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            # Extract JSON from response (handle markdown code blocks)
+            content = content.strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            parsed = json.loads(content)
+            return parsed
+    except Exception as e:
+        logger.exception("Rule parsing failed")
+        raise HTTPException(status_code=500, detail=f"Failed to parse rule: {e}")
 
 
 # ---------------------------------------------------------------------------

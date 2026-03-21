@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS portfolios (
 CREATE TABLE IF NOT EXISTS conversations (
     id            TEXT PRIMARY KEY,
     user_id       TEXT NOT NULL REFERENCES users(user_id),
-    conv_type     TEXT NOT NULL CHECK (conv_type IN ('intake', 'chat', 'panel')),
+    conv_type     TEXT NOT NULL CHECK (conv_type IN ('intake', 'chat', 'panel', 'onboarding_voice')),
     role          TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
     agent_role    TEXT,
     content       TEXT NOT NULL,
@@ -86,6 +86,33 @@ CREATE INDEX IF NOT EXISTS idx_memories_user ON user_memories(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_user ON reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_report_tickers_user_ticker ON report_tickers(user_id, ticker);
 CREATE INDEX IF NOT EXISTS idx_report_tickers_report ON report_tickers(report_id);
+
+CREATE TABLE IF NOT EXISTS heartbeat_rules (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL REFERENCES users(user_id),
+    raw_rule        TEXT NOT NULL,
+    parsed_condition TEXT NOT NULL,
+    is_active       INTEGER DEFAULT 1,
+    created_at      TEXT DEFAULT (datetime('now')),
+    last_checked_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS heartbeat_results (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL REFERENCES users(user_id),
+    rule_id         TEXT,
+    ticker          TEXT NOT NULL,
+    decision        TEXT NOT NULL,
+    summary         TEXT NOT NULL,
+    full_analysis   TEXT DEFAULT '',
+    severity        TEXT DEFAULT 'info',
+    is_read         INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (rule_id) REFERENCES heartbeat_rules(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_heartbeat_rules_user ON heartbeat_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_results_user ON heartbeat_results(user_id);
 """
 
 
@@ -117,6 +144,35 @@ def get_db():
         conn.close()
 
 
+def _migrate_conversations_conv_type(conn: sqlite3.Connection) -> None:
+    """Recreate conversations table if its CHECK constraint is missing 'onboarding_voice'."""
+    try:
+        # Test if the new conv_type is accepted
+        conn.execute(
+            "INSERT INTO conversations (id, user_id, conv_type, role, content) VALUES (?, ?, ?, ?, ?)",
+            ("__migration_test__", "__test__", "onboarding_voice", "system", "test"),
+        )
+        conn.execute("DELETE FROM conversations WHERE id = '__migration_test__'")
+    except sqlite3.IntegrityError:
+        # Old constraint — recreate table with updated constraint
+        conn.executescript("""
+            CREATE TABLE conversations_new (
+                id            TEXT PRIMARY KEY,
+                user_id       TEXT NOT NULL,
+                conv_type     TEXT NOT NULL CHECK (conv_type IN ('intake', 'chat', 'panel', 'onboarding_voice')),
+                role          TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+                agent_role    TEXT,
+                content       TEXT NOT NULL,
+                metadata_json TEXT DEFAULT '{}',
+                created_at    TEXT DEFAULT (datetime('now'))
+            );
+            INSERT INTO conversations_new SELECT * FROM conversations;
+            DROP TABLE conversations;
+            ALTER TABLE conversations_new RENAME TO conversations;
+            CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, conv_type);
+        """)
+
+
 def init_db() -> None:
     with get_db() as conn:
         conn.executescript(_CREATE_TABLES)
@@ -132,6 +188,7 @@ def init_db() -> None:
             "reason",
             "TEXT DEFAULT ''",
         )
+        _migrate_conversations_conv_type(conn)
 
 
 def _ensure_column(
@@ -499,3 +556,145 @@ def get_report(report_id: str, user_id: str | None = None) -> dict | None:
         )
         result["additional_tickers"] = get_report_related_tickers(report_id)
         return result
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat Rules
+# ---------------------------------------------------------------------------
+
+
+def create_heartbeat_rule(
+    user_id: str,
+    raw_rule: str,
+    parsed_condition: dict,
+) -> dict:
+    rule_id = uuid.uuid4().hex[:12]
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO heartbeat_rules (id, user_id, raw_rule, parsed_condition)
+               VALUES (?, ?, ?, ?)""",
+            (rule_id, user_id, raw_rule, json.dumps(parsed_condition)),
+        )
+        row = conn.execute(
+            "SELECT * FROM heartbeat_rules WHERE id = ?", (rule_id,)
+        ).fetchone()
+        return dict(row)
+
+
+def get_heartbeat_rules(user_id: str) -> list[dict]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM heartbeat_rules WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,),
+        ).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            d["parsed_condition"] = json.loads(d["parsed_condition"])
+            results.append(d)
+        return results
+
+
+def get_active_heartbeat_rules() -> list[dict]:
+    """Get all active rules across all users (for scheduler)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM heartbeat_rules WHERE is_active = 1 ORDER BY user_id",
+        ).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            d["parsed_condition"] = json.loads(d["parsed_condition"])
+            results.append(d)
+        return results
+
+
+def delete_heartbeat_rule(rule_id: str) -> bool:
+    with get_db() as conn:
+        cursor = conn.execute(
+            "DELETE FROM heartbeat_rules WHERE id = ?", (rule_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def toggle_heartbeat_rule(rule_id: str) -> dict | None:
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE heartbeat_rules SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?",
+            (rule_id,),
+        )
+        row = conn.execute(
+            "SELECT * FROM heartbeat_rules WHERE id = ?", (rule_id,)
+        ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["parsed_condition"] = json.loads(d["parsed_condition"])
+        return d
+
+
+def update_rule_last_checked(rule_id: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE heartbeat_rules SET last_checked_at = datetime('now') WHERE id = ?",
+            (rule_id,),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat Results
+# ---------------------------------------------------------------------------
+
+
+def save_heartbeat_result(
+    user_id: str,
+    ticker: str,
+    decision: str,
+    summary: str,
+    full_analysis: str = "",
+    severity: str = "info",
+    rule_id: str | None = None,
+) -> dict:
+    result_id = uuid.uuid4().hex[:12]
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO heartbeat_results (id, user_id, rule_id, ticker, decision, summary, full_analysis, severity)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (result_id, user_id, rule_id, ticker.upper(), decision, summary, full_analysis, severity),
+        )
+        row = conn.execute(
+            "SELECT * FROM heartbeat_results WHERE id = ?", (result_id,)
+        ).fetchone()
+        return dict(row)
+
+
+def get_heartbeat_results(user_id: str, unread_only: bool = False, limit: int = 50) -> list[dict]:
+    with get_db() as conn:
+        if unread_only:
+            rows = conn.execute(
+                "SELECT * FROM heartbeat_results WHERE user_id = ? AND is_read = 0 ORDER BY created_at DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM heartbeat_results WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def mark_heartbeat_result_read(result_id: str) -> bool:
+    with get_db() as conn:
+        cursor = conn.execute(
+            "UPDATE heartbeat_results SET is_read = 1 WHERE id = ?", (result_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def get_heartbeat_unread_count(user_id: str) -> int:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM heartbeat_results WHERE user_id = ? AND is_read = 0",
+            (user_id,),
+        ).fetchone()
+        return row["cnt"] if row else 0

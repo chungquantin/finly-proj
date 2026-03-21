@@ -180,3 +180,39 @@ async def call_panel_chat_stream(
         )
     except httpx.TimeoutException:
         raise AgentServerUnavailable("Agent server timed out during panel chat stream.")
+
+
+async def call_heartbeat_analyze(ticker: str, user_context: str = "") -> dict:
+    """Call the heartbeat analysis endpoint for a single ticker."""
+    payload = {"ticker": ticker, "user_context": user_context}
+    try:
+        async with httpx.AsyncClient(timeout=_PIPELINE_TIMEOUT) as client:
+            resp = await client.post(
+                f"{AGENT_SERVER_URL}/agent/heartbeat-analyze", json=payload
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.ConnectError:
+        raise AgentServerUnavailable(
+            f"Agent server at {AGENT_SERVER_URL} is not reachable."
+        )
+    except httpx.TimeoutException:
+        raise AgentServerUnavailable("Agent server timed out during heartbeat analysis.")
+
+
+async def call_parse_rule(raw_rule: str) -> dict:
+    """Call the rule parsing endpoint to convert natural language to structured condition."""
+    payload = {"raw_rule": raw_rule}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{AGENT_SERVER_URL}/agent/parse-rule", json=payload
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.ConnectError:
+        raise AgentServerUnavailable(
+            f"Agent server at {AGENT_SERVER_URL} is not reachable."
+        )
+    except httpx.TimeoutException:
+        raise AgentServerUnavailable("Agent server timed out during rule parsing.")

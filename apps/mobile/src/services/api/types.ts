@@ -283,9 +283,65 @@ export interface VoiceOnboardingResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Heartbeat
+// Heartbeat Analysis
 // ---------------------------------------------------------------------------
 
+export interface HeartbeatAnalyzeRequest {
+  user_id: string
+  tickers?: string[]
+}
+
+export interface HeartbeatRuleCreateRequest {
+  user_id: string
+  raw_rule: string
+}
+
+export interface HeartbeatRuleParsed {
+  ticker: string
+  metric: string
+  operator: string
+  threshold: number
+}
+
+export interface HeartbeatRuleResponse {
+  id: string
+  user_id: string
+  raw_rule: string
+  parsed_condition: HeartbeatRuleParsed
+  is_active: boolean
+  created_at: string
+}
+
+export interface HeartbeatResultResponse {
+  id: string
+  user_id: string
+  rule_id: string | null
+  ticker: string
+  decision: string
+  summary: string
+  full_analysis: string
+  severity: string
+  is_read: boolean
+  created_at: string
+}
+
+export interface HeartbeatAnalyzeStreamEvent {
+  type:
+    | "started"
+    | "ticker_start"
+    | "ticker_done"
+    | "ticker_error"
+    | "done"
+  tickers?: string[]
+  ticker?: string
+  decision?: string
+  summary?: string
+  severity?: string
+  error?: string
+  results?: Record<string, unknown>[]
+}
+
+// Legacy (kept for backward compat)
 export interface HeartbeatAlert {
   alert_id: string
   timestamp: string

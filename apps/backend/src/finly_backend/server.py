@@ -49,6 +49,10 @@ from finly_backend.models import (
     VoiceOnboardingRequest,
     VoiceOnboardingResponse,
     TickerReportListItem,
+    HeartbeatAnalyzeRequest,
+    HeartbeatRuleCreateRequest,
+    HeartbeatRuleResponse,
+    HeartbeatResultResponse,
 )
 from finly_backend.database import (
     init_db,
@@ -58,6 +62,15 @@ from finly_backend.database import (
     get_reports_for_ticker,
     get_latest_report,
     save_report,
+    get_portfolio,
+    create_heartbeat_rule,
+    get_heartbeat_rules,
+    delete_heartbeat_rule,
+    toggle_heartbeat_rule,
+    save_heartbeat_result,
+    get_heartbeat_results,
+    mark_heartbeat_result_read,
+    get_heartbeat_unread_count,
 )
 from finly_backend.profiles import (
     append_chat,
@@ -65,12 +78,7 @@ from finly_backend.profiles import (
     get_chat_history,
     get_profile,
 )
-from finly_backend.heartbeat import (
-    get_pending_alerts,
-    seed_demo_alerts,
-    trigger_alert,
-    trigger_custom_alert,
-)
+from finly_backend.heartbeat import start_heartbeat_scheduler
 
 load_dotenv()
 
@@ -308,8 +316,8 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     init_db()
-    seed_demo_alerts()
-    logger.info("Finly Backend API started — DB initialised, demo alerts seeded")
+    start_heartbeat_scheduler()
+    logger.info("Finly Backend API started — DB initialised, heartbeat scheduler started")
 
 
 # ---------------------------------------------------------------------------
@@ -1621,47 +1629,168 @@ async def ticker_news(
 
 
 # ---------------------------------------------------------------------------
-# Heartbeat alerts
+# Heartbeat analysis
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/heartbeat/alerts")
-async def heartbeat_alerts(user_id: str = Query(default="broadcast")):
-    alerts = get_pending_alerts(user_id)
-    return [a.model_dump() for a in alerts]
+@app.post("/api/heartbeat/analyze")
+async def heartbeat_analyze(req: HeartbeatAnalyzeRequest):
+    """One-shot portfolio risk analysis — streams results via SSE."""
+    from finly_backend.context import build_user_context
+
+    tickers = req.tickers
+    if not tickers:
+        # Get tickers from user's portfolio
+        portfolio = get_portfolio(req.user_id)
+        tickers = list({item["ticker"] for item in portfolio})
+
+    if not tickers:
+        raise HTTPException(status_code=400, detail="No tickers to analyze. Import a portfolio first.")
+
+    user_context = build_user_context(req.user_id)
+
+    async def event_stream():
+        yield _sse_data({"type": "started", "tickers": tickers})
+        results = []
+
+        for ticker in tickers:
+            yield _sse_data({"type": "ticker_start", "ticker": ticker})
+            try:
+                result = await agent_client.call_heartbeat_analyze(
+                    ticker=ticker, user_context=user_context
+                )
+                # Save to DB
+                save_heartbeat_result(
+                    user_id=req.user_id,
+                    ticker=ticker,
+                    decision=result.get("decision", "HOLD"),
+                    summary=result.get("summary", ""),
+                    full_analysis=result.get("full_analysis", ""),
+                    severity=result.get("severity", "info"),
+                )
+                results.append(result)
+                yield _sse_data({
+                    "type": "ticker_done",
+                    "ticker": ticker,
+                    "decision": result.get("decision", "HOLD"),
+                    "summary": result.get("summary", ""),
+                    "severity": result.get("severity", "info"),
+                })
+            except Exception as e:
+                logger.exception("Heartbeat analyze failed for %s", ticker)
+                yield _sse_data({
+                    "type": "ticker_error",
+                    "ticker": ticker,
+                    "error": str(e),
+                })
+
+        yield _sse_data({"type": "done", "results": results})
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-@app.post("/api/heartbeat/trigger")
-async def heartbeat_trigger(
-    scenario: str = Query(...), user_id: str = Query(default="broadcast")
-):
+@app.post("/api/heartbeat/rules")
+async def create_rule(req: HeartbeatRuleCreateRequest):
+    """Create a monitoring rule from natural language."""
     try:
-        alert = trigger_alert(scenario, user_id)
-        return alert.model_dump()
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        parsed = await agent_client.call_parse_rule(req.raw_rule)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse rule: {e}")
 
-
-class CustomAlertRequest(BaseModel):
-    ticker: str
-    headline: str
-    body: str
-    severity: str = "info"
-    attributed_to: str = "Finly"
-    user_id: str = "broadcast"
-
-
-@app.post("/api/heartbeat/custom")
-async def heartbeat_custom(req: CustomAlertRequest):
-    alert = trigger_custom_alert(
-        ticker=req.ticker,
-        headline=req.headline,
-        body=req.body,
-        severity=req.severity,
-        attributed_to=req.attributed_to,
+    rule = create_heartbeat_rule(
         user_id=req.user_id,
+        raw_rule=req.raw_rule,
+        parsed_condition=parsed,
     )
-    return alert.model_dump()
+    return {
+        "id": rule["id"],
+        "user_id": rule["user_id"],
+        "raw_rule": rule["raw_rule"],
+        "parsed_condition": json.loads(rule["parsed_condition"]) if isinstance(rule["parsed_condition"], str) else rule["parsed_condition"],
+        "is_active": bool(rule["is_active"]),
+        "created_at": rule["created_at"],
+    }
+
+
+@app.get("/api/heartbeat/rules")
+async def list_rules(user_id: str = Query(...)):
+    """List all heartbeat rules for a user."""
+    rules = get_heartbeat_rules(user_id)
+    return [
+        {
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "raw_rule": r["raw_rule"],
+            "parsed_condition": r["parsed_condition"],
+            "is_active": bool(r["is_active"]),
+            "created_at": r["created_at"],
+        }
+        for r in rules
+    ]
+
+
+@app.delete("/api/heartbeat/rules/{rule_id}")
+async def remove_rule(rule_id: str):
+    """Delete a heartbeat rule."""
+    if not delete_heartbeat_rule(rule_id):
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {"ok": True}
+
+
+@app.patch("/api/heartbeat/rules/{rule_id}")
+async def toggle_rule(rule_id: str):
+    """Toggle a heartbeat rule active/inactive."""
+    rule = toggle_heartbeat_rule(rule_id)
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {
+        "id": rule["id"],
+        "user_id": rule["user_id"],
+        "raw_rule": rule["raw_rule"],
+        "parsed_condition": rule["parsed_condition"],
+        "is_active": bool(rule["is_active"]),
+        "created_at": rule["created_at"],
+    }
+
+
+@app.get("/api/heartbeat/results")
+async def list_results(
+    user_id: str = Query(...),
+    unread_only: bool = Query(default=False),
+):
+    """List heartbeat analysis results."""
+    results = get_heartbeat_results(user_id, unread_only=unread_only)
+    return [
+        {
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "rule_id": r["rule_id"],
+            "ticker": r["ticker"],
+            "decision": r["decision"],
+            "summary": r["summary"],
+            "full_analysis": r.get("full_analysis", ""),
+            "severity": r["severity"],
+            "is_read": bool(r["is_read"]),
+            "created_at": r["created_at"],
+        }
+        for r in results
+    ]
+
+
+@app.post("/api/heartbeat/results/{result_id}/read")
+async def mark_result_read(result_id: str):
+    """Mark a heartbeat result as read."""
+    if not mark_heartbeat_result_read(result_id):
+        raise HTTPException(status_code=404, detail="Result not found")
+    return {"ok": True}
+
+
+@app.get("/api/heartbeat/results/unread-count")
+async def unread_count(user_id: str = Query(...)):
+    """Get count of unread heartbeat results."""
+    count = get_heartbeat_unread_count(user_id)
+    return {"count": count}
 
 
 # ---------------------------------------------------------------------------

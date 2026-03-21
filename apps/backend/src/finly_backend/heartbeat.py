@@ -1,174 +1,208 @@
-"""HEARTBEAT proactive alert system.
+"""HEARTBEAT analysis system.
 
-Pre-built alert scenarios attributed to agent personas, with an
-in-memory per-user queue. Alerts are returned and cleared on poll.
+Provides:
+1. One-shot portfolio risk analysis via the full TradingAgentsGraph pipeline
+2. Background scheduler that evaluates user-defined rules every 15 minutes
+   during market hours and triggers full pipeline analysis when conditions are met
 """
 
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timedelta
+import asyncio
+import logging
+import threading
+from datetime import datetime, timezone, timedelta
 
-from finly_backend.models import HeartbeatAlert
+logger = logging.getLogger("finly_backend.heartbeat")
 
-SCENARIOS: dict[str, dict] = {
-    "vcb_price_drop": {
-        "ticker": "VCB",
-        "alert_type": "price_drop",
-        "headline": "VCB dropped 3.2% intraday on heavy volume",
-        "body": "Vietcombank shares fell sharply this morning after foreign funds net-sold 1.2M shares. The Market Analyst notes RSI has entered oversold territory at 28, suggesting a potential rebound. Consider this a buying opportunity if your risk tolerance allows.",
-        "attributed_to": "Market Analyst",
-        "severity": "warning",
-    },
-    "fpt_earnings_beat": {
-        "ticker": "FPT",
-        "alert_type": "earnings_beat",
-        "headline": "FPT Q1 earnings beat consensus by 15%",
-        "body": "FPT Corporation reported pre-tax profit of 3.2T VND, exceeding Street estimates by 15%. IT services segment grew 28% YoY driven by AI/cloud contracts. The Fundamentals Analyst highlights the strong earnings momentum and recommends maintaining a BUY stance.",
-        "attributed_to": "Fundamentals Analyst",
-        "severity": "info",
-    },
-    "vnm_dividend": {
-        "ticker": "VNM",
-        "alert_type": "earnings_beat",
-        "headline": "Vinamilk announces 4,000 VND/share special dividend",
-        "body": "Vinamilk declared a special dividend of 4,000 VND/share (ex-date April 5). At current prices this represents a 5.5% yield. The Portfolio Manager notes this is attractive for income-focused investors.",
-        "attributed_to": "Portfolio Manager",
-        "severity": "info",
-    },
-    "hose_sector_move": {
-        "ticker": "HOSE",
-        "alert_type": "sector_move",
-        "headline": "Banking sector rallies 2.5% on SBV credit growth cap increase",
-        "body": "The State Bank of Vietnam raised the credit growth cap for well-capitalized banks from 14% to 16%. VCB, TPB, and other major banks surged. The News Analyst attributes the move to improving macro conditions and recommends overweighting financials.",
-        "attributed_to": "News Analyst",
-        "severity": "info",
-    },
-    "tpb_upgrade": {
-        "ticker": "TPB",
-        "alert_type": "earnings_beat",
-        "headline": "Moody's upgrades TPBank, shares jump 4%",
-        "body": "Moody's upgraded TPBank's outlook from stable to positive, citing improved asset quality and digital transformation progress. The Risk Assessor notes this reduces downside risk for TPB holders.",
-        "attributed_to": "Risk Assessor",
-        "severity": "info",
-    },
-    "global_fed_hold": {
-        "ticker": "HOSE",
-        "alert_type": "sector_move",
-        "headline": "Fed holds rates, Vietnam equities rally on EM inflows",
-        "body": "The Federal Reserve kept rates unchanged and signalled a possible June cut. Emerging markets including Vietnam saw strong inflows. The Market Analyst expects continued foreign buying of VN30 blue chips.",
-        "attributed_to": "Market Analyst",
-        "severity": "info",
-    },
-    "vcb_insider_buy": {
-        "ticker": "VCB",
-        "alert_type": "earnings_beat",
-        "headline": "VCB board member buys 50,000 shares on open market",
-        "body": "A VCB board member disclosed a purchase of 50,000 shares at market price. Insider buying often signals management confidence. The Sentiment Analyst notes this aligns with positive social media sentiment around VCB.",
-        "attributed_to": "Sentiment Analyst",
-        "severity": "info",
-    },
-    "fpt_contract_win": {
-        "ticker": "FPT",
-        "alert_type": "sector_move",
-        "headline": "FPT signs $200M AI deal with major Japanese automaker",
-        "body": "FPT Corporation announced a landmark $200M multi-year AI transformation contract. This is FPT's largest single deal ever and validates their AI capabilities. The Fundamentals Analyst sees this as a strong catalyst.",
-        "attributed_to": "Fundamentals Analyst",
-        "severity": "critical",
-    },
-    "hormuz_closure": {
-        "ticker": "HOSE",
-        "alert_type": "sector_move",
-        "headline": "Strait of Hormuz closed — oil prices spike 12%",
-        "body": "Reports of a naval blockade in the Strait of Hormuz sent Brent crude up 12% in early trading. Vietnam's import-dependent industries face margin pressure. The Risk Assessor recommends reducing exposure to energy-intensive sectors and monitoring PVD, GAS closely.",
-        "attributed_to": "Risk Assessor",
-        "severity": "critical",
-    },
-    "rsi_threshold": {
-        "ticker": "VCB",
-        "alert_type": "price_drop",
-        "headline": "VCB RSI crosses above 70 — overbought signal",
-        "body": "VCB's 14-day RSI has moved above 70, indicating overbought conditions. Historically this has preceded 3-5% pullbacks within 5 trading days. The Market Analyst suggests tightening stop-losses or taking partial profits.",
-        "attributed_to": "Market Analyst",
-        "severity": "warning",
-    },
-}
-
-# In-memory alert queues: user_id -> list of alerts
-_alert_queues: dict[str, list[HeartbeatAlert]] = {}
+# US Eastern timezone offset (simplified — doesn't handle DST perfectly)
+_ET_OFFSET = timedelta(hours=-4)  # EDT
 
 
-def _make_alert(scenario_key: str, offset_minutes: int = 0) -> HeartbeatAlert:
-    s = SCENARIOS[scenario_key]
-    ts = datetime.now() - timedelta(minutes=offset_minutes)
-    return HeartbeatAlert(
-        alert_id=uuid.uuid4().hex[:12],
-        timestamp=ts.isoformat(),
-        ticker=s["ticker"],
-        alert_type=s["alert_type"],
-        headline=s["headline"],
-        body=s["body"],
-        attributed_to=s["attributed_to"],
-        severity=s["severity"],
+def _is_market_hours() -> bool:
+    """Check if US stock market is currently open (9:30-16:00 ET, weekdays)."""
+    now_utc = datetime.now(timezone.utc)
+    now_et = now_utc + _ET_OFFSET
+    if now_et.weekday() >= 5:  # Saturday=5, Sunday=6
+        return False
+    market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+    return market_open <= now_et <= market_close
+
+
+def _evaluate_condition(parsed: dict, market_price: float, prev_close: float) -> bool:
+    """Evaluate a parsed rule condition against current market data."""
+    metric = parsed.get("metric", "price")
+    operator = parsed.get("operator", "lt")
+    threshold = float(parsed.get("threshold", 0))
+
+    if metric == "price":
+        value = market_price
+    elif metric == "price_change_pct":
+        if prev_close == 0:
+            return False
+        value = ((market_price - prev_close) / prev_close) * 100
+    else:
+        return False  # unsupported metric
+
+    if operator == "gt":
+        return value > threshold
+    elif operator == "lt":
+        return value < threshold
+    elif operator == "gte":
+        return value >= threshold
+    elif operator == "lte":
+        return value <= threshold
+    return False
+
+
+def _fetch_market_price(ticker: str) -> tuple[float, float]:
+    """Fetch current price and previous close for a ticker.
+
+    Returns (current_price, prev_close). Uses yfinance for real data,
+    falls back to mock for VN tickers.
+    """
+    try:
+        from finly_backend.mock_data import is_vn_ticker
+        if is_vn_ticker(ticker):
+            from finly_backend.mock_data import _generate_ohlcv
+            data = _generate_ohlcv(ticker, days=2)
+            if len(data) >= 2:
+                return data[-1]["Close"], data[-2]["Close"]
+            elif data:
+                return data[-1]["Close"], data[-1]["Open"]
+            return 0.0, 0.0
+    except Exception:
+        pass
+
+    try:
+        import yfinance as yf
+        t = yf.Ticker(ticker)
+        hist = t.history(period="2d")
+        if len(hist) >= 2:
+            return float(hist["Close"].iloc[-1]), float(hist["Close"].iloc[-2])
+        elif len(hist) >= 1:
+            return float(hist["Close"].iloc[-1]), float(hist["Open"].iloc[-1])
+    except Exception as e:
+        logger.warning("Failed to fetch market price for %s: %s", ticker, e)
+
+    return 0.0, 0.0
+
+
+async def _check_rules_cycle() -> None:
+    """Run one cycle of rule checking."""
+    from finly_backend.database import (
+        get_active_heartbeat_rules,
+        save_heartbeat_result,
+        update_rule_last_checked,
     )
+    from finly_backend.context import build_user_context
+    from finly_backend import agent_client
+
+    if not _is_market_hours():
+        logger.debug("Heartbeat: outside market hours, skipping rule check")
+        return
+
+    rules = get_active_heartbeat_rules()
+    if not rules:
+        return
+
+    logger.info("Heartbeat: checking %d active rules", len(rules))
+
+    # Group rules by user to build context once per user
+    user_rules: dict[str, list[dict]] = {}
+    for rule in rules:
+        user_rules.setdefault(rule["user_id"], []).append(rule)
+
+    for user_id, user_rule_list in user_rules.items():
+        user_context = build_user_context(user_id)
+
+        for rule in user_rule_list:
+            try:
+                parsed = rule["parsed_condition"]
+                ticker = parsed.get("ticker", "").upper()
+                if not ticker:
+                    continue
+
+                current_price, prev_close = _fetch_market_price(ticker)
+                if current_price == 0:
+                    logger.warning("Heartbeat: no price data for %s, skipping", ticker)
+                    update_rule_last_checked(rule["id"])
+                    continue
+
+                triggered = _evaluate_condition(parsed, current_price, prev_close)
+                update_rule_last_checked(rule["id"])
+
+                if not triggered:
+                    continue
+
+                logger.info(
+                    "Heartbeat: rule %s triggered for %s (user %s)",
+                    rule["id"], ticker, user_id,
+                )
+
+                # Run full pipeline analysis
+                try:
+                    result = await agent_client.call_heartbeat_analyze(
+                        ticker=ticker, user_context=user_context
+                    )
+                    save_heartbeat_result(
+                        user_id=user_id,
+                        ticker=ticker,
+                        decision=result.get("decision", "HOLD"),
+                        summary=result.get("summary", ""),
+                        full_analysis=result.get("full_analysis", ""),
+                        severity=result.get("severity", "info"),
+                        rule_id=rule["id"],
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "Heartbeat: pipeline failed for rule %s ticker %s: %s",
+                        rule["id"], ticker, e,
+                    )
+            except Exception as e:
+                logger.exception("Heartbeat: error processing rule %s: %s", rule["id"], e)
 
 
-def trigger_alert(scenario_key: str, user_id: str = "broadcast") -> HeartbeatAlert:
-    """Create and enqueue an alert for a user (or broadcast to all)."""
-    if scenario_key not in SCENARIOS:
-        raise ValueError(f"Unknown scenario: {scenario_key}")
-    alert = _make_alert(scenario_key)
-    _alert_queues.setdefault(user_id, []).append(alert)
-    # Also add to broadcast if targeting specific user
-    if user_id != "broadcast":
-        _alert_queues.setdefault("broadcast", []).append(alert)
-    return alert
+_scheduler_running = False
+_scheduler_timer: threading.Timer | None = None
+_CHECK_INTERVAL = 15 * 60  # 15 minutes
 
 
-def get_pending_alerts(user_id: str = "broadcast") -> list[HeartbeatAlert]:
-    """Return and clear pending alerts for a user."""
-    user_alerts = _alert_queues.pop(user_id, [])
-    broadcast_alerts = (
-        _alert_queues.pop("broadcast", []) if user_id != "broadcast" else []
-    )
-    # Deduplicate by alert_id
-    seen = set()
-    combined = []
-    for a in user_alerts + broadcast_alerts:
-        if a.alert_id not in seen:
-            seen.add(a.alert_id)
-            combined.append(a)
-    return combined
+def _scheduler_tick() -> None:
+    """Called every 15 minutes by the background timer."""
+    global _scheduler_timer
+    try:
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(_check_rules_cycle())
+        loop.close()
+    except Exception:
+        logger.exception("Heartbeat scheduler tick failed")
+    finally:
+        # Schedule next tick
+        if _scheduler_running:
+            _scheduler_timer = threading.Timer(_CHECK_INTERVAL, _scheduler_tick)
+            _scheduler_timer.daemon = True
+            _scheduler_timer.start()
 
 
-def trigger_custom_alert(
-    ticker: str,
-    headline: str,
-    body: str,
-    severity: str = "info",
-    attributed_to: str = "Finly",
-    user_id: str = "broadcast",
-) -> HeartbeatAlert:
-    """Create and enqueue a custom ad-hoc alert (not from SCENARIOS)."""
-    alert = HeartbeatAlert(
-        alert_id=uuid.uuid4().hex[:12],
-        timestamp=datetime.now().isoformat(),
-        ticker=ticker.upper(),
-        alert_type="custom",
-        headline=headline,
-        body=body,
-        attributed_to=attributed_to,
-        severity=severity,
-    )
-    _alert_queues.setdefault(user_id, []).append(alert)
-    if user_id != "broadcast":
-        _alert_queues.setdefault("broadcast", []).append(alert)
-    return alert
+def start_heartbeat_scheduler() -> None:
+    """Start the background heartbeat scheduler (15-min interval)."""
+    global _scheduler_running, _scheduler_timer
+    if _scheduler_running:
+        return
+    _scheduler_running = True
+    logger.info("Heartbeat scheduler started (every %d seconds)", _CHECK_INTERVAL)
+    _scheduler_timer = threading.Timer(_CHECK_INTERVAL, _scheduler_tick)
+    _scheduler_timer.daemon = True
+    _scheduler_timer.start()
 
 
-def seed_demo_alerts() -> None:
-    """Pre-populate demo alerts on startup."""
-    keys = ["fpt_earnings_beat", "hose_sector_move", "vcb_insider_buy"]
-    for i, key in enumerate(keys):
-        alert = _make_alert(key, offset_minutes=(len(keys) - i) * 15)
-        _alert_queues.setdefault("broadcast", []).append(alert)
+def stop_heartbeat_scheduler() -> None:
+    """Stop the background heartbeat scheduler."""
+    global _scheduler_running, _scheduler_timer
+    _scheduler_running = False
+    if _scheduler_timer:
+        _scheduler_timer.cancel()
+        _scheduler_timer = None
+    logger.info("Heartbeat scheduler stopped")
