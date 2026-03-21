@@ -33,6 +33,7 @@ const BORDER = "#C7D0DC"
 const COLLAPSED_VISIBLE_HEIGHT = 228
 const SNAP_THRESHOLD = 96
 const PORTFOLIO_GROWTH_POINTS = [18, 24, 22, 31, 29, 37, 42, 40, 49, 58, 55, 64] as const
+const X_TICK_LABELS = ["8", "15", "22", "29"] as const
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -238,36 +239,14 @@ export default function HomeTab() {
                 <MotiView
                   animate={{ opacity: 1, translateY: 0 }}
                   from={{ opacity: 0, translateY: 16 }}
-                  transition={{ delay: 180, duration: 420, type: "timing" }}
-                >
-                  <View
-                    className="mt-8 flex-row items-end justify-between border-b pb-4"
-                    style={{ borderColor: BORDER }}
-                  >
-                    <View>
-                      <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
-                        Portfolio
-                      </Text>
-                      <Text className="mt-1 font-sans text-[15px] text-[#7A8699]">
-                        {enrichedHoldings.length} holdings
-                      </Text>
-                    </View>
-                    {showPortfolioSkeleton ? (
-                      <View className="h-8 w-32 rounded-full bg-[#EEF2F7]" />
-                    ) : (
-                      <Text className="font-sans text-[29px] font-semibold text-[#0F1728] tracking-[-0.7px]">
-                        {money(totalValueUsd)}
-                      </Text>
-                    )}
-                  </View>
-                </MotiView>
-
-                <MotiView
-                  animate={{ opacity: 1, translateY: 0 }}
-                  from={{ opacity: 0, translateY: 16 }}
                   transition={{ delay: 220, duration: 420, type: "timing" }}
                 >
-                  <PortfolioGrowthChart history={growthHistory} snapshot={portfolioSnapshot} />
+                  <PortfolioGrowthChart
+                    history={growthHistory}
+                    holdingsCount={enrichedHoldings.length}
+                    snapshot={portfolioSnapshot}
+                    totalValueUsd={totalValueUsd}
+                  />
                 </MotiView>
 
                 <MotiView
@@ -525,83 +504,158 @@ function InvestmentProfileCard({
 
 function PortfolioGrowthChart({
   history,
+  holdingsCount,
   snapshot,
+  totalValueUsd,
 }: {
   history: ReturnType<typeof usePortfolioGrowthHistory>
+  holdingsCount: number
   snapshot: {
     totalValueUsd: number
     dailyPnlUsd: number
     monthlyPnlPercent: number
   }
+  totalValueUsd: number
 }) {
+  const { width } = useWindowDimensions()
+  const [chartFrameWidth, setChartFrameWidth] = useState(0)
+  const fallbackChartWidth = Math.max(width - 88, 260)
+  const chartWidth = chartFrameWidth > 0 ? chartFrameWidth : fallbackChartWidth
+  const plotInsetLeft = 28
+  const plotInsetRight = 44
+  const plotInsetTop = 6
+  const plotWidth = Math.max(chartWidth - plotInsetLeft - plotInsetRight, 180)
+  const plotHeight = 96
   const chartValues = useMemo(() => {
     if (history.hasLiveHistory && history.points.length > 1) {
       return history.points.map((point) => point.value)
     }
     return createFallbackPortfolioSeries(snapshot.totalValueUsd)
   }, [history.hasLiveHistory, history.points, snapshot.totalValueUsd])
-  const points = useMemo(() => createChartPoints(chartValues, 272, 112), [chartValues])
+  const points = useMemo(
+    () => createChartPoints(chartValues, plotWidth, plotHeight),
+    [chartValues, plotHeight, plotWidth],
+  )
   const lastPoint = points[points.length - 1]
   const latestValue = chartValues[chartValues.length - 1] ?? snapshot.totalValueUsd
   const monthlyChange = history.hasLiveHistory
     ? history.monthlyChangePercent
     : snapshot.monthlyPnlPercent
-  const todayDelta = history.hasLiveHistory ? history.todayChangeUsd : snapshot.dailyPnlUsd
+  const yTickValues = useMemo(() => {
+    const minValue = Math.min(...chartValues)
+    const maxValue = Math.max(...chartValues)
+    const range = Math.max(maxValue - minValue, 1)
+    const paddedMin = Math.max(0, minValue - range * 0.25)
+    const paddedMax = maxValue + range * 0.15
+    const mid = paddedMin + (paddedMax - paddedMin) / 2
+    return [paddedMax, mid, paddedMin]
+  }, [chartValues])
+  const xTicks = useMemo(
+    () =>
+      X_TICK_LABELS.map((label, index) => ({
+        label,
+        x: plotInsetLeft + (index / (X_TICK_LABELS.length - 1)) * plotWidth,
+      })),
+    [plotInsetLeft, plotWidth],
+  )
 
   return (
     <View
-      className="mt-5 rounded-[30px] border bg-[#F7FAFF] px-4 py-4"
+      className="mt-8 rounded-[30px] border bg-[#F7FAFF] px-4 py-4"
       style={{ borderColor: BORDER }}
     >
       <View className="flex-row items-start justify-between">
         <View>
-          <Text className="font-sans text-[17px] font-semibold text-[#0F1728]">
-            Portfolio growth
+          <Text className="font-sans text-[36px] font-semibold leading-[40px] tracking-[-0.8px] text-[#0F1728]">
+            Portfolio
           </Text>
-          <Text className="mt-1 font-sans text-[14px] text-[#7A8699]">Last 30 days</Text>
+          <Text className="mt-1 font-sans text-[15px] text-[#7A8699]">{holdingsCount} holdings</Text>
         </View>
         <View className="items-end">
+          <Text className="font-sans text-[36px] font-semibold text-[#0F1728] tracking-[-0.8px]">
+            {money(totalValueUsd)}
+          </Text>
           <Text
-            className={`font-sans text-[16px] font-semibold ${monthlyChange >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
+            className={`mt-1 font-sans text-[16px] font-semibold ${monthlyChange >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
           >
             {monthlyChange >= 0 ? "+" : ""}
             {monthlyChange.toFixed(2)}%
           </Text>
-          <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">
-            {todayDelta >= 0 ? "+" : "-"}
-            {money(Math.abs(todayDelta))} today
-          </Text>
         </View>
       </View>
 
-      <View className="mt-4 h-[128px] overflow-hidden rounded-[24px] bg-white px-3 py-3">
-        <View className="absolute inset-x-3 top-4 h-px bg-[#EEF2F7]" />
-        <View className="absolute inset-x-3 top-[44px] h-px bg-[#EEF2F7]" />
-        <View className="absolute inset-x-3 top-[84px] h-px bg-[#EEF2F7]" />
+      <View
+        className="mt-4 h-[152px] overflow-hidden rounded-[24px] bg-white px-3 py-3"
+        onLayout={(event) => setChartFrameWidth(event.nativeEvent.layout.width)}
+      >
+        <View className="absolute h-px bg-[#D7DEE9]" style={{ left: 26, right: 12, top: 18 }} />
+        <View className="absolute h-px bg-[#D7DEE9]" style={{ left: 26, right: 12, top: 54 }} />
+        <View className="absolute h-px bg-[#D7DEE9]" style={{ left: 26, right: 12, top: 90 }} />
+        {xTicks.slice(1).map((tick) => (
+          <View
+            key={`x-grid-${tick.label}`}
+            className="absolute w-px bg-[#D7DEE9]"
+            style={{ left: tick.x, top: 14, bottom: 30 }}
+          />
+        ))}
+
+        <View className="absolute left-1 top-0">
+          {yTickValues.map((tick, index) => (
+            <Text
+              key={`y-${tick}-${index}`}
+              className="font-sans text-[11px] text-[#8B97AA]"
+              style={{ marginTop: index === 0 ? 10 : 22 }}
+            >
+              {formatAxisTick(tick)}
+            </Text>
+          ))}
+        </View>
+
+        <View className="absolute bottom-2 left-0 right-0 h-4">
+          {xTicks.map((tick) => (
+            <Text
+              key={`x-${tick.label}`}
+              className="absolute font-sans text-[11px] text-[#8B97AA]"
+              style={{ left: tick.x - 4 }}
+            >
+              {tick.label}
+            </Text>
+          ))}
+        </View>
 
         <View className="h-full">
-          {points.slice(0, -1).map((point, index) => (
-            <View
-              key={`segment-${point.x}`}
-              className="absolute left-0 top-0 rounded-full bg-[#2453FF]"
-              style={segmentStyle(point, points[index + 1])}
-            />
-          ))}
+          {points.slice(0, -1).map((point, index) => {
+            const segment = segmentStyle(point, points[index + 1], 5)
+            return (
+              <View
+                key={`segment-${point.x}`}
+                className="absolute left-0 top-0 rounded-full bg-[#2453FF]"
+                style={{
+                  ...segment,
+                  left: segment.left + plotInsetLeft,
+                  top: segment.top + plotInsetTop,
+                }}
+              />
+            )
+          })}
 
           {points.map((point, index) => (
             <View
               key={`point-${point.x}`}
               className={`absolute rounded-full border-2 border-white ${index === points.length - 1 ? "h-4 w-4 bg-[#91FF66]" : "h-3 w-3 bg-[#2453FF]"}`}
               style={{
-                left: point.x - (index === points.length - 1 ? 8 : 6),
-                top: point.y - (index === points.length - 1 ? 8 : 6),
+                left: plotInsetLeft + point.x - (index === points.length - 1 ? 8 : 6),
+                top: plotInsetTop + point.y - (index === points.length - 1 ? 8 : 6),
               }}
             />
           ))}
 
           <View
             className="absolute rounded-[18px] bg-[#0F1728] px-2.5 py-1"
-            style={{ left: Math.max(lastPoint.x - 58, 8), top: Math.max(lastPoint.y - 44, 0) }}
+            style={{
+              left: Math.max(plotInsetLeft + lastPoint.x - 58, plotInsetLeft),
+              top: Math.max(plotInsetTop + lastPoint.y - 44, 0),
+            }}
           >
             <Text className="font-sans text-[11px] font-medium text-white">
               {money(latestValue)}
@@ -879,7 +933,18 @@ function createFallbackPortfolioSeries(latestValue: number) {
   })
 }
 
-function segmentStyle(start: { x: number; y: number }, end: { x: number; y: number }) {
+function formatAxisTick(value: number) {
+  if (value >= 1000) {
+    return `${Math.round(value / 1000)}k`
+  }
+  return `${Math.round(value)}`
+}
+
+function segmentStyle(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  thickness = 4,
+) {
   const dx = end.x - start.x
   const dy = end.y - start.y
   const length = Math.sqrt(dx * dx + dy * dy)
@@ -888,9 +953,9 @@ function segmentStyle(start: { x: number; y: number }, end: { x: number; y: numb
   const midpointY = (start.y + end.y) / 2
 
   return {
-    height: 4,
+    height: thickness,
     left: midpointX - length / 2,
-    top: midpointY - 2,
+    top: midpointY - thickness / 2,
     transform: [{ rotate: angle }],
     width: length,
   }
