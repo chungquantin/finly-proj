@@ -7,6 +7,7 @@ import { Text } from "@/components/Text"
 type TickerLogoProps = {
   ticker: string
   logoUri?: string
+  size?: number
 }
 
 const DARK_BADGE_TICKERS = new Set(["AAPL"])
@@ -19,11 +20,15 @@ function shouldUseDarkBadge(ticker: string, logoUri?: string) {
   return normalizedUri.includes("/aapl.")
 }
 
-export function TickerLogo({ ticker, logoUri }: TickerLogoProps) {
+export function TickerLogo({ ticker, logoUri, size = 48 }: TickerLogoProps) {
   const [hasError, setHasError] = useState(false)
   const useDarkBadge = shouldUseDarkBadge(ticker, logoUri)
+  const imageSize = Math.round(size * 0.58)
+  const textSize = Math.max(10, Math.round(size * 0.31))
 
   const badgeStyle = {
+    width: size,
+    height: size,
     shadowColor: "#111111",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
@@ -34,11 +39,12 @@ export function TickerLogo({ ticker, logoUri }: TickerLogoProps) {
   if (!logoUri || hasError) {
     return (
       <View
-        className={`h-12 w-12 items-center justify-center rounded-full border ${useDarkBadge ? "border-[#1F1F22] bg-[#111111]" : "border-[#F3F4F8] bg-white"}`}
+        className={`items-center justify-center rounded-full border ${useDarkBadge ? "border-[#1F1F22] bg-[#111111]" : "border-[#F3F4F8] bg-white"}`}
         style={badgeStyle}
       >
         <Text
-          className={`text-[15px] ${useDarkBadge ? "text-white" : "text-[#2453FF]"}`}
+          className={useDarkBadge ? "text-white" : "text-[#2453FF]"}
+          style={{ fontSize: textSize }}
           weight="semiBold"
         >
           {ticker.slice(0, 2)}
@@ -49,12 +55,12 @@ export function TickerLogo({ ticker, logoUri }: TickerLogoProps) {
 
   return (
     <View
-      className={`h-12 w-12 items-center justify-center rounded-full border ${useDarkBadge ? "border-[#1F1F22] bg-[#111111]" : "border-[#F3F4F8] bg-white"}`}
+      className={`items-center justify-center rounded-full border ${useDarkBadge ? "border-[#1F1F22] bg-[#111111]" : "border-[#F3F4F8] bg-white"}`}
       style={badgeStyle}
     >
       <Image
         source={{ uri: logoUri }}
-        className="h-7 w-7"
+        style={{ width: imageSize, height: imageSize }}
         resizeMode="contain"
         onError={() => setHasError(true)}
       />

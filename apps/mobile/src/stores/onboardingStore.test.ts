@@ -25,7 +25,7 @@ describe("onboardingStore", () => {
     mockRemove.mockResolvedValue(undefined)
   })
 
-  it("hydrates from legacy payload and maps importMethod -> stockImportMethod", async () => {
+  it("hydrates from legacy payload and maps importMethod -> stockAccountId", async () => {
     mockLoadString.mockResolvedValueOnce(
       JSON.stringify({
         state: {
@@ -46,19 +46,19 @@ describe("onboardingStore", () => {
     expect(state.riskExpertise).toBe("intermediate")
     expect(state.investmentHorizon).toBe("long")
     expect(state.financialKnowledge).toBe("pro")
-    expect(state.stockImportMethod).toBe("csv")
+    expect(state.stockAccountId).toBe("balanced-index")
     expect(state.portfolioType).toBeNull()
   })
 
   it("enforces branch guards between crypto wallet and stock import", async () => {
     const { useOnboardingStore } = require("./onboardingStore")
 
-    useOnboardingStore.getState().setStockImportMethod("manual")
+    useOnboardingStore.getState().setStockAccountId("dividend-core")
     useOnboardingStore.getState().setPortfolioType("crypto")
 
     let state = useOnboardingStore.getState()
     expect(state.portfolioType).toBe("crypto")
-    expect(state.stockImportMethod).toBeNull()
+    expect(state.stockAccountId).toBeNull()
 
     useOnboardingStore.getState().setWalletAddress("0xabc123456789")
     useOnboardingStore.getState().setPortfolioType("stock")
@@ -81,7 +81,7 @@ describe("onboardingStore", () => {
 
     const latestPayload = JSON.parse(saveCalls[saveCalls.length - 1][1])
 
-    expect(latestPayload.version).toBe(2)
+    expect(latestPayload.version).toBe(4)
     expect(latestPayload.state.riskExpertise).toBe("expert")
     expect(latestPayload.state.portfolioType).toBe("crypto")
     expect(latestPayload.state.walletAddress).toBe("0xabc123456789")

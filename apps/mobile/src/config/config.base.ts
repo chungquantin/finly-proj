@@ -1,4 +1,7 @@
 export interface ConfigBaseProps {
+  API_URL: string
+  MARKET_DATA_URL: string
+  AGENT_SERVER_URL: string
   persistNavigation: "always" | "dev" | "prod" | "never"
   catchErrors: "always" | "dev" | "prod" | "never"
   exitRoutes: string[]
@@ -7,6 +10,9 @@ export interface ConfigBaseProps {
 export type PersistNavigationConfig = ConfigBaseProps["persistNavigation"]
 
 const BaseConfig: ConfigBaseProps = {
+  API_URL: "http://localhost:8000",
+  MARKET_DATA_URL: "http://localhost:8000",
+  AGENT_SERVER_URL: "http://localhost:8001",
   // This feature is particularly useful in development mode, but
   // can be used in production as well if you prefer.
   persistNavigation: "dev",

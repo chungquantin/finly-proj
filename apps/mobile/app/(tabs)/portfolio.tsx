@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { IosHeader } from "@/components/IosHeader"
 import { TickerLogo } from "@/components/TickerLogo"
 import { useMarketData } from "@/services/marketData"
-import { holdings, portfolioSnapshot } from "@/utils/mockAppData"
+import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -27,6 +27,7 @@ type HoldingsSort = keyof typeof sortLabels
 export default function PortfolioTab() {
   const router = useRouter()
   const [sortBy, setSortBy] = useState<HoldingsSort>("value")
+  const { holdings, snapshot: portfolioSnapshot } = useSelectedPortfolioData()
   const { quotes } = useMarketData(holdings.map((holding) => holding.ticker))
   const enrichedHoldings = useMemo(
     () =>
@@ -38,7 +39,7 @@ export default function PortfolioTab() {
           changePercent: liveQuote?.change_pct ?? holding.changePercent,
         }
       }),
-    [quotes],
+    [holdings, quotes],
   )
   const totalValueUsd = useMemo(
     () => enrichedHoldings.reduce((sum, holding) => sum + holding.valueUsd, 0),
@@ -55,7 +56,7 @@ export default function PortfolioTab() {
   const dailyChangePct = useMemo(() => {
     if (!previousValueUsd) return portfolioSnapshot.dailyPnlPercent
     return ((totalValueUsd - previousValueUsd) / previousValueUsd) * 100
-  }, [previousValueUsd, totalValueUsd])
+  }, [portfolioSnapshot.dailyPnlPercent, previousValueUsd, totalValueUsd])
   const sortedHoldings = useMemo(() => {
     const nextHoldings = [...enrichedHoldings]
 
@@ -81,7 +82,7 @@ export default function PortfolioTab() {
               TOTAL VALUE
             </Text>
             <Text className="mt-2 font-sans text-[34px] font-semibold leading-[40px] tracking-[-0.8px] text-[#0F1728]">
-              {money(totalValueUsd || portfolioSnapshot.totalValueUsd)}
+              {money(totalValueUsd)}
             </Text>
             <View className="mt-2 flex-row items-center justify-between">
               <Text className="font-sans text-[17px] font-semibold text-[#22B45A]">

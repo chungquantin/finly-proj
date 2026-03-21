@@ -1,3 +1,5 @@
+import { getTickerLogoUri } from "@/utils/tickerLogo"
+
 export type TeamAgent = {
   id: string
   name: string
@@ -31,9 +33,6 @@ export type Holding = {
   changePercent: number
   allocationPercent: number
 }
-
-const buildTickerIconUrl = (ticker: string) =>
-  `https://raw.githubusercontent.com/nvstly/icons/main/ticker_icons/${ticker}.png`
 
 export type BoardMessage = {
   id: string
@@ -225,7 +224,7 @@ export const holdings: Holding[] = [
   {
     ticker: "NVDA",
     name: "NVIDIA",
-    logoUri: buildTickerIconUrl("NVDA"),
+    logoUri: getTickerLogoUri("NVDA"),
     shares: 120,
     valueUsd: 46200,
     changePercent: 2.4,
@@ -234,7 +233,7 @@ export const holdings: Holding[] = [
   {
     ticker: "TSLA",
     name: "Tesla",
-    logoUri: buildTickerIconUrl("TSLA"),
+    logoUri: getTickerLogoUri("TSLA"),
     shares: 95,
     valueUsd: 31800,
     changePercent: 1.1,
@@ -243,7 +242,7 @@ export const holdings: Holding[] = [
   {
     ticker: "MSFT",
     name: "Microsoft",
-    logoUri: buildTickerIconUrl("MSFT"),
+    logoUri: getTickerLogoUri("MSFT"),
     shares: 84,
     valueUsd: 29650,
     changePercent: 0.8,
@@ -252,7 +251,7 @@ export const holdings: Holding[] = [
   {
     ticker: "AAPL",
     name: "Apple",
-    logoUri: buildTickerIconUrl("AAPL"),
+    logoUri: getTickerLogoUri("AAPL"),
     shares: 136,
     valueUsd: 22140,
     changePercent: -0.3,

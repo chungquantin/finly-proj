@@ -2,8 +2,10 @@
 import { useMemo } from "react"
 import { Pressable, Text, TextInput, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
+import { MotiView } from "moti"
 
 import { AiryScreenShell } from "../components/AiryScreenShell"
+import { IosHeader } from "../components/IosHeader"
 import { cn } from "../lib/utils"
 import { useOnboardingStore } from "../stores/onboardingStore"
 
@@ -25,84 +27,100 @@ export function OnboardingCryptoWalletScreen() {
   }, [trimmedAddress, hasError])
 
   const canContinue = trimmedAddress.length >= WALLET_MIN_LENGTH
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+
+    router.replace("/onboarding/step-2")
+  }
 
   return (
     <AiryScreenShell variant="soft" contentContainerStyle={$contentContainer}>
-      <View className="mt-2 rounded-[28px] bg-card px-5 pb-6 pt-5">
-        <View className="flex-row items-center justify-between">
-          <Pressable
-            className="h-11 w-11 items-center justify-center rounded-full bg-[#F3F4F7]"
-            onPress={() => router.back()}
-            accessibilityRole="button"
-          >
-            <Text className="text-[22px] font-semibold text-muted">&lt;</Text>
-          </Pressable>
-          <Text className="text-[17px] font-semibold text-ink">Crypto Wallet</Text>
-          <View className="w-11" />
-        </View>
+      <View className="mt-2 rounded-[36px] border border-[#F1F2F6] bg-white px-4 pb-6 pt-5">
+        <IosHeader
+          title="Connect wallet"
+          titleClassName="text-[20px] leading-[24px]"
+          leftLabel="‹"
+          onLeftPress={handleBack}
+        />
 
-        <View className="mt-6">
-          <View className="flex-row items-end justify-between">
-            <Text className="text-[13px] font-semibold tracking-[1.4px] text-muted">
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300 }}
+        >
+          <View className="mt-3 rounded-[24px] bg-[#F8FAFF] px-4 py-4">
+            <Text className="text-[12px] font-semibold tracking-[1.2px] text-[#8E8E93]">
               STEP 3 OF 4
             </Text>
-            <Text className="text-[13px] font-semibold tracking-[1px] text-muted">75%</Text>
-          </View>
-          <View className="mt-3 h-1.5 w-full rounded-full bg-[#E9EBF2]">
-            <View className="h-1.5 w-3/4 rounded-full bg-[#111827]" />
-          </View>
-        </View>
-
-        <View className="mt-8 items-center">
-          <View className="h-20 w-20 items-center justify-center rounded-[24px] bg-[#F5F6FA]">
-            <Text className="text-[22px] font-semibold text-[#374151]">CW</Text>
-          </View>
-          <Text className="mt-6 text-center text-[28px] font-semibold leading-[33px] text-ink">
-            Connect your wallet
-          </Text>
-          <Text className="mt-2 text-center text-[15px] leading-5 text-muted">
-            We use your address to build your crypto portfolio view.
-          </Text>
-        </View>
-
-        <View className="mt-8">
-          <Text className="text-[13px] font-semibold tracking-[1.5px] text-muted">
-            WALLET ADDRESS
-          </Text>
-          <TextInput
-            value={walletAddress}
-            onChangeText={setWalletAddress}
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="0x... or your wallet address"
-            placeholderTextColor="#9CA3AF"
-            className={cn(
-              "mt-3 rounded-[20px] border bg-card px-4 py-4 text-[15px] text-ink",
-              hasError ? "border-[#EF4444]" : "border-border",
-            )}
-          />
-          <Text className={cn("mt-2 text-[13px]", hasError ? "text-[#DC2626]" : "text-muted")}>
-            {helperText}
-          </Text>
-        </View>
-
-        <View className="mt-8">
-          <Pressable
-            className={cn(
-              "h-16 items-center justify-center rounded-full",
-              canContinue ? "bg-[#34C759]" : "bg-[#E7EAF3]",
-            )}
-            disabled={!canContinue}
-            onPress={() => router.push("/onboarding/step-4")}
-            accessibilityRole="button"
-          >
-            <Text
-              className={cn("text-[17px] font-semibold", canContinue ? "text-white" : "text-muted")}
-            >
-              Continue &gt;
+            <Text className="mt-2 text-[25px] font-semibold leading-[30px] text-[#111111]">
+              Connect your wallet
             </Text>
-          </Pressable>
-        </View>
+            <Text className="mt-1.5 text-[15px] leading-5 text-[#6B7280]">
+              We use your address to build your crypto portfolio view.
+            </Text>
+
+            <View className="mt-4 h-1.5 w-full rounded-full bg-[#E9EBF2]">
+              <View className="h-1.5 w-3/4 rounded-full bg-[#2453FF]" />
+            </View>
+          </View>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 80 }}
+        >
+          <View className="mt-4 rounded-[24px] border border-[#F1F2F6] bg-white p-4">
+            <Text className="text-[13px] font-semibold tracking-[1.5px] text-muted">
+              WALLET ADDRESS
+            </Text>
+            <TextInput
+              value={walletAddress}
+              onChangeText={setWalletAddress}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="0x... or your wallet address"
+              placeholderTextColor="#9CA3AF"
+              className={cn(
+                "mt-3 rounded-[22px] border bg-[#F8F9FC] px-4 py-4 text-[15px] text-ink",
+                hasError ? "border-[#EF4444]" : "border-[#E7EAF2]",
+              )}
+            />
+            <Text className={cn("mt-2 text-[13px]", hasError ? "text-[#DC2626]" : "text-muted")}>
+              {helperText}
+            </Text>
+          </View>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 14 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 150 }}
+        >
+          <View className="mt-4">
+            <Pressable
+              className={cn(
+                "h-14 items-center justify-center rounded-[22px]",
+                canContinue ? "bg-[#34C759]" : "bg-[#E7EAF3]",
+              )}
+              disabled={!canContinue}
+              onPress={() => router.push("/onboarding/step-4")}
+              accessibilityRole="button"
+            >
+              <Text
+                className={cn(
+                  "text-[17px] font-semibold",
+                  canContinue ? "text-white" : "text-muted",
+                )}
+              >
+                Continue
+              </Text>
+            </Pressable>
+          </View>
+        </MotiView>
       </View>
     </AiryScreenShell>
   )

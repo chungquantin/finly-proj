@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 /* eslint-disable no-restricted-imports */
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -15,68 +16,48 @@ import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { TickerLogo } from "@/components/TickerLogo"
+import { useAgentBoardStore } from "@/stores/agentBoardStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
-import { boardThreads, holdings, teamAgents } from "@/utils/mockAppData"
+import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
 const BLUE = "#2453FF"
 const BLUE_SURFACE = "#F4F7FF"
 const BORDER = "#EEF2F7"
 
+const formatMessageTime = (value: string) => {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ""
+  return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
 export default function ThreadDetailRoute() {
   const router = useRouter()
-  const { id, title, ticker, intake, message } = useLocalSearchParams<{
-    id: string
-    title?: string
-    ticker?: string
-    intake?: string
-    message?: string
-  }>()
+  const { holdings } = useSelectedPortfolioData()
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const thread = useAgentBoardStore((state) => state.threads.find((item) => item.id === id))
+  const sendThreadMessage = useAgentBoardStore((state) => state.sendThreadMessage)
+  const regenerateReport = useAgentBoardStore((state) => state.regenerateReport)
+  const closeThread = useAgentBoardStore((state) => state.closeThread)
   const scrollViewRef = useRef<ScrollViewType>(null)
-  const thread = useMemo(() => boardThreads.find((item) => item.id === id), [id])
-  const resolvedThread = useMemo(
-    () =>
-      thread ?? {
-        id: id ?? "custom-thread",
-        title: title ?? "New board conversation",
-        ticker: ticker ?? "BOARD",
-        decision: "Position" as const,
-        intake: intake ?? "New user-led board question",
-        summary: message ?? "",
-        updatedAt: "now",
-        unreadCount: 0,
-        participantAgentIds: ["portfolio-manager", "market-analyst", "risk-assessor"],
-        messages: message
-          ? [
-              {
-                id: "1",
-                author: "You",
-                role: "user" as const,
-                avatar: "YU",
-                message,
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              },
-            ]
-          : [],
-      },
-    [id, intake, message, thread, ticker, title],
-  )
-  const [messages, setMessages] = useState(resolvedThread.messages)
   const [draft, setDraft] = useState("")
   const [isOptionsVisible, setIsOptionsVisible] = useState(false)
-  const canSend = draft.trim().length > 0
 
-  useEffect(() => {
-    setMessages(resolvedThread.messages)
-  }, [resolvedThread])
+  const canSend = draft.trim().length > 0 && !thread?.isBusy
+
+  const participantAvatars = useMemo(
+    () =>
+      (thread?.participantAgentIds ?? []).map((agentId) => ({
+        id: agentId,
+        avatar: getRandomAgentAvatar(agentId),
+      })),
+    [thread?.participantAgentIds],
+  )
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true })
-  }, [messages])
+  }, [thread?.messages.length])
 
-  if (!resolvedThread) {
+  if (!thread) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white px-6">
         <Text className="font-sans text-[28px] font-semibold text-[#0F1728]">Thread not found</Text>
@@ -90,28 +71,28 @@ export default function ThreadDetailRoute() {
     )
   }
 
-  const participantAvatars = resolvedThread.participantAgentIds.map((agentId) => ({
-    id: agentId,
-    avatar: getRandomAgentAvatar(agentId),
-  }))
-  const threadHolding = holdings.find((holding) => holding.ticker === resolvedThread.ticker)
+  const threadHolding = holdings.find((holding) => holding.ticker === thread.ticker)
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const nextMessage = draft.trim()
     if (!nextMessage) return
-
-    setMessages((current) => [
-      ...current,
-      {
-        id: String(current.length + 1),
-        author: "You",
-        role: "user",
-        avatar: "YU",
-        message: nextMessage,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ])
     setDraft("")
+    await sendThreadMessage(thread.id, nextMessage)
+    scrollViewRef.current?.scrollToEnd({ animated: true })
+  }
+
+  const handleRegenerate = async () => {
+    await regenerateReport(thread.id)
+    scrollViewRef.current?.scrollToEnd({ animated: true })
+  }
+
+  const handleCloseThread = () => {
+    closeThread(thread.id)
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+    router.replace("/(tabs)/board")
   }
 
   return (
@@ -131,20 +112,13 @@ export default function ThreadDetailRoute() {
             </Pressable>
 
             <View className="ml-3 flex-1 flex-row items-center">
-              <TickerLogo
-                ticker={resolvedThread.ticker}
-                logoUri={threadHolding?.logoUri}
-                size={44}
-                textClassName="text-[13px]"
-              />
+              <TickerLogo ticker={thread.ticker} logoUri={threadHolding?.logoUri} />
 
               <View className="ml-3 flex-1">
                 <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
-                  {resolvedThread.title}
+                  {thread.title}
                 </Text>
-                <Text className="font-sans text-[14px] text-[#7A8699]">
-                  {resolvedThread.intake}
-                </Text>
+                <Text className="font-sans text-[14px] text-[#7A8699]">{thread.intake}</Text>
               </View>
             </View>
 
@@ -164,71 +138,203 @@ export default function ThreadDetailRoute() {
           contentContainerStyle={$threadContent}
           showsVerticalScrollIndicator={false}
         >
-          {messages.map((item) => {
-            const isUser = item.role === "user"
-            const agentId = teamAgents.find((agent) => agent.name === item.author)?.id
-            const avatar = agentId ? getRandomAgentAvatar(agentId) : null
+          <View className="rounded-[24px] border border-[#EEF2F7] bg-white p-4">
+            <Text className="font-sans text-[12px] font-semibold tracking-[1.2px] text-[#7A8699]">
+              STATUS
+            </Text>
+            <Text className="mt-2 font-sans text-[20px] font-semibold text-[#0F1728]">
+              {thread.stage === "intake"
+                ? `Intake in progress (${thread.followUpCount}/2 follow-ups used)`
+                : thread.stage === "report_loading"
+                  ? "Generating team report"
+                  : thread.stage === "error"
+                    ? "Needs attention"
+                    : `${thread.decision} on ${thread.ticker}`}
+            </Text>
+            <Text className="mt-2 font-sans text-[15px] leading-6 text-[#607089]">
+              {thread.lastError || thread.summary}
+            </Text>
+            {thread.isBusy ? (
+              <View className="mt-3 flex-row items-center">
+                <ActivityIndicator color={BLUE} />
+                <Text className="ml-3 font-sans text-[14px] text-[#607089]">
+                  Finly is working on this thread.
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
-            return (
-              <View
-                key={item.id}
-                className={`mb-4 ${isUser ? "items-end" : "items-start"}`}
-                style={isUser ? $outgoingRow : undefined}
-              >
-                {!isUser ? (
-                  <View className="mb-1 flex-row items-end">
-                    <View
-                      className="mr-2 h-8 w-8 items-center justify-center rounded-full"
-                      style={{ backgroundColor: avatar?.palette.background ?? "#DDE7FF" }}
-                    >
-                      <Text className="font-sans text-[16px]">{avatar?.glyph ?? item.avatar}</Text>
-                    </View>
+          {thread.memoryUpdates.length > 0 ? (
+            <View className="mt-4 rounded-[24px] border border-[#E7F0FF] bg-[#F4F7FF] p-4">
+              <Text className="font-sans text-[12px] font-semibold tracking-[1.2px] text-[#4E6AA8]">
+                MEMORY UPDATES
+              </Text>
+              <Text className="mt-2 font-sans text-[15px] leading-6 text-[#36507D]">
+                {thread.memoryUpdates.join(", ")}
+              </Text>
+            </View>
+          ) : null}
 
-                    <View className="max-w-[78%]">
-                      <Text className="mb-1 ml-1 font-sans text-[13px] text-[#98A1B2]">
-                        {item.author}
+          {thread.report ? (
+            <View className="mt-4 rounded-[24px] border border-[#EEF2F7] bg-white p-4">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="font-sans text-[12px] font-semibold tracking-[1.2px] text-[#7A8699]">
+                    FINAL REPORT
+                  </Text>
+                  <Text className="mt-2 font-sans text-[24px] font-semibold text-[#0F1728]">
+                    {thread.report.decision} {thread.report.ticker}
+                  </Text>
+                </View>
+
+                <Pressable
+                  className="rounded-full bg-[#08153A] px-4 py-2"
+                  onPress={handleRegenerate}
+                  disabled={thread.isBusy}
+                >
+                  <Text className="font-sans text-[13px] font-semibold text-white">Regenerate</Text>
+                </Pressable>
+              </View>
+
+              <Text className="mt-3 font-sans text-[16px] leading-7 text-[#425168]">
+                {thread.report.summary}
+              </Text>
+
+              {thread.report.additional_tickers.length > 0 ? (
+                <View className="mt-4">
+                  <Text className="font-sans text-[12px] font-semibold tracking-[1.2px] text-[#7A8699]">
+                    OTHER IDEAS
+                  </Text>
+                  {thread.report.additional_tickers.map((item) => (
+                    <View key={item.ticker} className="mt-2 rounded-[18px] bg-[#F7F9FC] px-4 py-3">
+                      <Text className="font-sans text-[15px] font-semibold text-[#0F1728]">
+                        {item.ticker}
                       </Text>
+                      <Text className="mt-1 font-sans text-[14px] leading-6 text-[#607089]">
+                        {item.reason}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {thread.report?.specialist_insights?.length ? (
+            <View className="mt-4">
+              <Text className="mb-3 font-sans text-[12px] font-semibold tracking-[1.2px] text-[#7A8699]">
+                HOW THE TEAM GOT THERE
+              </Text>
+              {thread.report.specialist_insights.map((insight) => {
+                const avatar = getRandomAgentAvatar(insight.role)
+                return (
+                  <View
+                    key={insight.role}
+                    className="mb-3 rounded-[24px] border border-[#EEF2F7] bg-white p-4"
+                  >
+                    <View className="flex-row items-center">
                       <View
-                        className="rounded-[20px] rounded-bl-[8px] border bg-[#F7F9FC] px-4 py-3"
-                        style={{ borderColor: BORDER }}
+                        className="h-10 w-10 items-center justify-center rounded-full"
+                        style={{ backgroundColor: avatar.palette.background }}
                       >
-                        <Text className="font-sans text-[17px] leading-6 text-[#0F1728]">
-                          {item.message}
+                        <Text className="font-sans text-[18px]">{avatar.glyph}</Text>
+                      </View>
+                      <View className="ml-3 flex-1">
+                        <Text className="font-sans text-[18px] font-semibold text-[#0F1728] capitalize">
+                          {insight.role}
+                        </Text>
+                        <Text className="font-sans text-[14px] text-[#607089]">
+                          {insight.summary}
                         </Text>
                       </View>
-                      {item.reaction ? (
-                        <Text className="ml-3 mt-1 font-sans text-[17px]">{item.reaction}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : (
-                  <View className="max-w-[78%]">
-                    <View style={$outgoingBubble}>
-                      <Text className="font-sans text-[18px] leading-6 text-white">
-                        {item.message}
-                      </Text>
                     </View>
 
-                    <View className="mt-2 flex-row items-center justify-end">
-                      {participantAvatars.map(
-                        ({ id: agentIdValue, avatar: participant }, index) => (
-                          <View
-                            key={`${item.id}-${agentIdValue}`}
-                            className={`h-7 w-7 items-center justify-center rounded-full border-2 border-white ${
-                              index === 0 ? "" : "-ml-1.5"
-                            }`}
-                            style={{ backgroundColor: participant.palette.background }}
-                          >
-                            <Text className="font-sans text-[14px]">{participant.glyph}</Text>
-                          </View>
-                        ),
-                      )}
-                    </View>
+                    <Text className="mt-3 font-sans text-[15px] leading-6 text-[#425168]">
+                      {insight.full_analysis}
+                    </Text>
                   </View>
-                )}
-              </View>
-            )
-          })}
+                )
+              })}
+            </View>
+          ) : null}
+
+          <View className="mt-4">
+            <Text className="mb-3 font-sans text-[12px] font-semibold tracking-[1.2px] text-[#7A8699]">
+              CONVERSATION
+            </Text>
+            {thread.messages.map((item) => {
+              const isUser = item.role === "user"
+              const isSystem = item.role === "system"
+              const avatar = !isUser && !isSystem ? getRandomAgentAvatar(item.author) : null
+
+              return (
+                <View
+                  key={item.id}
+                  className={`mb-4 ${isUser ? "items-end" : "items-start"}`}
+                  style={isUser ? $outgoingRow : undefined}
+                >
+                  {isSystem ? (
+                    <View className="self-center rounded-full bg-[#F4F7FF] px-4 py-2">
+                      <Text className="font-sans text-[13px] text-[#607089]">{item.content}</Text>
+                    </View>
+                  ) : !isUser ? (
+                    <View className="mb-1 flex-row items-end">
+                      <View
+                        className="mr-2 h-8 w-8 items-center justify-center rounded-full"
+                        style={{ backgroundColor: avatar?.palette.background ?? "#DDE7FF" }}
+                      >
+                        <Text className="font-sans text-[16px]">{avatar?.glyph ?? "🧠"}</Text>
+                      </View>
+
+                      <View className="max-w-[78%]">
+                        <Text className="mb-1 ml-1 font-sans text-[13px] text-[#98A1B2]">
+                          {item.author}
+                        </Text>
+                        <View
+                          className="rounded-[20px] rounded-bl-[8px] border bg-[#F7F9FC] px-4 py-3"
+                          style={{ borderColor: BORDER }}
+                        >
+                          <Text className="font-sans text-[17px] leading-6 text-[#0F1728]">
+                            {item.content}
+                          </Text>
+                        </View>
+                        <Text className="ml-2 mt-1 font-sans text-[12px] text-[#98A1B2]">
+                          {formatMessageTime(item.createdAt)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View className="max-w-[78%]">
+                      <View style={$outgoingBubble}>
+                        <Text className="font-sans text-[18px] leading-6 text-white">
+                          {item.content}
+                        </Text>
+                      </View>
+
+                      <View className="mt-2 flex-row items-center justify-end">
+                        {participantAvatars.map(
+                          ({ id: agentIdValue, avatar: participant }, index) => (
+                            <View
+                              key={`${item.id}-${agentIdValue}`}
+                              className={`h-7 w-7 items-center justify-center rounded-full border-2 border-white ${
+                                index === 0 ? "" : "-ml-1.5"
+                              }`}
+                              style={{ backgroundColor: participant.palette.background }}
+                            >
+                              <Text className="font-sans text-[14px]">{participant.glyph}</Text>
+                            </View>
+                          ),
+                        )}
+                      </View>
+                      <Text className="mt-1 text-right font-sans text-[12px] text-[#98A1B2]">
+                        {formatMessageTime(item.createdAt)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )
+            })}
+          </View>
         </ScrollView>
 
         <View className="border-t bg-white px-3 pb-4 pt-3" style={{ borderColor: BORDER }}>
@@ -245,21 +351,34 @@ export default function ThreadDetailRoute() {
               <TextInput
                 value={draft}
                 onChangeText={setDraft}
-                onSubmitEditing={handleSend}
-                placeholder="Reply to the board"
+                onSubmitEditing={() => {
+                  void handleSend()
+                }}
+                placeholder={
+                  thread.stage === "intake"
+                    ? "Answer Finly's follow-up"
+                    : "Ask the team to refine the report"
+                }
                 placeholderTextColor="#94A0B3"
                 className="flex-1 text-[16px] text-[#0F1728]"
                 returnKeyType="send"
+                editable={!thread.isBusy}
               />
             </View>
 
             <Pressable
               className="ml-2 h-10 w-10 items-center justify-center rounded-full"
               style={canSend ? $sendButtonActive : $sendButtonDisabled}
-              onPress={handleSend}
+              onPress={() => {
+                void handleSend()
+              }}
               disabled={!canSend}
             >
-              <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+              {thread.isBusy ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+              )}
             </Pressable>
           </View>
         </View>
@@ -276,19 +395,20 @@ export default function ThreadDetailRoute() {
                 Thread actions
               </Text>
               <OptionRow
-                icon="bookmark-outline"
-                label="Save this thread"
-                onPress={() => setIsOptionsVisible(false)}
-              />
-              <OptionRow
-                icon="share-social-outline"
-                label="Share thread summary"
-                onPress={() => setIsOptionsVisible(false)}
+                icon="refresh-outline"
+                label="Regenerate report"
+                onPress={() => {
+                  setIsOptionsVisible(false)
+                  void handleRegenerate()
+                }}
               />
               <OptionRow
                 icon="close-outline"
                 label="Close"
-                onPress={() => setIsOptionsVisible(false)}
+                onPress={() => {
+                  setIsOptionsVisible(false)
+                  handleCloseThread()
+                }}
               />
             </Pressable>
           </Pressable>

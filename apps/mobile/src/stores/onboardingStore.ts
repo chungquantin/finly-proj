@@ -6,7 +6,7 @@ export type RiskExpertise = "beginner" | "intermediate" | "expert"
 export type InvestmentHorizon = "short" | "medium" | "long"
 export type FinancialKnowledge = "novice" | "savvy" | "pro"
 export type PortfolioType = "crypto" | "stock"
-export type StockImportMethod = "screenshot" | "manual" | "csv"
+export type StockAccountId = "growth-tech" | "dividend-core" | "balanced-index"
 
 export type OnboardingState = {
   name: string
@@ -15,7 +15,7 @@ export type OnboardingState = {
   financialKnowledge: FinancialKnowledge
   portfolioType: PortfolioType | null
   walletAddress: string
-  stockImportMethod: StockImportMethod | null
+  stockAccountId: StockAccountId | null
   onboardingCompleted: boolean
   setName: (value: string) => void
   setRiskExpertise: (value: RiskExpertise) => void
@@ -23,14 +23,14 @@ export type OnboardingState = {
   setFinancialKnowledge: (value: FinancialKnowledge) => void
   setPortfolioType: (value: PortfolioType | null) => void
   setWalletAddress: (value: string) => void
-  setStockImportMethod: (value: StockImportMethod | null) => void
+  setStockAccountId: (value: StockAccountId | null) => void
   setOnboardingCompleted: (value: boolean) => void
   completeOnboarding: () => void
   reset: () => void
 }
 
 const STORAGE_KEY = "finly.onboarding.profile.v1"
-const STORAGE_VERSION = 3
+const STORAGE_VERSION = 4
 
 const initialState: Pick<
   OnboardingState,
@@ -40,7 +40,7 @@ const initialState: Pick<
   | "financialKnowledge"
   | "portfolioType"
   | "walletAddress"
-  | "stockImportMethod"
+  | "stockAccountId"
   | "onboardingCompleted"
 > = {
   name: "",
@@ -49,7 +49,7 @@ const initialState: Pick<
   financialKnowledge: "savvy",
   portfolioType: null,
   walletAddress: "",
-  stockImportMethod: null,
+  stockAccountId: null,
   onboardingCompleted: false,
 }
 
@@ -61,7 +61,7 @@ type PersistedState = Pick<
   | "financialKnowledge"
   | "portfolioType"
   | "walletAddress"
-  | "stockImportMethod"
+  | "stockAccountId"
   | "onboardingCompleted"
 >
 
@@ -74,6 +74,8 @@ type LegacyPersistedState = {
   riskExpertise?: unknown
   investmentHorizon?: unknown
   financialKnowledge?: unknown
+  stockAccountId?: unknown
+  stockImportMethod?: unknown
   importMethod?: unknown
 }
 
@@ -84,7 +86,7 @@ const selectPersistedState = (state: OnboardingState): PersistedState => ({
   financialKnowledge: state.financialKnowledge,
   portfolioType: state.portfolioType,
   walletAddress: state.walletAddress,
-  stockImportMethod: state.stockImportMethod,
+  stockAccountId: state.stockAccountId,
   onboardingCompleted: state.onboardingCompleted,
 })
 
@@ -111,8 +113,16 @@ const asPortfolioType = (value: unknown): PortfolioType | null => {
   return null
 }
 
-const asStockImportMethod = (value: unknown): StockImportMethod | null => {
-  if (value === "screenshot" || value === "manual" || value === "csv") return value
+const asStockAccountId = (value: unknown): StockAccountId | null => {
+  if (value === "growth-tech" || value === "dividend-core" || value === "balanced-index")
+    return value
+  return null
+}
+
+const fromLegacyImportMethod = (value: unknown): StockAccountId | null => {
+  if (value === "screenshot") return "growth-tech"
+  if (value === "manual") return "dividend-core"
+  if (value === "csv") return "balanced-index"
   return null
 }
 
@@ -133,10 +143,12 @@ const parsePersistedState = (value: unknown): PersistedState | null => {
   const walletAddress =
     typeof stateRecord.walletAddress === "string" ? stateRecord.walletAddress : ""
 
-  // Backward compatibility: old payload used `importMethod`.
-  const stockImportMethod =
-    asStockImportMethod(stateRecord.stockImportMethod) ??
-    asStockImportMethod(legacyRecord.importMethod)
+  // Backward compatibility: old payload used `stockImportMethod` / `importMethod`.
+  const stockAccountId =
+    asStockAccountId(stateRecord.stockAccountId) ??
+    asStockAccountId(legacyRecord.stockAccountId) ??
+    fromLegacyImportMethod(legacyRecord.stockImportMethod) ??
+    fromLegacyImportMethod(legacyRecord.importMethod)
 
   const onboardingCompleted =
     typeof stateRecord.onboardingCompleted === "boolean" ? stateRecord.onboardingCompleted : false
@@ -148,7 +160,7 @@ const parsePersistedState = (value: unknown): PersistedState | null => {
     financialKnowledge,
     portfolioType,
     walletAddress,
-    stockImportMethod,
+    stockAccountId,
     onboardingCompleted,
   }
 }
@@ -165,7 +177,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
         return {
           ...state,
           portfolioType,
-          stockImportMethod: null,
+          stockAccountId: null,
         }
       }
 
@@ -187,12 +199,12 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
       ...state,
       walletAddress,
       portfolioType: state.portfolioType ?? "crypto",
-      stockImportMethod: null,
+      stockAccountId: null,
     })),
-  setStockImportMethod: (stockImportMethod) =>
+  setStockAccountId: (stockAccountId) =>
     set((state) => ({
       ...state,
-      stockImportMethod,
+      stockAccountId,
       portfolioType: state.portfolioType ?? "stock",
       walletAddress: "",
     })),

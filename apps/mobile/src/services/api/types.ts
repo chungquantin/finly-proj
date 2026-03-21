@@ -114,6 +114,19 @@ export interface ReportResponse {
   intake_brief: string
 }
 
+export interface ReportListItem {
+  id: string
+  user_id: string
+  ticker: string
+  decision: string
+  summary: string
+  full_report: string
+  agent_reasoning: Record<string, unknown>
+  specialist_insights: SpecialistInsightReport[]
+  intake_brief: string
+  created_at: string
+}
+
 // ---------------------------------------------------------------------------
 // Panel discussion (chat with team)
 // ---------------------------------------------------------------------------
@@ -135,6 +148,17 @@ export interface PanelChatResponse {
   question: string
   agent_responses: AgentPanelMessage[]
   memory_updates: string[]
+}
+
+export interface PanelHistoryMessage {
+  id: string
+  user_id: string
+  conv_type: string
+  role: "user" | "assistant" | "system"
+  agent_role?: string | null
+  content: string
+  metadata?: Record<string, unknown>
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +185,11 @@ export interface ChatResponse {
   full_report: string
 }
 
+export interface ReportRegenerateRequest {
+  user_id: string
+  report_id?: string
+}
+
 // ---------------------------------------------------------------------------
 // Heartbeat
 // ---------------------------------------------------------------------------
@@ -175,4 +204,3 @@ export interface HeartbeatAlert {
   attributed_to: string
   severity: string
 }
-

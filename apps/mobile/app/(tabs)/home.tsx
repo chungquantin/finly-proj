@@ -19,7 +19,8 @@ import { TickerLogo } from "@/components/TickerLogo"
 import { useMarketData } from "@/services/marketData"
 import { useOnboardingStore } from "@/stores/onboardingStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
-import { boardMessages, holdings, portfolioSnapshot, teamAgents } from "@/utils/mockAppData"
+import { boardMessages, teamAgents } from "@/utils/mockAppData"
+import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
 const avatarEmojis = ["😀", "😎", "🥳", "🦄", "🌈", "🚀", "🧠", "🐼", "🍀", "🎯"] as const
 const BORDER = "#EEF2F7"
@@ -39,11 +40,12 @@ export default function HomeTab() {
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
   const [isTeamExpanded, setIsTeamExpanded] = useState(false)
-  const investorName = useOnboardingStore((state) => state.name).trim() || "finlyinvestor"
+  const investorName = useOnboardingStore((state) => state.name).trim() || "Investor"
   const riskExpertise = useOnboardingStore((state) => state.riskExpertise)
   const investmentHorizon = useOnboardingStore((state) => state.investmentHorizon)
   const financialKnowledge = useOnboardingStore((state) => state.financialKnowledge)
   const portfolioType = useOnboardingStore((state) => state.portfolioType)
+  const { holdings, snapshot: portfolioSnapshot } = useSelectedPortfolioData()
   const avatarEmoji = useMemo(
     () => avatarEmojis[Math.floor(Math.random() * avatarEmojis.length)],
     [],
@@ -59,7 +61,7 @@ export default function HomeTab() {
           changePercent: liveQuote?.change_pct ?? holding.changePercent,
         }
       }),
-    [quotes],
+    [holdings, quotes],
   )
   const latestAgentMessages = useMemo(() => {
     return boardMessages.reduce<Record<string, string>>((acc, message) => {
@@ -154,10 +156,7 @@ export default function HomeTab() {
                     <Text className="font-sans text-[40px]">{avatarEmoji}</Text>
                   </View>
                   <Text className="mt-5 font-sans text-[31px] font-semibold text-[#0F1728] tracking-[-0.8px]">
-                    {investorName.toLowerCase()}.finly
-                  </Text>
-                  <Text className="mt-1 font-sans text-center text-[16px] text-[#7A8699]">
-                    Rainbow-style investing, guided by your AI board
+                    {investorName}
                   </Text>
                 </View>
 
@@ -185,14 +184,14 @@ export default function HomeTab() {
                   >
                     <View>
                       <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
-                        Tokens
+                        Portfolio
                       </Text>
                       <Text className="mt-1 font-sans text-[15px] text-[#7A8699]">
                         {enrichedHoldings.length} holdings
                       </Text>
                     </View>
                     <Text className="font-sans text-[29px] font-semibold text-[#0F1728] tracking-[-0.7px]">
-                      {money(totalValueUsd || portfolioSnapshot.totalValueUsd)}
+                      {money(totalValueUsd)}
                     </Text>
                   </View>
                 </MotiView>
@@ -202,7 +201,7 @@ export default function HomeTab() {
                   from={{ opacity: 0, translateY: 16 }}
                   transition={{ delay: 220, duration: 420, type: "timing" }}
                 >
-                  <PortfolioGrowthChart />
+                  <PortfolioGrowthChart snapshot={portfolioSnapshot} />
                 </MotiView>
 
                 <MotiView
@@ -218,6 +217,7 @@ export default function HomeTab() {
                         logoUri={holding.logoUri}
                         ticker={holding.ticker}
                         value={money(holding.valueUsd)}
+                        allocationPercent={(holding.valueUsd / Math.max(totalValueUsd, 1)) * 100}
                         changePercent={holding.changePercent}
                       />
                     ))}
@@ -329,7 +329,7 @@ function InvestmentProfileCard({
       </View>
 
       <View className="mt-4 flex-row flex-wrap">
-        <ProfilePill label="Risk" value={titleCase(riskExpertise)} />
+        <ProfilePill label="Risk" value={riskLabel(riskExpertise)} />
         <ProfilePill label="Horizon" value={horizonLabel(investmentHorizon)} />
         <ProfilePill label="Knowledge" value={knowledgeLabel(financialKnowledge)} />
       </View>
@@ -337,7 +337,15 @@ function InvestmentProfileCard({
   )
 }
 
-function PortfolioGrowthChart() {
+function PortfolioGrowthChart({
+  snapshot,
+}: {
+  snapshot: {
+    totalValueUsd: number
+    dailyPnlUsd: number
+    monthlyPnlPercent: number
+  }
+}) {
   const points = useMemo(() => createChartPoints(PORTFOLIO_GROWTH_POINTS, 272, 112), [])
   const lastPoint = points[points.length - 1]
 
@@ -355,10 +363,10 @@ function PortfolioGrowthChart() {
         </View>
         <View className="items-end">
           <Text className="font-sans text-[16px] font-semibold text-[#22B45A]">
-            +{portfolioSnapshot.monthlyPnlPercent}%
+            +{snapshot.monthlyPnlPercent}%
           </Text>
           <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">
-            +{money(portfolioSnapshot.dailyPnlUsd)} today
+            +{money(snapshot.dailyPnlUsd)} today
           </Text>
         </View>
       </View>
@@ -393,7 +401,7 @@ function PortfolioGrowthChart() {
             style={{ left: Math.max(lastPoint.x - 58, 8), top: Math.max(lastPoint.y - 44, 0) }}
           >
             <Text className="font-sans text-[11px] font-medium text-white">
-              {money(portfolioSnapshot.totalValueUsd)}
+              {money(snapshot.totalValueUsd)}
             </Text>
           </View>
         </View>
@@ -509,12 +517,14 @@ function HoldingRow({
   logoUri,
   ticker,
   value,
+  allocationPercent,
   changePercent,
 }: {
   name: string
   logoUri?: string
   ticker: string
   value: string
+  allocationPercent: number
   changePercent: number
 }) {
   return (
@@ -537,6 +547,9 @@ function HoldingRow({
           {changePercent >= 0 ? "+" : ""}
           {changePercent}%
         </Text>
+        <Text className="mt-0.5 font-sans text-[12px] text-[#7A8699]">
+          {allocationPercent.toFixed(1)}% of portfolio
+        </Text>
       </View>
     </View>
   )
@@ -544,10 +557,6 @@ function HoldingRow({
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
-}
-
-function titleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function horizonLabel(value: "short" | "medium" | "long") {
@@ -564,11 +573,22 @@ function horizonLabel(value: "short" | "medium" | "long") {
 function knowledgeLabel(value: "novice" | "savvy" | "pro") {
   switch (value) {
     case "novice":
-      return "Novice"
+      return "Beginner"
     case "savvy":
-      return "Savvy"
+      return "Intermediate"
     default:
-      return "Pro"
+      return "Advanced"
+  }
+}
+
+function riskLabel(value: "beginner" | "intermediate" | "expert") {
+  switch (value) {
+    case "beginner":
+      return "Low"
+    case "intermediate":
+      return "Mid"
+    default:
+      return "High"
   }
 }
 

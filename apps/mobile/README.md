@@ -10,9 +10,19 @@ This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way 
 ## Getting Started
 
 ```bash
+cp .env.example .env
 pnpm install
 pnpm run start
 ```
+
+Configure backend endpoints in `apps/mobile/.env`:
+
+```bash
+EXPO_PUBLIC_API_URL=http://192.168.37.85:8000
+EXPO_PUBLIC_MARKET_DATA_URL=http://192.168.37.85:8000
+```
+
+For real devices, use your machine's LAN IP instead of `localhost`.
 
 ## UI Stack (NativeWind + shadcn-style)
 

@@ -5,7 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context"
 
 import { IosHeader } from "@/components/IosHeader"
 import { TickerLogo } from "@/components/TickerLogo"
-import { boardThreads, holdingDecisions, holdings } from "@/utils/mockAppData"
+import { boardThreads, holdingDecisions } from "@/utils/mockAppData"
+import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
 const decisionColors = {
   Buy: { background: "#E9F7EF", text: "#1F8A4C" },
@@ -16,8 +17,26 @@ const decisionColors = {
 export default function HoldingDetailRoute() {
   const router = useRouter()
   const { ticker } = useLocalSearchParams<{ ticker: string }>()
+  const { holdings } = useSelectedPortfolioData()
   const holding = holdings.find((item) => item.ticker === ticker)
-  const decision = holdingDecisions.find((item) => item.ticker === ticker)
+  const decision =
+    holdingDecisions.find((item) => item.ticker === ticker) ??
+    (ticker
+      ? {
+          ticker,
+          decision: "Position",
+          intake: "Monitor position and wait for stronger signal",
+          conviction: "Medium",
+          targetPosition: "Maintain current size",
+          nextReview: "Next week",
+          rationale: [
+            "Portfolio-selected holding imported from onboarding.",
+            "No dedicated board thesis exists yet for this ticker.",
+            "Start a new board thread to generate a full recommendation.",
+          ],
+          relatedThreadIds: [],
+        }
+      : null)
   const relatedThreads = boardThreads.filter((thread) =>
     decision?.relatedThreadIds.includes(thread.id),
   )

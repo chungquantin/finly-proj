@@ -1,9 +1,10 @@
+import { getMockStockAccountById } from "./mockStockAccounts"
 import type {
   FinancialKnowledge,
   InvestmentHorizon,
   PortfolioType,
   RiskExpertise,
-  StockImportMethod,
+  StockAccountId,
 } from "../stores/onboardingStore"
 
 export type PortfolioPoint = {
@@ -33,7 +34,7 @@ type SeedInput = {
   investmentHorizon: InvestmentHorizon
   financialKnowledge: FinancialKnowledge
   portfolioType: PortfolioType | null
-  stockImportMethod: StockImportMethod | null
+  stockAccountId: StockAccountId | null
   walletAddress: string
 }
 
@@ -73,7 +74,7 @@ export const buildMockPortfolio = (input: SeedInput): MockPortfolio => {
     input.investmentHorizon,
     input.financialKnowledge,
     input.portfolioType ?? "none",
-    input.stockImportMethod ?? "none",
+    input.stockAccountId ?? "none",
     input.walletAddress,
   ].join("|")
 
@@ -83,27 +84,39 @@ export const buildMockPortfolio = (input: SeedInput): MockPortfolio => {
     riskWeights[input.riskExpertise] *
     horizonWeights[input.investmentHorizon] *
     knowledgeWeights[input.financialKnowledge]
+  const stockAccount = getMockStockAccountById(input.stockAccountId)
+  const stockCostBasis = stockAccount
+    ? stockAccount.holdings.reduce((sum, holding) => sum + holding.quantity * holding.avg_cost, 0)
+    : null
+  const marketTilt = ((seed % 19) - 9) / 1000
+  const profileTilt = (weighted - 1) * 0.03
+  const todayGainPct = money(0.4 + (seed % 18) / 10)
 
-  const balance = money(base * weighted + (seed % 12000))
-  const gain = money(balance * (0.008 + (seed % 30) / 1000))
+  const balance =
+    input.portfolioType === "stock" && stockCostBasis
+      ? money(stockCostBasis * (1 + 0.02 + profileTilt + marketTilt))
+      : money(base * weighted + (seed % 12000))
+
+  const gain = money(balance * (todayGainPct / 100))
   const gainPct = money((gain / balance) * 100)
   const portfolioChangePct = money(6 + (seed % 80) / 10)
 
   const weekdays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
   const points = weekdays.map((day, index) => {
-    const wave = Math.sin((index + 1) * 1.1 + (seed % 7)) * 1200
-    const noise = ((seed >> (index + 1)) % 300) - 150
+    const growthCurve = 0.88 + index * 0.02
+    const wave = Math.sin((index + 1) * 1.1 + (seed % 7)) * (balance * 0.015)
+    const noise = (((seed >> (index + 1)) % 30) - 15) * 18
     return {
       day,
-      value: money(balance * (0.76 + index * 0.02) + wave + noise),
+      value: money(balance * growthCurve + wave + noise),
     }
   })
 
   const sourceLabel =
     input.portfolioType === "crypto"
       ? "Wallet onboarding"
-      : input.stockImportMethod
-        ? `Stock import: ${input.stockImportMethod}`
+      : stockAccount
+        ? `Stock account: ${stockAccount.name}`
         : "Stock import"
 
   return {

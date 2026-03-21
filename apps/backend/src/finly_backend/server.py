@@ -46,6 +46,7 @@ from finly_backend.models import (
 from finly_backend.database import (
     init_db,
     get_user,
+    get_report,
     get_reports,
     get_latest_report,
     save_report,
@@ -627,6 +628,7 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
         summary=summary,
         full_report=full_report,
         agent_reasoning=agent_reasoning,
+        specialist_insights=specialist_insights,
         intake_brief=goals_brief,
     )
 
@@ -660,7 +662,11 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
         get_conversation_history,
     )
 
-    report = get_latest_report(req.user_id)
+    report = (
+        get_report(req.report_id, user_id=req.user_id)
+        if req.report_id
+        else get_latest_report(req.user_id)
+    )
     if not report:
         return PanelChatResponse(
             user_id=req.user_id,
@@ -677,11 +683,20 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
 
     user_context = build_user_context(req.user_id)
     conversation_history = get_conversation_history(
-        req.user_id, conv_type="panel", limit=20
+        req.user_id,
+        conv_type="panel",
+        limit=20,
+        metadata_filters={"report_id": report["id"]},
     )
 
     # Record user message
-    append_conversation(req.user_id, "panel", "user", req.message)
+    append_conversation(
+        req.user_id,
+        "panel",
+        "user",
+        req.message,
+        metadata={"report_id": report["id"]},
+    )
 
     # Build report_data for the agent server
     report_data = {
@@ -710,6 +725,7 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
             "assistant",
             resp["response"],
             agent_role=resp["agent_role"],
+            metadata={"report_id": report["id"]},
         )
 
     # Extract memories (fire and forget)
@@ -742,7 +758,11 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
 @app.post("/api/report/regenerate")
 async def report_regenerate(req: ReportRegenerateRequest) -> ReportResponse:
     """Regenerate report with updated user context."""
-    previous = get_latest_report(req.user_id)
+    previous = (
+        get_report(req.report_id, user_id=req.user_id)
+        if req.report_id
+        else get_latest_report(req.user_id)
+    )
     if not previous:
         raise HTTPException(
             status_code=404, detail="No previous report found. Generate one first."
@@ -752,6 +772,46 @@ async def report_regenerate(req: ReportRegenerateRequest) -> ReportResponse:
 
     gen_req = ReportGenerateRequest(user_id=req.user_id, ticker=ticker)
     return await report_generate(gen_req)
+
+
+@app.get("/api/report/{report_id}")
+async def report_detail(report_id: str, user_id: str = Query(...)) -> ReportResponse:
+    report = get_report(report_id, user_id=user_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return ReportResponse(
+        report_id=report["id"],
+        user_id=report["user_id"],
+        ticker=report["ticker"],
+        decision=report.get("decision", ""),
+        summary=report.get("summary", ""),
+        full_report=report.get("full_report", ""),
+        agent_reasoning=report.get("agent_reasoning", {}),
+        specialist_insights=report.get("specialist_insights", []),
+        additional_tickers=[],
+        intake_brief=report.get("intake_brief", ""),
+    )
+
+
+@app.get("/api/report/{report_id}/panel-history")
+async def report_panel_history(
+    report_id: str,
+    user_id: str = Query(...),
+    limit: int = Query(default=50, le=200),
+):
+    from finly_backend.database import get_conversation_history
+
+    report = get_report(report_id, user_id=user_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return get_conversation_history(
+        user_id,
+        conv_type="panel",
+        limit=limit,
+        metadata_filters={"report_id": report_id},
+    )
 
 
 # ---------------------------------------------------------------------------

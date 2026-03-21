@@ -1,11 +1,17 @@
 /* eslint-disable no-restricted-imports */
 import { useState } from "react"
-import { ActivityIndicator, Pressable, ScrollView, Text, View, ViewStyle } from "react-native"
+import { ActivityIndicator, Pressable, Text, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
+import { MotiView } from "moti"
 
+import { AiryScreenShell } from "../components/AiryScreenShell"
+import { IosHeader } from "../components/IosHeader"
+import { TickerLogoStack } from "../components/TickerLogoStack"
+import { FINLY_DEFAULT_USER_ID } from "../services/agentUser"
 import { api } from "../services/api"
 import { useOnboardingStore } from "../stores/onboardingStore"
 import { buildMockPortfolio } from "../utils/mockPortfolio"
+import { DEFAULT_STOCK_ACCOUNT_ID, getMockStockAccountById } from "../utils/mockStockAccounts"
 import { playBase64Audio } from "../utils/playAudio"
 
 const money = (value: number) =>
@@ -27,8 +33,11 @@ export function OnboardingCompleteScreen() {
   const financialKnowledge = useOnboardingStore((s) => s.financialKnowledge)
   const portfolioType = useOnboardingStore((s) => s.portfolioType)
   const walletAddress = useOnboardingStore((s) => s.walletAddress)
-  const stockImportMethod = useOnboardingStore((s) => s.stockImportMethod)
+  const stockAccountId = useOnboardingStore((s) => s.stockAccountId)
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding)
+  const selectedStockAccount = getMockStockAccountById(
+    stockAccountId ?? (portfolioType === "stock" ? DEFAULT_STOCK_ACCOUNT_ID : null),
+  )
 
   const portfolio = buildMockPortfolio({
     riskExpertise,
@@ -36,17 +45,25 @@ export function OnboardingCompleteScreen() {
     financialKnowledge,
     portfolioType,
     walletAddress,
-    stockImportMethod,
+    stockAccountId,
   })
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+
+    router.replace("/onboarding/step-2")
+  }
 
   const finish = async () => {
     if (loading) return
     setLoading(true)
 
     try {
-      const userId = "user_mvp_1"
+      const userId = FINLY_DEFAULT_USER_ID
 
-      // 1. Create profile on backend
       const result = await api.onboarding({
         user_id: userId,
         risk_score: riskMap[riskExpertise],
@@ -54,79 +71,121 @@ export function OnboardingCompleteScreen() {
         knowledge: knowledgeMap[financialKnowledge],
       })
 
-      // 2. Import mock portfolio
-      await api.importPortfolio({
-        user_id: userId,
-        mode: "mock",
-        items: [],
-      })
+      if (portfolioType === "stock") {
+        await api.importPortfolio({
+          user_id: userId,
+          mode: "manual",
+          items: selectedStockAccount?.holdings ?? [],
+        })
+      } else {
+        await api.importPortfolio({
+          user_id: userId,
+          mode: "mock",
+          items: [],
+        })
+      }
 
-      // 3. Play TTS welcome (non-blocking)
       if (result.kind === "ok" && result.data.audio_b64) {
         playBase64Audio(result.data.audio_b64).catch(() => {})
       }
 
       completeOnboarding()
-      router.push("/dashboard")
+      router.push("/home")
     } catch (e) {
       if (__DEV__) console.error("Onboarding API error:", e)
-      // Offline-first: still let user through
       completeOnboarding()
-      router.push("/dashboard")
+      router.push("/home")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <View className="flex-1 bg-background">
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={$scrollContentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="rounded-xl3 border border-border bg-card px-5 pb-6 pt-4 shadow-card">
-          <View className="mt-2 items-center">
-            <Text className="text-xs font-semi tracking-[2px] text-muted">STEP 4 OF 4</Text>
-            <View className="mt-4 h-1.5 w-full rounded-full bg-border">
-              <View className="h-1.5 w-full rounded-full bg-lilac" />
-            </View>
-          </View>
+    <AiryScreenShell variant="soft" contentContainerStyle={$contentContainer}>
+      <View className="mt-2 rounded-[36px] border border-[#F1F2F6] bg-white px-4 pb-6 pt-5">
+        <IosHeader
+          title="Portfolio ready"
+          titleClassName="text-[20px] leading-[24px]"
+          leftLabel="‹"
+          onLeftPress={handleBack}
+        />
 
-          <View className="mt-8 items-center">
-            <View className="h-20 w-20 items-center justify-center rounded-xl3 bg-mint shadow-card">
-              <Text className="text-[28px]">✅</Text>
-            </View>
-            <Text className="mt-7 text-center text-[30px] font-semi leading-[34px] text-ink">
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300 }}
+        >
+          <View className="mt-3 rounded-[24px] bg-[#F8FAFF] px-4 py-4">
+            <Text className="font-sans text-[12px] font-semibold tracking-[1.2px] text-[#8E8E93]">
+              STEP 3 OF 3
+            </Text>
+            <Text className="font-sans mt-2 text-[25px] font-semibold leading-[30px] text-[#111111]">
               Profile complete
             </Text>
-            <Text className="mt-2 text-center text-[16px] leading-6 text-muted">
+            <Text className="font-sans mt-1.5 text-[15px] leading-5 text-[#6B7280]">
               Your portfolio is ready. Here is your starter view.
             </Text>
-          </View>
 
-          <View className="mt-8 rounded-xl2 border border-border bg-[#FAFBFF] p-4">
-            <Text className="text-sm font-semi tracking-[1.6px] text-muted">TOTAL BALANCE</Text>
-            <Text className="mt-2 text-[30px] font-semi leading-[34px] text-ink">
+            <View className="mt-4 h-1.5 w-full rounded-full bg-[#E9EBF2]">
+              <View className="h-1.5 w-full rounded-full bg-[#2453FF]" />
+            </View>
+          </View>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 70 }}
+        >
+          <View className="mt-4 rounded-[24px] border border-[#F1F2F6] bg-[#FAFBFF] p-4">
+            <Text className="font-sans text-[13px] font-semibold tracking-[1.6px] text-[#8E8E93]">
+              TOTAL BALANCE
+            </Text>
+            {selectedStockAccount ? (
+              <View className="mt-3 flex-row items-center justify-between">
+                <TickerLogoStack tickers={selectedStockAccount.logos} size={32} />
+                <Text className="font-sans text-[12px] font-medium text-[#6B7280]">
+                  {selectedStockAccount.provider}
+                </Text>
+              </View>
+            ) : null}
+            <Text className="font-sans mt-2 text-[30px] font-semibold leading-[34px] text-[#111111]">
               {money(portfolio.totalBalance)}
             </Text>
-            <Text className="mt-1 text-[16px] font-semi text-[#16A34A]">
+            <Text className="font-sans mt-1 text-[16px] font-semibold text-[#16A34A]">
               +{portfolio.todayGainPct}% today
             </Text>
           </View>
+        </MotiView>
 
-          <View className="mt-4 rounded-xl2 border border-border bg-card p-4">
-            <Text className="text-sm font-semi tracking-[1.6px] text-muted">PROFILE SUMMARY</Text>
-            <Row label="Risk" value={riskExpertise} />
-            <Row label="Investment taste" value={investmentHorizon} />
-            <Row label="Knowledge" value={financialKnowledge} />
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 120 }}
+        >
+          <View className="mt-4 rounded-[24px] border border-[#F1F2F6] bg-white p-4">
+            <Text className="font-sans text-[13px] font-semibold tracking-[1.6px] text-[#8E8E93]">
+              PROFILE SUMMARY
+            </Text>
+            <Row label="Risk" value={riskLabel(riskExpertise)} />
+            <Row label="Investment horizon" value={investmentHorizon} />
+            <Row label="Knowledge" value={knowledgeLabel(financialKnowledge)} />
             <Row label="Portfolio type" value={portfolioType ?? "stock"} />
+            {selectedStockAccount ? (
+              <Row label="Selected account" value={selectedStockAccount.name} />
+            ) : null}
             <Row label="Onboarding source" value={portfolio.sourceLabel} />
           </View>
+        </MotiView>
 
-          <View className="mt-8">
+        <MotiView
+          from={{ opacity: 0, translateY: 14 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 180 }}
+        >
+          <View className="mt-4">
             <Pressable
-              className="h-16 items-center justify-center rounded-full bg-[#08153A]"
+              className="h-14 items-center justify-center rounded-[22px] bg-[#34C759]"
               onPress={finish}
               disabled={loading}
               accessibilityRole="button"
@@ -134,28 +193,48 @@ export function OnboardingCompleteScreen() {
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-[20px] font-semi text-white">Go to Dashboard</Text>
+                <Text className="font-sans text-[17px] font-semibold text-white">Continue</Text>
               )}
             </Pressable>
           </View>
-        </View>
-      </ScrollView>
-    </View>
+        </MotiView>
+      </View>
+    </AiryScreenShell>
   )
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <View className="mt-3 flex-row items-center justify-between border-b border-border pb-3">
-      <Text className="text-[13px] text-muted">{label}</Text>
-      <Text className="text-[13px] font-semi capitalize text-ink">{value}</Text>
+    <View className="mt-3 flex-row items-center justify-between border-b border-[#ECEEF4] pb-3">
+      <Text className="text-[13px] text-[#6B7280]">{label}</Text>
+      <Text className="text-[13px] font-semibold text-[#111111]">{value}</Text>
     </View>
   )
 }
 
-const $scrollContentContainer: ViewStyle = {
-  paddingHorizontal: 16,
-  paddingTop: 12,
+function riskLabel(value: "beginner" | "intermediate" | "expert") {
+  switch (value) {
+    case "beginner":
+      return "Low"
+    case "intermediate":
+      return "Mid"
+    default:
+      return "High"
+  }
+}
+
+function knowledgeLabel(value: "novice" | "savvy" | "pro") {
+  switch (value) {
+    case "novice":
+      return "Beginner"
+    case "savvy":
+      return "Intermediate"
+    default:
+      return "Advanced"
+  }
+}
+
+const $contentContainer: ViewStyle = {
+  paddingTop: 10,
   paddingBottom: 24,
-  flexGrow: 1,
 }

@@ -1,8 +1,10 @@
 /* eslint-disable no-restricted-imports */
 import { Pressable, Text, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
+import { MotiView } from "moti"
 
 import { AiryScreenShell } from "../components/AiryScreenShell"
+import { IosHeader } from "../components/IosHeader"
 import { cn } from "../lib/utils"
 import { useOnboardingStore } from "../stores/onboardingStore"
 
@@ -40,114 +42,131 @@ export function OnboardingPortfolioTypeScreen() {
     router.push("/onboarding/step-3/stock")
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+
+    router.replace("/onboarding/step-1")
+  }
+
   return (
     <AiryScreenShell variant="soft" contentContainerStyle={$contentContainer}>
-      <View className="mt-2 rounded-[28px] bg-card px-5 pb-6 pt-5">
-        <View className="flex-row items-center justify-between">
-          <Pressable
-            className="h-11 w-11 items-center justify-center rounded-full bg-[#F3F4F7]"
-            onPress={() => router.back()}
-            accessibilityRole="button"
-          >
-            <Text className="text-[22px] font-semibold text-muted">&lt;</Text>
-          </Pressable>
-          <Text className="text-[17px] font-semibold text-ink">Portfolio Type</Text>
-          <View className="w-11" />
-        </View>
+      <View className="mt-2 rounded-[36px] border border-[#F1F2F6] bg-white px-4 pb-6 pt-5">
+        <IosHeader
+          title="Portfolio type"
+          titleClassName="text-[20px] leading-[24px]"
+          leftLabel="‹"
+          onLeftPress={handleBack}
+        />
 
-        <View className="mt-6">
-          <View className="flex-row items-end justify-between">
-            <Text className="text-[13px] font-semibold tracking-[1.4px] text-muted">
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300 }}
+        >
+          <View className="mt-3 rounded-[24px] bg-[#F8FAFF] px-4 py-4">
+            <Text className="text-[12px] font-semibold tracking-[1.2px] text-[#8E8E93]">
               STEP 2 OF 4
             </Text>
-            <Text className="text-[13px] font-semibold tracking-[1px] text-muted">50%</Text>
-          </View>
-          <View className="mt-3 h-1.5 w-full rounded-full bg-[#E9EBF2]">
-            <View className="h-1.5 w-2/4 rounded-full bg-[#1F2937]" />
-          </View>
-        </View>
+            <Text className="mt-2 text-[25px] font-semibold leading-[30px] text-[#111111]">
+              What are you onboarding?
+            </Text>
+            <Text className="mt-1.5 text-[15px] leading-5 text-[#6B7280]">
+              Select a portfolio type to continue setup.
+            </Text>
 
-        <View className="mt-8 items-center">
-          <View className="h-20 w-20 items-center justify-center rounded-[24px] bg-[#F5F6FA]">
-            <Text className="text-[22px] font-semibold text-[#374151]">PT</Text>
+            <View className="mt-4 h-1.5 w-full rounded-full bg-[#E9EBF2]">
+              <View className="h-1.5 w-2/4 rounded-full bg-[#2453FF]" />
+            </View>
           </View>
-          <Text className="mt-6 text-center text-[28px] font-semibold leading-[33px] text-ink">
-            What are you onboarding?
-          </Text>
-          <Text className="mt-2 text-center text-[15px] leading-5 text-muted">
-            Select a portfolio type to continue setup.
-          </Text>
-        </View>
+        </MotiView>
 
-        <View className="mt-8 gap-4">
-          {portfolioOptions.map((option) => {
-            const selected = portfolioType === option.key
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 80 }}
+        >
+          <View className="mt-4 gap-4">
+            {portfolioOptions.map((option) => {
+              const selected = portfolioType === option.key
 
-            return (
-              <Pressable
-                key={option.key}
-                onPress={() => setPortfolioType(option.key)}
-                className={cn(
-                  "rounded-[20px] border bg-card px-4 py-4",
-                  selected ? "border-[#111827] bg-[#F8F9FC]" : "border-[#ECEEF4]",
-                )}
-              >
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 flex-row items-center">
+              return (
+                <Pressable
+                  key={option.key}
+                  onPress={() => setPortfolioType(option.key)}
+                  className={cn(
+                    "rounded-[24px] border bg-white px-4 py-4",
+                    selected ? "border-[#2453FF] bg-[#F8FAFF]" : "border-[#F1F2F6]",
+                  )}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 flex-row items-center">
+                      <View
+                        className={cn(
+                          "h-12 w-12 items-center justify-center rounded-full",
+                          option.iconBg,
+                        )}
+                      >
+                        <Text className="text-[16px] font-semibold text-[#1F2937]">
+                          {option.icon}
+                        </Text>
+                      </View>
+                      <View className="ml-3 flex-1">
+                        <Text
+                          numberOfLines={1}
+                          className="text-[16px] font-semibold leading-5 text-ink"
+                        >
+                          {option.title}
+                        </Text>
+                        <Text numberOfLines={2} className="text-[13px] leading-5 text-muted">
+                          {option.subtitle}
+                        </Text>
+                      </View>
+                    </View>
+
                     <View
                       className={cn(
-                        "h-12 w-12 items-center justify-center rounded-full",
-                        option.iconBg,
+                        "ml-3 h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                        selected ? "border-[#2453FF] bg-[#EEF2FF]" : "border-[#D6DBE6] bg-white",
                       )}
                     >
-                      <Text className="text-[16px] font-semibold text-[#1F2937]">
-                        {option.icon}
-                      </Text>
-                    </View>
-                    <View className="ml-3 flex-1">
-                      <Text
-                        numberOfLines={1}
-                        className="text-[16px] font-semibold leading-5 text-ink"
-                      >
-                        {option.title}
-                      </Text>
-                      <Text numberOfLines={2} className="text-[13px] leading-5 text-muted">
-                        {option.subtitle}
-                      </Text>
+                      {selected ? <View className="h-3.5 w-3.5 rounded-full bg-[#2453FF]" /> : null}
                     </View>
                   </View>
+                </Pressable>
+              )
+            })}
+          </View>
+        </MotiView>
 
-                  <View
-                    className={cn(
-                      "ml-3 h-5 w-5 shrink-0 rounded-full border",
-                      selected ? "border-[#111827] bg-[#111827]" : "border-border bg-card",
-                    )}
-                  />
-                </View>
-              </Pressable>
-            )
-          })}
-        </View>
-
-        <View className="mt-8">
-          <Pressable
-            className={cn(
-              "h-16 items-center justify-center rounded-full",
-              portfolioType ? "bg-[#34C759]" : "bg-[#E7EAF3]",
-            )}
-            onPress={goNext}
-            accessibilityRole="button"
-          >
-            <Text
+        <MotiView
+          from={{ opacity: 0, translateY: 14 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300, delay: 150 }}
+        >
+          <View className="mt-4">
+            <Pressable
               className={cn(
-                "text-[17px] font-semibold",
-                portfolioType ? "text-white" : "text-muted",
+                "h-14 items-center justify-center rounded-[22px]",
+                portfolioType ? "bg-[#34C759]" : "bg-[#E7EAF3]",
               )}
+              onPress={goNext}
+              disabled={!portfolioType}
+              accessibilityRole="button"
             >
-              Continue &gt;
-            </Text>
-          </Pressable>
-        </View>
+              <Text
+                className={cn(
+                  "text-[17px] font-semibold",
+                  portfolioType ? "text-white" : "text-muted",
+                )}
+              >
+                Continue
+              </Text>
+            </Pressable>
+          </View>
+        </MotiView>
       </View>
     </AiryScreenShell>
   )

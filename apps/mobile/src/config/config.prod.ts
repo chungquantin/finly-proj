@@ -5,6 +5,12 @@
  *
  * https://reactnative.dev/docs/security#storing-sensitive-info
  */
+const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000"
+const marketDataUrl = process.env.EXPO_PUBLIC_MARKET_DATA_URL || apiUrl
+const agentServerUrl = process.env.EXPO_PUBLIC_AGENT_SERVER_URL || "http://localhost:8001"
+
 export default {
-  API_URL: "https://api.rss2json.com/v1/",
+  API_URL: apiUrl,
+  MARKET_DATA_URL: marketDataUrl,
+  AGENT_SERVER_URL: agentServerUrl,
 }

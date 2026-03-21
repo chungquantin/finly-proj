@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react"
 /* eslint-disable no-restricted-imports */
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native"
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { TickerLogo } from "@/components/TickerLogo"
+import { useAgentBoardStore } from "@/stores/agentBoardStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
-import { boardThreads, holdings } from "@/utils/mockAppData"
+import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
 const BLUE = "#2453FF"
 const BORDER = "#EEF2F7"
@@ -18,9 +19,23 @@ const decisionColors = {
   Position: { background: "#EEF3FF", text: BLUE },
 } as const
 
+const formatTimestamp = (value: string) => {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return "now"
+  return parsed.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 export default function BoardTab() {
   const router = useRouter()
-  const [threads, setThreads] = useState(boardThreads)
+  const { holdings } = useSelectedPortfolioData()
+  const threads = useAgentBoardStore((state) => state.threads)
+  const hydrated = useAgentBoardStore((state) => state.hydrated)
+  const startThread = useAgentBoardStore((state) => state.startThread)
   const [searchQuery, setSearchQuery] = useState("")
   const [draft, setDraft] = useState("")
 
@@ -29,7 +44,8 @@ export default function BoardTab() {
     if (!query) return threads
 
     return threads.filter((thread) =>
-      [thread.title, thread.ticker, thread.intake, thread.summary]
+      [thread.title, thread.ticker, thread.intake, thread.summary, thread.report?.full_report]
+        .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(query),
@@ -40,48 +56,9 @@ export default function BoardTab() {
     const nextMessage = draft.trim()
     if (!nextMessage) return
 
-    const matchedHolding = holdings.find((holding) => {
-      const normalized = nextMessage.toLowerCase()
-      return (
-        normalized.includes(holding.ticker.toLowerCase()) ||
-        normalized.includes(holding.name.toLowerCase())
-      )
-    })
-
-    const nextThread = {
-      id: `custom-${Date.now()}`,
-      title: nextMessage.length > 36 ? `${nextMessage.slice(0, 36)}...` : nextMessage,
-      ticker: matchedHolding?.ticker ?? "BOARD",
-      decision: "Position" as const,
-      intake: "New user-led board question",
-      summary: nextMessage,
-      updatedAt: "now",
-      unreadCount: 0,
-      participantAgentIds: ["portfolio-manager", "market-analyst", "risk-assessor"],
-      messages: [
-        {
-          id: "1",
-          author: "You",
-          role: "user" as const,
-          avatar: "YU",
-          message: nextMessage,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ],
-    }
-
-    setThreads((current) => [nextThread, ...current])
+    const threadId = startThread(nextMessage)
     setDraft("")
-    router.push({
-      pathname: "/thread/[id]",
-      params: {
-        id: nextThread.id,
-        title: nextThread.title,
-        ticker: nextThread.ticker,
-        intake: nextThread.intake,
-        message: nextMessage,
-      },
-    })
+    router.push(`/thread/${threadId}`)
   }
 
   return (
@@ -97,7 +74,7 @@ export default function BoardTab() {
                 Board Threads
               </Text>
               <Text className="font-sans text-[14px] text-[#7A8699]">
-                Open a conversation with the agent board
+                Explain what you want, let Finly narrow it down, then review the team report
               </Text>
             </View>
           </View>
@@ -114,7 +91,7 @@ export default function BoardTab() {
                   value={draft}
                   onChangeText={setDraft}
                   onSubmitEditing={handleCreateThread}
-                  placeholder="Ask the board about a stock or position"
+                  placeholder="I want to invest in ESG names with lower downside"
                   placeholderTextColor="#94A0B3"
                   className="font-sans text-[16px] text-[#0F1728]"
                   returnKeyType="send"
@@ -145,95 +122,106 @@ export default function BoardTab() {
           </View>
 
           <View className="mt-4 gap-3">
-            {filteredThreads.map((thread) => (
-              <Pressable
-                key={thread.id}
-                className="rounded-[28px] border bg-white p-4"
-                style={{ borderColor: BORDER }}
-                onPress={() => router.push(`/thread/${thread.id}`)}
-              >
-                <View className="mb-3 flex-row items-center">
-                  <TickerLogo
-                    ticker={thread.ticker}
-                    logoUri={holdings.find((holding) => holding.ticker === thread.ticker)?.logoUri}
-                  />
-                  <Text className="ml-3 font-sans text-[16px] font-semibold text-[#0F1728]">
-                    {thread.ticker}
-                  </Text>
-                </View>
+            {!hydrated ? (
+              <View className="rounded-[28px] border border-[#EEF2F7] bg-white p-5">
+                <ActivityIndicator color={BLUE} />
+              </View>
+            ) : null}
 
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1 pr-3">
-                    <View
-                      className="rounded-full px-3 py-1.5 self-start"
-                      style={{
-                        backgroundColor: decisionColors[thread.decision].background,
-                      }}
-                    >
-                      <Text
-                        className="font-sans text-[12px] font-semibold"
-                        style={{ color: decisionColors[thread.decision].text }}
+            {hydrated &&
+              filteredThreads.map((thread) => (
+                <Pressable
+                  key={thread.id}
+                  className="rounded-[28px] border bg-white p-4"
+                  style={{ borderColor: BORDER }}
+                  onPress={() => router.push(`/thread/${thread.id}`)}
+                >
+                  <View className="mb-3 flex-row items-center">
+                    <TickerLogo
+                      ticker={thread.ticker}
+                      logoUri={
+                        holdings.find((holding) => holding.ticker === thread.ticker)?.logoUri
+                      }
+                    />
+                    <Text className="ml-3 font-sans text-[16px] font-semibold text-[#0F1728]">
+                      {thread.ticker}
+                    </Text>
+                  </View>
+
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 pr-3">
+                      <View
+                        className="self-start rounded-full px-3 py-1.5"
+                        style={{
+                          backgroundColor: decisionColors[thread.decision].background,
+                        }}
                       >
-                        {thread.decision}
+                        <Text
+                          className="font-sans text-[12px] font-semibold"
+                          style={{ color: decisionColors[thread.decision].text }}
+                        >
+                          {thread.stage === "intake"
+                            ? `Intake ${thread.followUpCount}/2`
+                            : thread.stage === "report_loading"
+                              ? "Generating"
+                              : thread.decision}
+                        </Text>
+                      </View>
+
+                      <Text className="mt-3 font-sans text-[21px] font-semibold text-[#0F1728]">
+                        {thread.title}
+                      </Text>
+                      <Text className="mt-1 font-sans text-[15px] text-[#607089]">
+                        Intake: {thread.intake}
                       </Text>
                     </View>
 
-                    <Text className="mt-3 font-sans text-[21px] font-semibold text-[#0F1728]">
-                      {thread.title}
-                    </Text>
-                    <Text className="mt-1 font-sans text-[15px] text-[#607089]">
-                      Intake: {thread.intake}
-                    </Text>
+                    <View className="items-end">
+                      <Text className="font-sans text-[13px] text-[#7A8699]">
+                        {formatTimestamp(thread.updatedAt)}
+                      </Text>
+                      {thread.isBusy ? <ActivityIndicator className="mt-2" color={BLUE} /> : null}
+                    </View>
                   </View>
 
-                  <View className="items-end">
-                    <Text className="font-sans text-[13px] text-[#7A8699]">{thread.updatedAt}</Text>
-                    {thread.unreadCount > 0 ? (
-                      <View className="mt-2 rounded-full bg-[#2453FF] px-2.5 py-1">
-                        <Text className="font-sans text-[12px] font-semibold text-white">
-                          {thread.unreadCount} new
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-
-                <Text className="mt-3 font-sans text-[15px] leading-6 text-[#425168]">
-                  {thread.summary}
-                </Text>
-
-                <View className="mt-4 flex-row items-center justify-between">
-                  <View className="flex-row items-center">
-                    {thread.participantAgentIds.map((agentId, index) => {
-                      const avatar = getRandomAgentAvatar(agentId)
-
-                      return (
-                        <View
-                          key={agentId}
-                          className={`h-8 w-8 items-center justify-center rounded-full border-2 border-white ${
-                            index === 0 ? "" : "-ml-2"
-                          }`}
-                          style={{ backgroundColor: avatar.palette.background }}
-                        >
-                          <Text className="font-sans text-[15px]">{avatar.glyph}</Text>
-                        </View>
-                      )
-                    })}
-                  </View>
-
-                  <Text className="font-sans text-[13px] text-[#7A8699]">
-                    {thread.messages.length} updates
+                  <Text className="mt-3 font-sans text-[15px] leading-6 text-[#425168]">
+                    {thread.lastError || thread.summary}
                   </Text>
-                </View>
-              </Pressable>
-            ))}
-            {filteredThreads.length === 0 ? (
+
+                  <View className="mt-4 flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      {thread.participantAgentIds.map((agentId, index) => {
+                        const avatar = getRandomAgentAvatar(agentId)
+
+                        return (
+                          <View
+                            key={agentId}
+                            className={`h-8 w-8 items-center justify-center rounded-full border-2 border-white ${
+                              index === 0 ? "" : "-ml-2"
+                            }`}
+                            style={{ backgroundColor: avatar.palette.background }}
+                          >
+                            <Text className="font-sans text-[15px]">{avatar.glyph}</Text>
+                          </View>
+                        )
+                      })}
+                    </View>
+
+                    <Text className="font-sans text-[13px] text-[#7A8699]">
+                      {thread.messages.length} updates
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+
+            {hydrated && filteredThreads.length === 0 ? (
               <View className="rounded-[28px] border border-[#EEF2F7] bg-white p-5">
                 <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
-                  No matching conversations
+                  No conversations yet
                 </Text>
                 <Text className="mt-2 font-sans text-[15px] leading-6 text-[#7A8699]">
-                  Try another ticker, decision keyword, or start a new thread above.
+                  Start with a natural goal like “I want steady dividend income” or “Help me find an
+                  ESG stock.”
                 </Text>
               </View>
             ) : null}

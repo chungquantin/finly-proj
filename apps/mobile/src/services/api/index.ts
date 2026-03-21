@@ -4,6 +4,7 @@
 import { ApiResponse, ApisauceInstance, create } from "apisauce"
 
 import Config from "@/config"
+
 import { GeneralApiProblem, getGeneralApiProblem } from "./apiProblem"
 import type {
   ApiConfig,
@@ -13,11 +14,14 @@ import type {
   IntakeResponse,
   OnboardingRequest,
   OnboardingResponse,
+  PanelHistoryMessage,
   PanelChatRequest,
   PanelChatResponse,
   PortfolioImportRequest,
   PortfolioResponse,
+  ReportListItem,
   ReportGenerateRequest,
+  ReportRegenerateRequest,
   ReportResponse,
   UserProfile,
 } from "./types"
@@ -148,6 +152,62 @@ export class Api {
     return { kind: "ok", report: response.data! }
   }
 
+  async regenerateReport(
+    req: ReportRegenerateRequest,
+  ): Promise<{ kind: "ok"; report: ReportResponse } | GeneralApiProblem> {
+    const response: ApiResponse<ReportResponse> = await this.apisauce.post(
+      "/api/report/regenerate",
+      req,
+      { timeout: 120000 },
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", report: response.data! }
+  }
+
+  async getReports(
+    userId: string,
+  ): Promise<{ kind: "ok"; reports: ReportListItem[] } | GeneralApiProblem> {
+    const response: ApiResponse<ReportListItem[]> = await this.apisauce.get(
+      `/api/user/${userId}/reports`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", reports: response.data ?? [] }
+  }
+
+  async getReport(
+    userId: string,
+    reportId: string,
+  ): Promise<{ kind: "ok"; report: ReportResponse } | GeneralApiProblem> {
+    const response: ApiResponse<ReportResponse> = await this.apisauce.get(
+      `/api/report/${reportId}?user_id=${encodeURIComponent(userId)}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", report: response.data! }
+  }
+
+  async getPanelHistory(
+    userId: string,
+    reportId: string,
+  ): Promise<{ kind: "ok"; messages: PanelHistoryMessage[] } | GeneralApiProblem> {
+    const response: ApiResponse<PanelHistoryMessage[]> = await this.apisauce.get(
+      `/api/report/${reportId}/panel-history?user_id=${encodeURIComponent(userId)}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", messages: response.data ?? [] }
+  }
+
   // -----------------------------------------------------------------------
   // Panel discussion (chat with team)
   // -----------------------------------------------------------------------
@@ -181,7 +241,6 @@ export class Api {
     }
     return { kind: "ok", data: response.data! }
   }
-
 }
 
 // Singleton instance

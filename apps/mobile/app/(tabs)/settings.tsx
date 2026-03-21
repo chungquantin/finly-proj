@@ -25,13 +25,11 @@ export default function SettingsTab() {
   const riskExpertise = useOnboardingStore((state) => state.riskExpertise)
   const investmentHorizon = useOnboardingStore((state) => state.investmentHorizon)
   const financialKnowledge = useOnboardingStore((state) => state.financialKnowledge)
-  const walletAddress = useOnboardingStore((state) => state.walletAddress)
 
   const setName = useOnboardingStore((state) => state.setName)
   const setRiskExpertise = useOnboardingStore((state) => state.setRiskExpertise)
   const setInvestmentHorizon = useOnboardingStore((state) => state.setInvestmentHorizon)
   const setFinancialKnowledge = useOnboardingStore((state) => state.setFinancialKnowledge)
-  const setWalletAddress = useOnboardingStore((state) => state.setWalletAddress)
   const reset = useOnboardingStore((state) => state.reset)
 
   const restartOnboarding = () => {
@@ -41,9 +39,11 @@ export default function SettingsTab() {
 
   const hasName = name.trim().length > 0
   const profileTitle = hasName ? name.trim() : "Your investor profile"
-  const profileSubtitle = [riskExpertise, investmentHorizon, financialKnowledge]
-    .map((value) => capitalize(value))
-    .join(" • ")
+  const profileSubtitle = [
+    riskLabel(riskExpertise),
+    horizonLabel(investmentHorizon),
+    knowledgeLabel(financialKnowledge),
+  ].join(" • ")
 
   return (
     <SafeAreaView className="flex-1 bg-[#F2F2F7]">
@@ -78,7 +78,6 @@ export default function SettingsTab() {
 
             <View className="mt-4 flex-row flex-wrap gap-2">
               <SummaryPill label={profileSubtitle} />
-              <SummaryPill label={walletAddress ? "Wallet connected" : "Wallet not connected"} />
             </View>
           </View>
 
@@ -106,7 +105,7 @@ export default function SettingsTab() {
               {riskLevels.map((risk) => (
                 <Chip
                   key={risk}
-                  label={risk}
+                  label={riskLabel(risk)}
                   selected={riskExpertise === risk}
                   onPress={() => setRiskExpertise(risk)}
                 />
@@ -140,26 +139,12 @@ export default function SettingsTab() {
               {knowledgeLevels.map((level) => (
                 <Chip
                   key={level}
-                  label={level}
+                  label={knowledgeLabel(level)}
                   selected={financialKnowledge === level}
                   onPress={() => setFinancialKnowledge(level)}
                 />
               ))}
             </SegmentedGroup>
-          </SettingsSection>
-
-          <SettingsSection
-            title="Wallet"
-            description="Optional, but useful for crypto onboarding and portfolio context."
-            className="mt-4"
-          >
-            <InputField
-              label="Wallet Address"
-              placeholder="0x..."
-              value={walletAddress}
-              onChangeText={setWalletAddress}
-              autoCapitalize="none"
-            />
           </SettingsSection>
 
           <View
@@ -280,6 +265,39 @@ function Chip({
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function riskLabel(value: RiskExpertise) {
+  switch (value) {
+    case "beginner":
+      return "Low"
+    case "intermediate":
+      return "Mid"
+    default:
+      return "High"
+  }
+}
+
+function horizonLabel(value: InvestmentHorizon) {
+  switch (value) {
+    case "short":
+      return "Short term"
+    case "medium":
+      return "Mid term"
+    default:
+      return "Long term"
+  }
+}
+
+function knowledgeLabel(value: FinancialKnowledge) {
+  switch (value) {
+    case "novice":
+      return "Beginner"
+    case "savvy":
+      return "Intermediate"
+    default:
+      return "Advanced"
+  }
 }
 
 const $scrollContent = {

@@ -1,5 +1,5 @@
-import { OnboardingPortfolioTypeScreen } from "../../src/screens/OnboardingPortfolioTypeScreen"
+import { OnboardingStep2Screen } from "../../src/screens/OnboardingStep2Screen"
 
 export default function OnboardingStep2Route() {
-  return <OnboardingPortfolioTypeScreen />
+  return <OnboardingStep2Screen />
 }

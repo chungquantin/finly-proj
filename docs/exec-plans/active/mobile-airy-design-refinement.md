@@ -65,6 +65,15 @@ Current screens are functional but visually dense and inconsistent with the requ
 - 2026-03-21: Replaced the static team-sheet toggle with a draggable snap header and added elevated shadow styling so the sheet reads and behaves like a floating layer.
 - 2026-03-21: Added a lightweight portfolio growth chart card to the `home` tab between the holdings summary and token list, using inline view-based chart segments to avoid introducing a separate chart dependency.
 - 2026-03-21: Added an investment profile card to the `home` tab using persisted onboarding state so risk level, horizon, knowledge, and portfolio type are visible without opening Settings.
+- 2026-03-21: Unified onboarding step 2, step 3 (crypto/stock), and step 4 screens with the same `ThemeShowcaseScreen` iOS-native structure (shared rounded container, iOS header, soft hero/progress card, and consistent CTA/radio styling), including safe back fallbacks when a route has no history stack.
+- 2026-03-21: Replaced stock import-method options in onboarding step 3 with demo account selection cards (stacked ticker logos), introduced persisted `stockAccountId` state with backward-compatible legacy mapping, and wired completion import to send selected account holdings to backend using `mode: "manual"`.
+- 2026-03-21: Updated step 4 summary calculations to derive stock portfolio totals from selected account holdings (cost-basis-driven + deterministic profile/market adjustment) and aligned the top balance card with account context (stacked ticker chips + provider label).
+- 2026-03-21: Applied a minimal-design pass across onboarding steps 1-4 to better match the main app (smaller titles, tighter spacing, reduced corner radii, flatter hero blocks, and less decorative iconography).
+- 2026-03-21: Added onboarding entrance animations (fade/slide with light stagger) to steps 1-4 so hero/content/CTA sections animate in consistently without changing flow logic.
+- 2026-03-21: Switched active onboarding flow to stock-only for demo (`/onboarding/step-2` now renders account selection directly), removed the crypto/stock chooser from the primary path, and aligned onboarding typography with main app `font-sans` usage.
+- 2026-03-21: Fixed onboarding ticker logo rendering by reusing shared ticker logo primitives (`TickerLogo` + new `TickerLogoStack`), centralized logo URL generation in a reusable utility, and replaced text ticker chips with real logos + fallback behavior.
+- 2026-03-21: Fixed thread detail "Close" action by adding store-level `closeThread(threadId)` removal and wiring the action sheet button to remove the conversation and navigate back to board.
+- 2026-03-21: Wired selected onboarding stock account (`stockAccountId`) into a shared portfolio data source and switched Home, Portfolio, Holding detail, Board thread logo lookup, and Thread detail logo lookup to consume that global state instead of static mock holdings.
 
 ## Verification
 
@@ -83,6 +92,18 @@ Current screens are functional but visually dense and inconsistent with the requ
   - `pnpm -C apps/mobile exec eslint src/components/Text.tsx app/(tabs)/board.tsx app/(tabs)/portfolio.tsx app/(tabs)/home.tsx app/(tabs)/settings.tsx src/components/IosHeader.tsx app/(tabs)/_layout.tsx src/theme/colors.ts src/theme/typography.ts`
   - `pnpm -C apps/mobile exec eslint app/(tabs)/home.tsx`
   - `pnpm -C apps/mobile exec eslint app/(tabs)/home.tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint src/screens/OnboardingPortfolioTypeScreen.tsx src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCryptoWalletScreen.tsx src/screens/OnboardingCompleteScreen.tsx src/screens/ThemeShowcaseScreen.tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCompleteScreen.tsx src/screens/ThemeShowcaseScreen.tsx src/stores/onboardingStore.ts src/stores/onboardingStore.test.ts src/utils/mockPortfolio.ts src/utils/mockStockAccounts.ts`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint src/screens/OnboardingCompleteScreen.tsx src/utils/mockPortfolio.ts`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint src/screens/ThemeShowcaseScreen.tsx src/screens/OnboardingPortfolioTypeScreen.tsx src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCryptoWalletScreen.tsx src/screens/OnboardingCompleteScreen.tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec prettier --write src/screens/ThemeShowcaseScreen.tsx src/screens/OnboardingPortfolioTypeScreen.tsx src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCryptoWalletScreen.tsx src/screens/OnboardingCompleteScreen.tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec prettier --write app/onboarding/step-2.tsx src/screens/ThemeShowcaseScreen.tsx src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCompleteScreen.tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint app/onboarding/step-2.tsx src/screens/ThemeShowcaseScreen.tsx src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCompleteScreen.tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec prettier --write src/components/TickerLogo.tsx src/components/TickerLogoStack.tsx src/utils/tickerLogo.ts src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCompleteScreen.tsx src/utils/mockAppData.ts`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint src/components/TickerLogo.tsx src/components/TickerLogoStack.tsx src/utils/tickerLogo.ts src/screens/OnboardingStep2Screen.tsx src/screens/OnboardingCompleteScreen.tsx src/utils/mockAppData.ts`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile exec eslint src/stores/agentBoardStore.ts app/thread/[id].tsx`
+  - `pnpm -C apps/mobile exec eslint src/utils/selectedPortfolio.ts app/(tabs)/home.tsx app/(tabs)/portfolio.tsx app/(tabs)/board.tsx app/holding/[ticker].tsx app/thread/[id].tsx`
+  - `pnpm -C /Users/chungquantin/Developer/finly/apps/mobile test -- onboardingStore.test.ts` (fails in existing Jest setup: missing `../app/i18n/index.ts` from `test/setup.ts`)
 - `python3 scripts/check_harness_readiness.py`
 - Manual checks:
   - Confirmed onboarding flow navigation targets remained unchanged (`/onboarding/step-3/*`, `/onboarding/step-4`, `/dashboard`).
