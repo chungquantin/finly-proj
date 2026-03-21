@@ -35,7 +35,9 @@ Here are your past reflections on mistakes:
 
 Here is the debate:
 Debate History:
-{history}"""
+{history}
+
+Keep your response to 1 paragraph, max 150 words."""
         response = llm.invoke(prompt)
 
         new_investment_debate_state = {

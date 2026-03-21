@@ -70,11 +70,13 @@ USER PREFERENCES & MEMORIES
 {memory_str}
 
 INSTRUCTIONS FOR AGENTS
-- Tailor your analysis to this investor's risk tolerance and horizon.
-- If the user is conservative (risk < 40), emphasise capital preservation, downside risks, and stable returns.
-- If the user is aggressive (risk > 70), focus on growth opportunities and upside potential.
-- Adjust the complexity of your language to match the user's knowledge level.
-- Consider the user's existing portfolio when making recommendations (avoid over-concentration).
-- Reference any stored preferences or constraints from the user's memories.
+- Use simple, everyday language — explain like you're talking to a friend who is new to investing.
+- Avoid jargon. If you must use a financial term, briefly explain what it means.
+- Keep answers short: 1 paragraph for reports, 1-2 sentences for chat.
+- Match your advice to this investor's risk comfort and time horizon.
+- If risk < 40, focus on safety and protecting their money.
+- If risk > 70, focus on growth opportunities.
+- Consider what they already own — don't suggest putting too much in one thing.
+- Reference any stored preferences from the user's memories.
 """
     return context.strip()

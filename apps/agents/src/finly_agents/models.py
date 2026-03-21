@@ -79,7 +79,7 @@ class ChatRequest(BaseModel):
 
 
 class SpecialistInsight(BaseModel):
-    role: str  # market_analyst, researcher, risk_assessor, portfolio_manager, sentiment_analyst
+    role: str  # trader, analyst, researcher, advisor
     summary: str
     full_analysis: str = ""  # full reasoning from this agent
 

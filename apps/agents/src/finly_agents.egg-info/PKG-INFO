@@ -1,0 +1,123 @@
+Metadata-Version: 2.4
+Name: finly-agents
+Version: 0.1.0
+Summary: Finly local TradingAgents scaffold for agent teams.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: langchain-core>=0.3.81
+Requires-Dist: backtrader>=1.9.78.123
+Requires-Dist: langchain-anthropic>=0.3.15
+Requires-Dist: langchain-experimental>=0.3.4
+Requires-Dist: langchain-google-genai>=2.1.5
+Requires-Dist: langchain-openai>=0.3.23
+Requires-Dist: langgraph>=0.4.8
+Requires-Dist: pandas>=2.3.0
+Requires-Dist: parsel>=1.10.0
+Requires-Dist: pytz>=2025.2
+Requires-Dist: rank-bm25>=0.2.2
+Requires-Dist: redis>=6.2.0
+Requires-Dist: requests>=2.32.4
+Requires-Dist: fastapi>=0.116.1
+Requires-Dist: uvicorn>=0.35.0
+Requires-Dist: setuptools>=80.9.0
+Requires-Dist: stockstats>=0.6.5
+Requires-Dist: tqdm>=4.67.1
+Requires-Dist: typing-extensions>=4.14.0
+Requires-Dist: yfinance>=0.2.63
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: python-dotenv>=1.0.0
+
+# apps/agents
+
+Finly API server for multi-agent investment analysis, initialized from TradingAgents modules.
+
+- Upstream repository: `https://github.com/TauricResearch/TradingAgents`
+- Source package path: `tradingagents/`
+- Snapshot commit: `f362a160c309a680cac460aa9de217ec63e434e6`
+
+## Included Agent Teams
+
+- `analysts`
+- `researchers`
+- `trader`
+- `risk_mgmt`
+- `managers`
+- `utils`
+
+## Local Setup
+
+```bash
+cd apps/agents
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+cp .env.example .env
+```
+
+## Run API Server
+
+```bash
+cd apps/agents
+python3 main.py
+# or
+finly-agents-api
+```
+
+Server defaults:
+
+- Host: `0.0.0.0`
+- Port: `8000`
+
+Override with:
+
+- `FINLY_AGENTS_HOST`
+- `FINLY_AGENTS_PORT`
+
+## OpenAI-Compatible Endpoint
+
+`POST /v1/chat/completions`
+
+Example (non-streaming):
+
+```bash
+curl -s http://localhost:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "finly-agents-v1",
+    "messages": [
+      {"role": "user", "content": "Analyze FPT for 2025-03-10"}
+    ]
+  }'
+```
+
+Example (streaming SSE):
+
+```bash
+curl -N http://localhost:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "finly-agents-v1",
+    "stream": true,
+    "messages": [
+      {"role": "user", "content": "Analyze VNM for 2025-03-10"}
+    ]
+  }'
+```
+
+## Optional Request Extensions
+
+The OpenAI-compatible request body also accepts Finly runtime hints:
+
+- `ticker`: explicit ticker symbol (overrides prompt extraction)
+- `trade_date`: `YYYY-MM-DD`
+- `selected_analysts`: subset of analysts, e.g. `['market', 'news']`
+
+## Smoke Checks
+
+```bash
+cd apps/agents
+python3 -m py_compile main.py $(find src -name '*.py')
+```
+
+Set at least one LLM API key in `.env` before running live workflows.
+Finly default runtime expects `OPENROUTER_API_KEY`.

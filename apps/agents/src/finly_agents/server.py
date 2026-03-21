@@ -183,32 +183,48 @@ def _truncate_sentences(text: str, max_sentences: int = 3) -> str:
 
 
 def _extract_specialist_insights(final_state: dict) -> list[SpecialistInsight]:
-    mappings = [
-        ("market_report", "market_analyst"),
-        ("fundamentals_report", "fundamentals_analyst"),
-        ("news_report", "news_analyst"),
-        ("sentiment_report", "sentiment_analyst"),
-    ]
     insights = []
-    for key, role in mappings:
+
+    # Analyst — combines fundamentals + sentiment
+    analyst_parts = []
+    for key in ("fundamentals_report", "sentiment_report"):
         text = final_state.get(key, "")
         if text:
-            insights.append(SpecialistInsight(
-                role=role,
-                summary=_truncate_sentences(text, 3),
-                full_analysis=text,
-            ))
+            analyst_parts.append(text)
+    if analyst_parts:
+        combined = "\n\n".join(analyst_parts)
+        insights.append(SpecialistInsight(
+            role="analyst",
+            summary=_truncate_sentences(combined, 3),
+            full_analysis=combined,
+        ))
 
-    # Extract risk section from final_trade_decision
+    # Researcher — news
+    news = final_state.get("news_report", "")
+    if news:
+        insights.append(SpecialistInsight(
+            role="researcher",
+            summary=_truncate_sentences(news, 3),
+            full_analysis=news,
+        ))
+
+    # Trader — market/technical
+    market = final_state.get("market_report", "")
+    if market:
+        insights.append(SpecialistInsight(
+            role="trader",
+            summary=_truncate_sentences(market, 3),
+            full_analysis=market,
+        ))
+
+    # Advisor — final trade decision (synthesises everything)
     ftd = final_state.get("final_trade_decision", "")
     if ftd:
-        risk_text = ""
-        for line in ftd.split("\n"):
-            if any(kw in line.lower() for kw in ("risk", "downside", "stop-loss", "caution")):
-                risk_text = line.strip()
-                break
-        if risk_text:
-            insights.append(SpecialistInsight(role="risk_assessor", summary=risk_text))
+        insights.append(SpecialistInsight(
+            role="advisor",
+            summary=_truncate_sentences(ftd, 3),
+            full_analysis=ftd,
+        ))
 
     return insights
 
@@ -271,8 +287,22 @@ async def startup_event():
 # ---------------------------------------------------------------------------
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok"}
+def healthz() -> dict:
+    """Health check — verifies DB connectivity and returns server info."""
+    db_ok = True
+    try:
+        from finly_agents.database import get_db
+        with get_db() as conn:
+            conn.execute("SELECT 1")
+    except Exception:
+        db_ok = False
+
+    status = "ok" if db_ok else "degraded"
+    return {
+        "status": status,
+        "version": app.version,
+        "database": "connected" if db_ok else "error",
+    }
 
 
 @app.get("/v1/models")
@@ -524,7 +554,7 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
 
 @app.post("/api/report/chat")
 async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
-    """Chat with the analyst team — each agent responds individually."""
+    """Chat with the team — Analyst, Researcher, Trader, and Advisor respond individually."""
     from finly_agents.panel import run_panel_discussion
 
     result = await run_panel_discussion(

@@ -41,7 +41,7 @@ Deliverables:
 
 ---
 
-Focus on actionable insights and continuous improvement. Build on past lessons, critically evaluate all perspectives, and ensure each decision advances better outcomes."""
+Focus on actionable insights and continuous improvement. Build on past lessons, critically evaluate all perspectives, and ensure each decision advances better outcomes. Keep your response to 1 paragraph, max 150 words."""
 
         response = llm.invoke(prompt)
 

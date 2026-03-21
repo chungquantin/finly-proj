@@ -1,8 +1,8 @@
 """Panel discussion — each agent responds individually to user follow-up questions.
 
 After a report is generated, the user can "chat with the team". Each of the 4 agents
-(Market Analyst, Fundamentals Analyst, News Analyst, Sentiment Analyst) responds to
-the user's question from their own perspective, referencing their section of the report.
+(Analyst, Researcher, Trader, Advisor) responds to the user's question from their own
+perspective, referencing their section of the report.
 """
 
 from __future__ import annotations
@@ -26,15 +26,15 @@ from finly_agents.database import (
 logger = logging.getLogger("finly_agents.panel")
 
 AGENT_PERSONAS = {
-    "market_analyst": {
-        "name": "Market Analyst",
-        "report_key": "market_report",
+    "analyst": {
+        "name": "Analyst",
+        "report_keys": ["fundamentals_report", "sentiment_report"],
         "system_prompt": """\
-You are Finly's Market Analyst. You specialise in technical analysis, price action, \
-market trends, and trading signals. You use indicators like RSI, MACD, Bollinger Bands, \
-moving averages, and volume analysis to form your views.
+You are Finly's Analyst. You evaluate whether a stock looks strong or weak by \
+combining company financials with investor sentiment. You explain things in plain, \
+everyday language — no jargon.
 
-Your section of the latest report:
+Your analysis from the latest report:
 {agent_report}
 
 Full team report summary:
@@ -42,18 +42,16 @@ Full team report summary:
 
 {user_context}
 
-Answer the user's question from your technical/market perspective. Be concise (2-4 sentences). \
-If the user's question challenges your analysis, acknowledge their point and explain your reasoning. \
-If the user wants to change their risk profile, acknowledge it and note the change.""",
+Answer in 1-2 sentences using simple language a beginner investor would understand.""",
     },
-    "fundamentals_analyst": {
-        "name": "Fundamentals Analyst",
-        "report_key": "fundamentals_report",
+    "researcher": {
+        "name": "Researcher",
+        "report_keys": ["news_report"],
         "system_prompt": """\
-You are Finly's Fundamentals Analyst. You specialise in financial statements, valuation metrics \
-(P/E, P/B, ROE), earnings quality, balance sheet strength, and company fundamentals.
+You are Finly's Researcher. You track the latest news, economic trends, and events \
+that could move a stock's price. You explain things in plain, everyday language — no jargon.
 
-Your section of the latest report:
+Your research from the latest report:
 {agent_report}
 
 Full team report summary:
@@ -61,17 +59,16 @@ Full team report summary:
 
 {user_context}
 
-Answer the user's question from a fundamentals perspective. Be concise (2-4 sentences). \
-Reference specific metrics when relevant.""",
+Answer in 1-2 sentences using simple language a beginner investor would understand.""",
     },
-    "news_analyst": {
-        "name": "News Analyst",
-        "report_key": "news_report",
+    "trader": {
+        "name": "Trader",
+        "report_keys": ["market_report"],
         "system_prompt": """\
-You are Finly's News & Macro Analyst. You track breaking news, macro events, regulatory changes, \
-insider transactions, and geopolitical developments that impact markets.
+You are Finly's Trader. You focus on chart patterns and trading signals to suggest \
+good times to buy or sell. You explain things in plain, everyday language — no jargon.
 
-Your section of the latest report:
+Your trading analysis from the latest report:
 {agent_report}
 
 Full team report summary:
@@ -79,26 +76,30 @@ Full team report summary:
 
 {user_context}
 
-Answer the user's question from a news/macro perspective. Be concise (2-4 sentences). \
-Reference specific recent events when relevant.""",
+Answer in 1-2 sentences using simple language a beginner investor would understand.""",
     },
-    "sentiment_analyst": {
-        "name": "Sentiment Analyst",
-        "report_key": "sentiment_report",
+    "advisor": {
+        "name": "Advisor",
+        "report_keys": ["fundamentals_report", "sentiment_report", "news_report", "market_report"],
         "system_prompt": """\
-You are Finly's Sentiment Analyst. You analyse social media sentiment, retail investor behaviour, \
-institutional flows, and market psychology.
+You are Finly's Advisor. You pull together everything the Analyst, Researcher, and \
+Trader found and give a final recommendation that fits the user's personal situation — \
+their risk comfort, goals, and current portfolio. You explain things in plain, everyday \
+language — no jargon.
 
-Your section of the latest report:
+Team analysis:
 {agent_report}
+
+Debate outcomes:
+{debate_summary}
 
 Full team report summary:
 {report_summary}
 
 {user_context}
 
-Answer the user's question from a sentiment/behavioural perspective. Be concise (2-4 sentences). \
-Reference crowd sentiment and investor behaviour patterns.""",
+Answer in 1-2 sentences using simple language a beginner investor would understand. \
+Always tie your answer back to the user's risk profile and goals.""",
     },
 }
 
@@ -112,14 +113,39 @@ async def _call_agent(
     conversation_history: list[dict],
 ) -> dict:
     """Call a single agent in the panel."""
-    agent_report = report.get("agent_reasoning", {}).get(persona["report_key"], "No data available.")
+    reasoning = report.get("agent_reasoning", {})
+
+    # Combine all report_keys for this persona
+    report_keys = persona.get("report_keys", [])
+    parts = []
+    for key in report_keys:
+        text = reasoning.get(key, "")
+        if text:
+            parts.append(text)
+    agent_report = "\n\n".join(parts) if parts else "No data available."
+
     report_summary = report.get("summary", "No report generated yet.")
 
-    system_prompt = persona["system_prompt"].format(
+    # Build debate summary for the Advisor
+    debate_summary = ""
+    if agent_key == "advisor":
+        inv_debate = reasoning.get("investment_debate", {})
+        risk_debate = reasoning.get("risk_debate", {})
+        debate_parts = []
+        if inv_debate.get("judge_decision"):
+            debate_parts.append(f"Investment debate conclusion: {inv_debate['judge_decision']}")
+        if risk_debate.get("judge_decision"):
+            debate_parts.append(f"Risk debate conclusion: {risk_debate['judge_decision']}")
+        debate_summary = "\n".join(debate_parts) if debate_parts else "No debate data."
+
+    fmt_kwargs = dict(
         agent_report=agent_report,
         report_summary=report_summary,
         user_context=user_context,
     )
+    if "{debate_summary}" in persona["system_prompt"]:
+        fmt_kwargs["debate_summary"] = debate_summary
+    system_prompt = persona["system_prompt"].format(**fmt_kwargs)
 
     messages = [{"role": "system", "content": system_prompt}]
 
