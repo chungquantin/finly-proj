@@ -501,7 +501,8 @@ app = FastAPI(title="Finly Agent Server", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    # With wildcard origins, credentials must be disabled for browser CORS checks.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
