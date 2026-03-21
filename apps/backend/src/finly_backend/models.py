@@ -205,6 +205,25 @@ class MarketTicker(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Ticker news
+# ---------------------------------------------------------------------------
+
+
+class TickerNewsItem(BaseModel):
+    title: str
+    url: str
+    published_at: str = ""
+    summary: str = ""
+    source: str = ""
+
+
+class TickerNewsResponse(BaseModel):
+    ticker: str
+    source: str
+    items: list[TickerNewsItem] = []
+
+
+# ---------------------------------------------------------------------------
 # Voice onboarding
 # ---------------------------------------------------------------------------
 

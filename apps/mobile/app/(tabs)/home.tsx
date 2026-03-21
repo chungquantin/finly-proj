@@ -16,7 +16,7 @@ import { useRouter } from "expo-router"
 import { MotiView } from "moti"
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { TickerLogo } from "@/components/TickerLogo"
+import { HoldingRow } from "@/components/HoldingRow"
 import { useMarketData } from "@/services/marketData"
 import { usePortfolioGrowthHistory } from "@/services/portfolioHistory"
 import { useOnboardingStore } from "@/stores/onboardingStore"
@@ -567,52 +567,6 @@ function statusDotClassName(status: (typeof teamAgents)[number]["status"]) {
     default:
       return "bg-[#9CA3AF]"
   }
-}
-
-function HoldingRow({
-  name,
-  logoUri,
-  ticker,
-  value,
-  allocationPercent,
-  changePercent,
-  onPress,
-}: {
-  name: string
-  logoUri?: string
-  ticker: string
-  value: string
-  allocationPercent: number
-  changePercent: number
-  onPress: () => void
-}) {
-  return (
-    <Pressable
-      className="flex-row items-center justify-between border-b py-4 last:border-b-0"
-      style={{ borderColor: BORDER }}
-      onPress={onPress}
-    >
-      <View className="flex-row items-center">
-        <TickerLogo ticker={ticker} logoUri={logoUri} />
-        <View className="ml-3">
-          <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">{name}</Text>
-          <Text className="font-sans text-[15px] text-[#7A8699]">{ticker}</Text>
-        </View>
-      </View>
-      <View className="items-end">
-        <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">{value}</Text>
-        <Text
-          className={`font-sans text-[15px] ${changePercent >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
-        >
-          {changePercent >= 0 ? "+" : ""}
-          {changePercent}%
-        </Text>
-        <Text className="mt-0.5 font-sans text-[12px] text-[#7A8699]">
-          {allocationPercent.toFixed(1)}% of portfolio
-        </Text>
-      </View>
-    </Pressable>
-  )
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -13,8 +13,9 @@ import os
 import re
 import time
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from dotenv import load_dotenv
@@ -42,6 +43,8 @@ from finly_backend.models import (
     ReportRegenerateRequest,
     ReportResponse,
     SpecialistInsight,
+    TickerNewsItem,
+    TickerNewsResponse,
     VoiceOnboardingProfile,
     VoiceOnboardingRequest,
     VoiceOnboardingResponse,
@@ -1475,6 +1478,146 @@ async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
             if quote:
                 results.append(quote.model_dump())
     return results
+
+
+def _extract_news_summary(item: dict[str, Any], max_len: int = 280) -> str:
+    highlights = item.get("highlights")
+    if isinstance(highlights, list):
+        normalized = [str(value).strip() for value in highlights if str(value).strip()]
+        if normalized:
+            text = " ".join(normalized)
+            return text if len(text) <= max_len else f"{text[:max_len].rstrip()}..."
+
+    text = str(item.get("text", "")).strip()
+    if not text:
+        return ""
+    return text if len(text) <= max_len else f"{text[:max_len].rstrip()}..."
+
+
+async def _fetch_exa_ticker_news(
+    ticker: str,
+    lookback_days: int,
+    limit: int,
+) -> list[TickerNewsItem]:
+    api_key = os.getenv("EXA_API_KEY", "").strip()
+    if not api_key:
+        return []
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=max(1, lookback_days))
+
+    payload: dict[str, Any] = {
+        "query": f"{ticker} stock market news analysis",
+        "numResults": limit,
+        "type": "neural",
+        "category": "news",
+        "startPublishedDate": f"{start_date.isoformat()}T00:00:00.000Z",
+        "endPublishedDate": f"{end_date.isoformat()}T23:59:59.000Z",
+        "contents": {
+            "text": {"maxCharacters": 1000},
+            "highlights": {"numSentences": 3},
+        },
+    }
+
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.post("https://api.exa.ai/search", headers=headers, json=payload)
+        response.raise_for_status()
+        results = response.json().get("results", [])
+
+    news_items: list[TickerNewsItem] = []
+    for raw in results[:limit]:
+        title = str(raw.get("title", "")).strip()
+        url = str(raw.get("url", "")).strip()
+        if not title or not url:
+            continue
+        parsed = urlparse(url)
+        source = parsed.netloc.replace("www.", "")
+        published = str(raw.get("publishedDate", "")).strip()
+        news_items.append(
+            TickerNewsItem(
+                title=title,
+                url=url,
+                published_at=published,
+                summary=_extract_news_summary(raw),
+                source=source,
+            )
+        )
+    return news_items
+
+
+def _yfinance_article_payload(article: dict[str, Any]) -> dict[str, Any]:
+    content = article.get("content")
+    if isinstance(content, dict):
+        return content
+    return article
+
+
+def _fetch_yfinance_ticker_news(ticker: str, limit: int) -> list[TickerNewsItem]:
+    import yfinance as yf
+
+    stock = yf.Ticker(ticker)
+    articles = stock.get_news(count=limit)
+    if not articles:
+        return []
+
+    items: list[TickerNewsItem] = []
+    for article in articles[:limit]:
+        data = _yfinance_article_payload(article)
+        title = str(data.get("title", "")).strip()
+        url = str(data.get("link", "")).strip()
+        if not title or not url:
+            continue
+
+        summary = str(data.get("summary", "")).strip()
+        if not summary:
+            summary = _extract_news_summary({"text": str(data.get("description", ""))})
+
+        provider = data.get("provider")
+        source = str(provider.get("displayName", "")).strip() if isinstance(provider, dict) else ""
+        pub_date = data.get("pubDate") or data.get("providerPublishTime")
+        published_at = str(pub_date or "").strip()
+
+        items.append(
+            TickerNewsItem(
+                title=title,
+                url=url,
+                published_at=published_at,
+                summary=summary,
+                source=source,
+            )
+        )
+
+    return items
+
+
+@app.get("/api/ticker-news")
+async def ticker_news(
+    ticker: str = Query(..., min_length=1, max_length=12),
+    limit: int = Query(default=6, ge=1, le=20),
+    lookback_days: int = Query(default=7, ge=1, le=30),
+) -> TickerNewsResponse:
+    symbol = ticker.strip().upper()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="ticker is required")
+
+    try:
+        exa_items = await _fetch_exa_ticker_news(symbol, lookback_days, limit)
+        if exa_items:
+            return TickerNewsResponse(ticker=symbol, source="exa", items=exa_items)
+    except Exception:
+        logger.exception("Failed to fetch Exa ticker news for %s", symbol)
+
+    try:
+        fallback_items = _fetch_yfinance_ticker_news(symbol, limit)
+        return TickerNewsResponse(ticker=symbol, source="yfinance", items=fallback_items)
+    except Exception:
+        logger.exception("Failed to fetch yfinance ticker news for %s", symbol)
+        return TickerNewsResponse(ticker=symbol, source="none", items=[])
 
 
 # ---------------------------------------------------------------------------

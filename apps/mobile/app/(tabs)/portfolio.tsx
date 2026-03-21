@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native"
 import { useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { HoldingRow } from "@/components/HoldingRow"
 import { IosHeader } from "@/components/IosHeader"
 import { TickerLogo } from "@/components/TickerLogo"
 import { useMarketData } from "@/services/marketData"
@@ -45,9 +46,7 @@ export default function PortfolioTab() {
   const [sortBy, setSortBy] = useState<HoldingsSort>("value")
   const { holdings, snapshot: portfolioSnapshot } = useSelectedPortfolioData()
   const boardThreads = useAgentBoardStore((state) => state.threads)
-  const { quotes, isLoading, hasLiveQuotes } = useMarketData(
-    holdings.map((holding) => holding.ticker),
-  )
+  const { quotes } = useMarketData(holdings.map((holding) => holding.ticker))
   const showPortfolioSkeleton = false
   const enrichedHoldings = useMemo(() => holdings.map((holding) => ({ ...holding })), [holdings])
   const totalValueUsd = useMemo(
@@ -141,29 +140,8 @@ export default function PortfolioTab() {
         (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
       )
   }, [boardThreads, enrichedHoldings, quotes])
-  const latestHeldThreadIdByTicker = useMemo(() => {
-    const heldTickerSet = new Set(enrichedHoldings.map((holding) => holding.ticker.trim().toUpperCase()))
-    const map = new Map<string, string>()
-
-    boardThreads
-      .filter((thread) => thread.ticker.trim().toUpperCase() !== "BOARD")
-      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
-      .forEach((thread) => {
-        const ticker = thread.ticker.trim().toUpperCase()
-        if (!ticker || !heldTickerSet.has(ticker) || map.has(ticker)) return
-        map.set(ticker, thread.id)
-      })
-
-    return map
-  }, [boardThreads, enrichedHoldings])
-
-  const handleOpenBoardForHolding = (ticker: string) => {
+  const handleOpenTickerDetail = (ticker: string) => {
     const normalizedTicker = ticker.trim().toUpperCase()
-    const threadId = latestHeldThreadIdByTicker.get(normalizedTicker)
-    if (threadId) {
-      router.push(`/thread/${threadId}`)
-      return
-    }
     router.push(`/holding/${normalizedTicker}`)
   }
 
@@ -190,9 +168,7 @@ export default function PortfolioTab() {
             <Text className="font-sans text-[22px] font-semibold tracking-[1.2px] text-[#7A8699]">
               Total Returns
             </Text>
-            <Text
-              className="mt-2 font-sans text-[40px] font-semibold leading-[44px] tracking-[-0.8px] text-black"
-            >
+            <Text className="mt-2 font-sans text-[40px] font-semibold leading-[44px] tracking-[-0.8px] text-black">
               {moneyWithCents(accountBalanceUsd)}
             </Text>
             {showPortfolioSkeleton ? <SkeletonBlock className="mt-2 h-10 w-40" /> : null}
@@ -273,59 +249,20 @@ export default function PortfolioTab() {
                     />
                   </View>
 
-                  {sortedHoldings.map((holding) => (
-                    <View key={holding.ticker} className="mt-4 rounded-[20px] bg-[#F6F8FF] p-4">
-                      <View className="flex-row items-center">
-                        <TickerLogo ticker={holding.ticker} logoUri={holding.logoUri} />
-                        <View className="ml-3">
-                          <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
-                            {holding.ticker}
-                          </Text>
-                          <Text className="font-sans text-[15px] text-[#7A8699]">
-                            {holding.name}
-                          </Text>
-                        </View>
-                        <View className="ml-auto items-end">
-                          <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
-                            {money(holding.valueUsd)}
-                          </Text>
-                          <Text
-                            className={`font-sans text-[15px] ${holding.totalGainUsd >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
-                          >
-                            {signedMoney(holding.totalGainUsd)}
-                          </Text>
-                        </View>
-                      </View>
-                      <View className="mt-2 flex-row items-center justify-between">
-                        <Text className="font-sans text-[13px] text-[#7A8699]">
-                          {holding.shares} shares . Allocation {holding.allocationPercent.toFixed(2)} %
-                        </Text>
-                        <Pressable
-                          onPress={() => handleOpenBoardForHolding(holding.ticker)}
-                          accessibilityRole="button"
-                          style={({ pressed, hovered }) => ({
-                            borderRadius: 9999,
-                            paddingLeft: 8,
-                            paddingRight: 0,
-                            paddingVertical: 2,
-                            backgroundColor: pressed ? "#DBE6FF" : hovered ? "#EEF3FF" : "transparent",
-                          })}
-                        >
-                          {({ pressed, hovered }) => (
-                            <Text
-                              className="font-sans text-[13px] font-semibold"
-                              style={{
-                                color: pressed ? "#163FCC" : hovered ? "#1E49E0" : "#2453FF",
-                                textDecorationLine: hovered || pressed ? "underline" : "none",
-                              }}
-                            >
-                              View board
-                            </Text>
-                          )}
-                        </Pressable>
-                      </View>
-                    </View>
-                  ))}
+                  <View className="mt-2">
+                    {sortedHoldings.map((holding) => (
+                      <HoldingRow
+                        key={holding.ticker}
+                        name={holding.name}
+                        logoUri={holding.logoUri}
+                        ticker={holding.ticker}
+                        value={money(holding.valueUsd)}
+                        allocationPercent={holding.allocationPercent}
+                        changePercent={holding.changePercent}
+                        onPress={() => handleOpenTickerDetail(holding.ticker)}
+                      />
+                    ))}
+                  </View>
                 </>
               )
             ) : watchlistRows.length === 0 ? (
@@ -342,7 +279,7 @@ export default function PortfolioTab() {
                 <Pressable
                   key={item.ticker}
                   className="border-b border-[#EEF2F7] py-4 last:border-b-0"
-                  onPress={() => router.push(`/thread/${item.id}`)}
+                  onPress={() => router.push(`/watchlist/${item.ticker}`)}
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center">
@@ -409,9 +346,7 @@ function SortButton({
       onPress={onPress}
     >
       <Text
-        className={`font-sans text-[12px] font-semibold ${
-          active ? "text-white" : "text-black"
-        }`}
+        className={`font-sans text-[12px] font-semibold ${active ? "text-white" : "text-black"}`}
       >
         {label}
       </Text>
@@ -446,34 +381,6 @@ function SegmentTab({
 
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return <View className={`rounded-full bg-[#EEF2F7] ${className}`} />
-}
-
-function HoldingsSkeleton() {
-  return (
-    <View className="mt-2">
-      {[0, 1, 2].map((item) => (
-        <View key={item} className="border-b border-[#EEF2F7] py-4 last:border-b-0">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <View className="h-10 w-10 rounded-full bg-[#EEF2F7]" />
-              <View className="ml-3 gap-2">
-                <SkeletonBlock className="h-5 w-16" />
-                <SkeletonBlock className="h-4 w-24" />
-              </View>
-            </View>
-            <View className="items-end gap-2">
-              <SkeletonBlock className="h-5 w-20" />
-              <SkeletonBlock className="h-4 w-14" />
-            </View>
-          </View>
-          <View className="mt-2 flex-row items-center justify-between">
-            <SkeletonBlock className="h-4 w-20" />
-            <SkeletonBlock className="h-4 w-28" />
-          </View>
-        </View>
-      ))}
-    </View>
-  )
 }
 
 const $scrollContent = {

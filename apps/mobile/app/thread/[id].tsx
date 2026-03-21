@@ -334,6 +334,11 @@ export default function ThreadDetailRoute() {
                 item.role === "assistant" && item.author === "Finly" ? "Advisor" : item.author
               const avatarSeed = item.agentRole || displayAuthor
               const avatar = !isUser && !isSystem ? getRandomAgentAvatar(avatarSeed) : null
+              const isLiveAgentMessage =
+                !isUser && !isSystem && thread.isBusy && !item.content.trim()
+              const liveAgentStatus = isLiveAgentMessage
+                ? resolveLiveAgentStatus(item.agentRole || displayAuthor, thread.stage)
+                : null
 
               return (
                 <View
@@ -383,9 +388,18 @@ export default function ThreadDetailRoute() {
                           className="rounded-[20px] rounded-bl-[8px] border bg-[#F7F9FC] px-4 py-3"
                           style={{ borderColor: BORDER }}
                         >
-                          <Text className="font-sans text-[17px] leading-6 text-[#0F1728]">
-                            {item.content}
-                          </Text>
+                          {liveAgentStatus ? (
+                            <View className="flex-row items-center">
+                              <ActivityIndicator size="small" color={BLUE} />
+                              <Text className="ml-2 font-sans text-[15px] text-[#607089]">
+                                {liveAgentStatus}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text className="font-sans text-[17px] leading-6 text-[#0F1728]">
+                              {item.content}
+                            </Text>
+                          )}
                         </View>
                         <Text className="ml-2 mt-1 font-sans text-[12px] text-[#98A1B2]">
                           {formatMessageTime(item.createdAt)}
@@ -738,6 +752,22 @@ function DecisionBadge({ decision }: { decision: "Buy" | "Sell" | "Position" }) 
 function resolveAgentIdentity(role: string) {
   const normalized = role.trim().toLowerCase()
   return agentIdentityByRole[normalized] ?? `${capitalizeWords(role)} - ${capitalizeWords(role)}`
+}
+
+function resolveLiveAgentStatus(
+  role: string,
+  stage: "intake" | "report_loading" | "report_ready" | "error",
+) {
+  if (stage === "report_loading") return "Generating report..."
+  if (stage === "intake") return "Analyzing your goals..."
+
+  const normalized = role.trim().toLowerCase()
+  if (normalized.includes("analyst")) return "Analyzing fundamentals and sentiment..."
+  if (normalized.includes("research")) return "Analyzing recent news..."
+  if (normalized.includes("trader") || normalized.includes("risk")) {
+    return "Analyzing market signals..."
+  }
+  return "Drafting your response..."
 }
 
 function capitalizeWords(value: string) {

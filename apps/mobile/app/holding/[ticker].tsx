@@ -1,12 +1,16 @@
 /* eslint-disable no-restricted-imports */
+import { useEffect, useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { IosHeader } from "@/components/IosHeader"
 import { TickerLogo } from "@/components/TickerLogo"
+import { api } from "@/services/api"
+import type { TickerNewsItem } from "@/services/api/types"
 import { useAgentBoardStore } from "@/stores/agentBoardStore"
 import { boardThreads, holdingDecisions } from "@/utils/mockAppData"
+import { openLinkInBrowser } from "@/utils/openLinkInBrowser"
 import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
 const decisionColors = {
@@ -61,6 +65,34 @@ export default function HoldingDetailRoute() {
   const quickPrompts = QUICK_PROMPT_TEMPLATES.map((template) =>
     template.replace("{ticker}", (ticker ?? "").toUpperCase()),
   )
+  const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([])
+  const [newsSource, setNewsSource] = useState<string>("")
+  const [newsLoading, setNewsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!holding?.ticker) return
+    let cancelled = false
+
+    const loadTickerNews = async () => {
+      setNewsLoading(true)
+      const result = await api.getTickerNews(holding.ticker, 6, 7)
+      if (cancelled) return
+
+      if (result.kind === "ok") {
+        setNewsItems(result.news.items)
+        setNewsSource(result.news.source.toUpperCase())
+      } else {
+        setNewsItems([])
+        setNewsSource("")
+      }
+      setNewsLoading(false)
+    }
+
+    loadTickerNews()
+    return () => {
+      cancelled = true
+    }
+  }, [holding?.ticker])
 
   if (!holding || !decision) {
     return (
@@ -201,6 +233,65 @@ export default function HoldingDetailRoute() {
             </View>
 
             <View className="mt-5 rounded-[24px] bg-[#FBFBFD] p-4">
+              <View className="flex-row items-center justify-between">
+                <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
+                  Ticker news
+                </Text>
+                {newsSource ? (
+                  <View className="rounded-full bg-[#EAF1FF] px-3 py-1">
+                    <Text className="font-sans text-[12px] font-semibold text-[#2453FF]">
+                      {newsSource}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text className="mt-1 font-sans text-[14px] text-[#7A8699]">
+                Recent headlines related to {holding.ticker}
+              </Text>
+
+              <View className="mt-4 gap-3">
+                {newsLoading ? (
+                  <View className="rounded-[18px] border border-[#EEF2F7] bg-white px-4 py-3">
+                    <Text className="font-sans text-[14px] text-[#7A8699]">Loading news...</Text>
+                  </View>
+                ) : null}
+
+                {!newsLoading && newsItems.length
+                  ? newsItems.map((item) => (
+                      <Pressable
+                        key={item.url}
+                        className="rounded-[18px] border border-[#EEF2F7] bg-white px-4 py-3"
+                        onPress={() => {
+                          void openLinkInBrowser(item.url)
+                        }}
+                      >
+                        <Text className="font-sans text-[15px] font-semibold leading-6 text-[#0F1728]">
+                          {item.title}
+                        </Text>
+                        {!!item.summary && (
+                          <Text className="mt-1 font-sans text-[13px] leading-5 text-[#607089]">
+                            {item.summary}
+                          </Text>
+                        )}
+                        <Text className="mt-2 font-sans text-[12px] text-[#7A8699]">
+                          {formatPublishedAt(item.published_at)}
+                          {item.source ? ` · ${item.source}` : ""}
+                        </Text>
+                      </Pressable>
+                    ))
+                  : null}
+
+                {!newsLoading && !newsItems.length ? (
+                  <View className="rounded-[18px] border border-[#EEF2F7] bg-white px-4 py-3">
+                    <Text className="font-sans text-[14px] text-[#7A8699]">
+                      No recent news found for this ticker.
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            <View className="mt-5 rounded-[24px] bg-[#FBFBFD] p-4">
               <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">
                 Related conversation threads
               </Text>
@@ -219,10 +310,15 @@ export default function HoldingDetailRoute() {
                   <Pressable
                     key={prompt}
                     className="rounded-[16px] border border-[#DCE6FF] bg-[#F4F7FF] px-3 py-2"
-                    style={{ maxWidth: "100%" }}
+                    style={$quickPromptChip}
                     onPress={() => handleCreateThread(prompt)}
                   >
-                    <Text className="font-sans text-[13px] leading-5 text-[#2453FF]">{prompt}</Text>
+                    <Text
+                      className="font-sans text-[13px] leading-5 text-[#2453FF]"
+                      style={$quickPromptText}
+                    >
+                      {prompt}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -299,6 +395,25 @@ function formatSignedUsd(value: number) {
   return `${sign}$${abs.toFixed(2)}`
 }
 
+function formatPublishedAt(value: string) {
+  if (!value) return "Date unavailable"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
 const $content = {
   paddingBottom: 32,
+}
+
+const $quickPromptChip = {
+  maxWidth: "100%",
+}
+
+const $quickPromptText = {
+  flexShrink: 1,
 }

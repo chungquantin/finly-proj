@@ -29,6 +29,7 @@ import type {
   ReportResponse,
   UserProfile,
   VoiceOnboardingResponse,
+  TickerNewsResponse,
 } from "./types"
 
 export const DEFAULT_API_CONFIG: ApiConfig = {
@@ -240,6 +241,29 @@ export class Api {
     return {
       kind: "ok",
       history: response.data ?? { period, interval, results: {} },
+    }
+  }
+
+  async getTickerNews(
+    ticker: string,
+    limit = 6,
+    lookbackDays = 7,
+  ): Promise<{ kind: "ok"; news: TickerNewsResponse } | GeneralApiProblem> {
+    const query = new URLSearchParams({
+      ticker,
+      limit: String(limit),
+      lookback_days: String(lookbackDays),
+    })
+    const response: ApiResponse<TickerNewsResponse> = await this.apisauce.get(
+      `/api/ticker-news?${query.toString()}`,
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return {
+      kind: "ok",
+      news: response.data ?? { ticker, source: "none", items: [] },
     }
   }
 

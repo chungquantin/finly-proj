@@ -93,6 +93,20 @@ export interface MarketHistoryBatchResponse {
   results: Record<string, MarketHistoryTickerResult>
 }
 
+export interface TickerNewsItem {
+  title: string
+  url: string
+  published_at: string
+  summary: string
+  source: string
+}
+
+export interface TickerNewsResponse {
+  ticker: string
+  source: string
+  items: TickerNewsItem[]
+}
+
 // ---------------------------------------------------------------------------
 // Intake (conversational goal extraction)
 // ---------------------------------------------------------------------------
