@@ -20,10 +20,12 @@ export function HoldingRow({
   name,
   logoUri,
   ticker,
+  shares,
   value,
   allocationPercent,
   changePercent,
   onPress,
+  onViewBoard,
   borderColor = "#EDEFF4",
 }: HoldingRowProps) {
   return (
@@ -37,6 +39,15 @@ export function HoldingRow({
         <View className="ml-3">
           <Text className="font-sans text-[18px] font-semibold text-[#0F1728]">{name}</Text>
           <Text className="font-sans text-[16px] text-[#7A8699]">{ticker}</Text>
+          {typeof shares === "number" ? (
+            <Text className="mt-0.5 font-sans text-[13px] text-[#7A8699]">
+              {shares} shares . {allocationPercent.toFixed(1)}% of portfolio
+            </Text>
+          ) : (
+            <Text className="mt-0.5 font-sans text-[13px] text-[#7A8699]">
+              {allocationPercent.toFixed(1)}% of portfolio
+            </Text>
+          )}
         </View>
       </View>
       <View className="items-end">
@@ -47,9 +58,19 @@ export function HoldingRow({
           {changePercent >= 0 ? "+" : ""}
           {changePercent}%
         </Text>
-        <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">
-          {allocationPercent.toFixed(1)}% of portfolio
-        </Text>
+        {onViewBoard ? (
+          <Pressable
+            className="mt-2 rounded-full bg-[#B9C7EA] px-3 py-1.5"
+            style={({ pressed }) => [{ opacity: pressed ? 0.82 : 1 }]}
+            onPress={(event) => {
+              // Keep nested CTA from triggering row navigation.
+              event.stopPropagation?.()
+              onViewBoard()
+            }}
+          >
+            <Text className="font-sans text-[13px] font-semibold text-white">View board</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Pressable>
   )
