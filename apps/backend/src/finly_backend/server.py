@@ -285,7 +285,7 @@ app = FastAPI(title="Finly Backend API", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -525,48 +525,57 @@ async def onboarding_voice(req: VoiceOnboardingRequest) -> VoiceOnboardingRespon
     transcript = None
     user_message = req.message
 
-    if req.audio_b64 and not req.message:
-        audio_bytes = base64.b64decode(req.audio_b64)
-        transcript = await transcribe_audio(audio_bytes, req.audio_content_type)
-        if not transcript:
-            return VoiceOnboardingResponse(
-                user_id=req.user_id,
-                message="Sorry, I couldn't catch that. Could you try again?",
-                is_complete=False,
-                turn_count=0,
+    try:
+        if req.audio_b64 and not req.message:
+            audio_bytes = base64.b64decode(req.audio_b64)
+            transcript = await transcribe_audio(audio_bytes, req.audio_content_type)
+            if not transcript:
+                return VoiceOnboardingResponse(
+                    user_id=req.user_id,
+                    message="Sorry, I couldn't catch that. Could you try again?",
+                    is_complete=False,
+                    turn_count=0,
+                )
+            user_message = transcript
+
+        if not user_message:
+            raise HTTPException(status_code=400, detail="Either message or audio_b64 is required")
+
+        # Run conversational onboarding
+        result = await run_onboarding_chat(req.user_id, user_message)
+
+        # Generate TTS for the response
+        audio_bytes = await text_to_speech(result["message"])
+        audio_b64 = base64.b64encode(audio_bytes).decode("ascii") if audio_bytes else None
+
+        # Build profile if complete
+        profile = None
+        if result["is_complete"] and result.get("profile"):
+            p = result["profile"]
+            profile = VoiceOnboardingProfile(
+                name=p.get("name"),
+                risk=p.get("risk"),
+                horizon=p.get("horizon"),
+                knowledge=p.get("knowledge"),
             )
-        user_message = transcript
 
-    if not user_message:
-        raise HTTPException(status_code=400, detail="Either message or audio_b64 is required")
-
-    # Run conversational onboarding
-    result = await run_onboarding_chat(req.user_id, user_message)
-
-    # Generate TTS for the response
-    audio_bytes = await text_to_speech(result["message"])
-    audio_b64 = base64.b64encode(audio_bytes).decode("ascii") if audio_bytes else None
-
-    # Build profile if complete
-    profile = None
-    if result["is_complete"] and result.get("profile"):
-        p = result["profile"]
-        profile = VoiceOnboardingProfile(
-            name=p.get("name"),
-            risk=p.get("risk"),
-            horizon=p.get("horizon"),
-            knowledge=p.get("knowledge"),
+        return VoiceOnboardingResponse(
+            user_id=req.user_id,
+            message=result["message"],
+            audio_b64=audio_b64,
+            is_complete=result["is_complete"],
+            turn_count=result["turn_count"],
+            profile=profile,
+            transcript=transcript,
         )
-
-    return VoiceOnboardingResponse(
-        user_id=req.user_id,
-        message=result["message"],
-        audio_b64=audio_b64,
-        is_complete=result["is_complete"],
-        turn_count=result["turn_count"],
-        profile=profile,
-        transcript=transcript,
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Voice onboarding failed for user %s", req.user_id)
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )
 
 
 @app.post("/api/onboarding/voice/upload")
