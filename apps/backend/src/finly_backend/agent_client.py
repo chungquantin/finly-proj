@@ -134,22 +134,39 @@ async def call_panel_chat_stream(
 
     try:
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream(
-                "POST", f"{AGENT_SERVER_URL}/agent/panel-chat/stream", json=payload
-            ) as resp:
-                resp.raise_for_status()
-                async for raw_line in resp.aiter_lines():
-                    line = (raw_line or "").strip()
-                    if not line.startswith("data:"):
-                        continue
-                    data = line[5:].strip()
-                    if not data or data == "[DONE]":
-                        continue
-                    try:
-                        yield json.loads(data)
-                    except Exception:
-                        logger.warning("Invalid panel stream payload from agent server")
-                        continue
+            try:
+                async with client.stream(
+                    "POST", f"{AGENT_SERVER_URL}/agent/panel-chat/stream", json=payload
+                ) as resp:
+                    resp.raise_for_status()
+                    async for raw_line in resp.aiter_lines():
+                        line = (raw_line or "").strip()
+                        if not line.startswith("data:"):
+                            continue
+                        data = line[5:].strip()
+                        if not data or data == "[DONE]":
+                            continue
+                        try:
+                            yield json.loads(data)
+                        except Exception:
+                            logger.warning("Invalid panel stream payload from agent server")
+                            continue
+            except httpx.HTTPStatusError as e:
+                # Backward compatibility: older agent-server builds may not expose
+                # /agent/panel-chat/stream yet. Fallback to non-stream endpoint.
+                if e.response.status_code != 404:
+                    raise
+
+                logger.warning(
+                    "Agent stream endpoint missing (404). Falling back to non-stream panel chat."
+                )
+                fallback_resp = await client.post(
+                    f"{AGENT_SERVER_URL}/agent/panel-chat", json=payload
+                )
+                fallback_resp.raise_for_status()
+                fallback_data = fallback_resp.json()
+                for item in fallback_data.get("agent_responses", []):
+                    yield {"type": "agent_response", "response": item}
     except httpx.ConnectError:
         raise AgentServerUnavailable(
             f"Agent server at {AGENT_SERVER_URL} is not reachable. "

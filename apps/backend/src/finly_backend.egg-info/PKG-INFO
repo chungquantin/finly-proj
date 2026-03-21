@@ -10,6 +10,7 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: uvicorn>=0.35.0
 Requires-Dist: yfinance>=0.2.63
+Requires-Dist: python-multipart==0.0.12
 
 # apps/backend
 

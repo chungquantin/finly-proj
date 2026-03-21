@@ -311,6 +311,39 @@ async def _call_agent(
     conversation_history: list[dict],
 ) -> dict:
     """Call a single panel agent via LLM."""
+    final_text = ""
+    async for event in _stream_agent_events(
+        agent_key=agent_key,
+        persona=persona,
+        user_question=user_question,
+        report_data=report_data,
+        user_context=user_context,
+        conversation_history=conversation_history,
+    ):
+        if event.get("type") == "delta":
+            final_text += str(event.get("delta", ""))
+        elif event.get("type") == "done":
+            final_text = str(event.get("response", final_text))
+
+    if not final_text:
+        final_text = "I'm having trouble responding right now. Please try again."
+
+    return {
+        "agent_role": agent_key,
+        "agent_name": persona["name"],
+        "response": final_text,
+    }
+
+
+def _build_panel_messages(
+    agent_key: str,
+    persona: dict,
+    user_question: str,
+    report_data: dict,
+    user_context: str,
+    conversation_history: list[dict],
+) -> list[dict[str, str]]:
+    """Build message payload for a single specialist."""
     reasoning = report_data.get("agent_reasoning", {})
 
     report_keys = persona.get("report_keys", [])
@@ -355,6 +388,26 @@ async def _call_agent(
             messages.append({"role": msg["role"], "content": msg["content"]})
 
     messages.append({"role": "user", "content": user_question})
+    return messages
+
+
+async def _stream_agent_events(
+    agent_key: str,
+    persona: dict,
+    user_question: str,
+    report_data: dict,
+    user_context: str,
+    conversation_history: list[dict],
+):
+    """Yield streaming token events for a single specialist."""
+    messages = _build_panel_messages(
+        agent_key=agent_key,
+        persona=persona,
+        user_question=user_question,
+        report_data=report_data,
+        user_context=user_context,
+        conversation_history=conversation_history,
+    )
 
     api_key = os.getenv("OPENROUTER_API_KEY", "")
     model = os.getenv(
@@ -362,9 +415,18 @@ async def _call_agent(
     )
     base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
+    agent_identity = {
+        "agent_role": agent_key,
+        "agent_name": persona["name"],
+    }
+    full_text = ""
+
+    yield {"type": "start", **agent_identity}
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
+            async with client.stream(
+                "POST",
                 f"{base_url}/chat/completions",
                 headers={
                     "Authorization": f"Bearer {api_key}",
@@ -375,20 +437,39 @@ async def _call_agent(
                     "messages": messages,
                     "temperature": 0.7,
                     "max_tokens": 300,
+                    "stream": True,
                 },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            response_text = data["choices"][0]["message"]["content"]
+            ) as resp:
+                resp.raise_for_status()
+                async for raw_line in resp.aiter_lines():
+                    line = (raw_line or "").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if not payload:
+                        continue
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except Exception:
+                        continue
+                    delta = (
+                        chunk.get("choices", [{}])[0]
+                        .get("delta", {})
+                        .get("content", "")
+                    )
+                    if not delta:
+                        continue
+                    full_text += str(delta)
+                    yield {"type": "delta", "delta": str(delta), **agent_identity}
     except Exception as e:
         logger.warning(f"Panel agent {agent_key} failed: {e}")
-        response_text = "I'm having trouble responding right now. Please try again."
+        fallback = "I'm having trouble responding right now. Please try again."
+        yield {"type": "delta", "delta": fallback, **agent_identity}
+        full_text = fallback
 
-    return {
-        "agent_role": agent_key,
-        "agent_name": persona["name"],
-        "response": response_text,
-    }
+    yield {"type": "done", "response": full_text, **agent_identity}
 
 
 # ---------------------------------------------------------------------------

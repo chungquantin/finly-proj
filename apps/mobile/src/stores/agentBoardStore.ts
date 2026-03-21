@@ -76,6 +76,26 @@ const LEGACY_STORAGE_KEY = "finly.agent.board.v1"
 const STORAGE_KEY_PREFIX = "finly.agent.board.v2"
 const PARTICIPANT_AGENT_IDS = ["advisor", "analyst", "researcher", "trader"]
 const ADVISOR_AUTHOR = "Advisor"
+const TICKER_TOKEN_PATTERN = /\b[A-Z]{1,5}\b/g
+const TICKER_STOPWORDS = new Set([
+  "A",
+  "AN",
+  "AND",
+  "ARE",
+  "FOR",
+  "FROM",
+  "HOLD",
+  "I",
+  "IN",
+  "IS",
+  "OF",
+  "ON",
+  "OR",
+  "THE",
+  "THIS",
+  "TO",
+  "WITH",
+])
 
 const nowIso = () => new Date().toISOString()
 
@@ -115,6 +135,17 @@ const buildThreadTitle = (prompt: string, report?: ReportResponse) => {
   const trimmed = prompt.trim()
   if (!trimmed) return "New board conversation"
   return trimmed.length > 42 ? `${trimmed.slice(0, 42)}...` : trimmed
+}
+
+const extractTickerCandidate = (...texts: string[]) => {
+  for (const text of texts) {
+    const tokens = text.match(TICKER_TOKEN_PATTERN) ?? []
+    for (const token of tokens) {
+      if (TICKER_STOPWORDS.has(token)) continue
+      return token
+    }
+  }
+  return undefined
 }
 
 const createMessage = (
@@ -309,6 +340,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
   startThread: (message) => {
     const prompt = message.trim()
+    const seededTicker = extractTickerCandidate(prompt) ?? "BOARD"
     const threadId = makeId("thread")
     const createdAt = nowIso()
     const userMessage = createMessage("user", "You", prompt, "intake", { createdAt })
@@ -318,7 +350,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
       id: threadId,
       userId,
       title: buildThreadTitle(prompt),
-      ticker: "BOARD",
+      ticker: seededTicker,
       decision: "Position",
       intake: prompt,
       summary: prompt,
@@ -390,9 +422,21 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
       if (!result.data.is_complete) return
 
-      const reportResult = await api.generateReport({
-        user_id: userId,
-      })
+      const reportTicker = extractTickerCandidate(
+        prompt,
+        result.data.goals_brief ?? "",
+        result.data.message ?? "",
+      )
+      const reportResult = await api.generateReport(
+        reportTicker
+          ? {
+              user_id: userId,
+              ticker: reportTicker,
+            }
+          : {
+              user_id: userId,
+            },
+      )
 
       set((state) => ({
         threads: state.threads.map((item) => {
@@ -493,9 +537,22 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
 
       if (!intakeResult.data.is_complete) return
 
-      const reportResult = await api.generateReport({
-        user_id: existing.userId,
-      })
+      const reportTicker = extractTickerCandidate(
+        existing.ticker !== "BOARD" ? existing.ticker : "",
+        prompt,
+        intakeResult.data.goals_brief ?? "",
+        existing.intake,
+      )
+      const reportResult = await api.generateReport(
+        reportTicker
+          ? {
+              user_id: existing.userId,
+              ticker: reportTicker,
+            }
+          : {
+              user_id: existing.userId,
+            },
+      )
 
       set((state) => ({
         threads: state.threads.map((thread) => {
