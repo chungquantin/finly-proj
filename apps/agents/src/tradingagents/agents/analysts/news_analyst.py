@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import time
 import json
 from tradingagents.agents.utils.agent_utils import get_news, get_global_news
+from tradingagents.agents.utils.exa_tools import exa_available, exa_search_news
 from tradingagents.dataflows.config import get_config
 
 
@@ -14,6 +15,10 @@ def create_news_analyst(llm):
             get_news,
             get_global_news,
         ]
+
+        # Add Exa web search if API key is configured
+        if exa_available():
+            tools.append(exa_search_news)
 
         system_message = (
             "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(query, start_date, end_date) for company-specific or targeted news searches, and get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."

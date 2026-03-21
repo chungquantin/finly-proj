@@ -99,6 +99,7 @@ class ChatResponse(BaseModel):
 class ReportGenerateRequest(BaseModel):
     user_id: str
     ticker: str | None = None  # if None, inferred from intake brief or default
+    portfolio: list[dict] | None = None  # optional — passed from mobile native storage
 
 
 class ReportResponse(BaseModel):

@@ -1,3 +1,10 @@
+"""Finly Backend API Server — user data, DB, and proxying to the Agent Server.
+
+This server handles user profiles, portfolio, reports storage, chat history,
+memories, and heartbeat alerts. It proxies agent pipeline and panel chat
+requests to the stateless Agent Server via agent_client.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,9 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-
+from finly_agents import agent_client
+from finly_agents.agent_client import AgentServerUnavailable
 from finly_agents.models import (
     AgentPanelMessage,
     ChatRequest,
@@ -61,13 +67,12 @@ load_dotenv()
 
 logger = logging.getLogger("finly_agents")
 
-DEFAULT_ANALYSTS = ["market", "social", "news", "fundamentals"]
 TICKER_PATTERN = re.compile(r"\b\$?([A-Z]{2,6})\b")
 DATE_PATTERN = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 
 
 # ---------------------------------------------------------------------------
-# Existing OpenAI-compatible models
+# OpenAI-compatible models (kept for backward compat)
 # ---------------------------------------------------------------------------
 
 class Message(BaseModel):
@@ -126,55 +131,6 @@ def _extract_trade_date(text: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _build_graph(model_name: str, selected_analysts: list[str]) -> TradingAgentsGraph:
-    config = DEFAULT_CONFIG.copy()
-    config["deep_think_llm"] = model_name
-    config["quick_think_llm"] = model_name
-    config["max_debate_rounds"] = int(os.getenv("FINLY_MAX_DEBATE_ROUNDS", "1"))
-    config["max_risk_discuss_rounds"] = int(os.getenv("FINLY_MAX_RISK_ROUNDS", "1"))
-    config["data_vendors"] = {
-        "core_stock_apis": os.getenv("FINLY_VENDOR_CORE_STOCK", "yfinance"),
-        "technical_indicators": os.getenv("FINLY_VENDOR_TECHNICAL", "yfinance"),
-        "fundamental_data": os.getenv("FINLY_VENDOR_FUNDAMENTAL", "yfinance"),
-        "news_data": os.getenv("FINLY_VENDOR_NEWS", "yfinance"),
-    }
-    return TradingAgentsGraph(debug=False, config=config, selected_analysts=selected_analysts)
-
-
-def _run_finly_agents(
-    request: ChatCompletionsRequest,
-    user_context: str = "",
-) -> dict[str, Any]:
-    if not request.messages:
-        raise HTTPException(status_code=400, detail="messages is required")
-
-    prompt_text = _extract_last_user_text(request.messages)
-    ticker = (request.ticker or _extract_ticker(prompt_text) or os.getenv("FINLY_DEFAULT_TICKER") or "FPT").upper()
-    trade_date = request.trade_date or _extract_trade_date(prompt_text) or date.today().isoformat()
-
-    selected_analysts = request.selected_analysts or DEFAULT_ANALYSTS
-    model_name = os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
-
-    graph = _build_graph(model_name=model_name, selected_analysts=selected_analysts)
-    final_state, decision = graph.propagate(ticker, trade_date, user_context=user_context)
-
-    final_report = final_state.get("final_trade_decision", "")
-    content = (
-        f"Ticker: {ticker}\n"
-        f"Trade date: {trade_date}\n"
-        f"Decision: {str(decision).strip()}\n\n"
-        f"Final report:\n{final_report}"
-    ).strip()
-
-    return {
-        "ticker": ticker,
-        "trade_date": trade_date,
-        "decision": str(decision).strip(),
-        "content": content,
-        "final_state": final_state,
-    }
-
-
 def _truncate_sentences(text: str, max_sentences: int = 3) -> str:
     if not text:
         return ""
@@ -182,74 +138,19 @@ def _truncate_sentences(text: str, max_sentences: int = 3) -> str:
     return " ".join(sentences[:max_sentences])
 
 
-def _extract_specialist_insights(final_state: dict) -> list[SpecialistInsight]:
-    insights = []
-
-    # Analyst — combines fundamentals + sentiment
-    analyst_parts = []
-    for key in ("fundamentals_report", "sentiment_report"):
-        text = final_state.get(key, "")
-        if text:
-            analyst_parts.append(text)
-    if analyst_parts:
-        combined = "\n\n".join(analyst_parts)
-        insights.append(SpecialistInsight(
-            role="analyst",
-            summary=_truncate_sentences(combined, 3),
-            full_analysis=combined,
-        ))
-
-    # Researcher — news
-    news = final_state.get("news_report", "")
-    if news:
-        insights.append(SpecialistInsight(
-            role="researcher",
-            summary=_truncate_sentences(news, 3),
-            full_analysis=news,
-        ))
-
-    # Trader — market/technical
-    market = final_state.get("market_report", "")
-    if market:
-        insights.append(SpecialistInsight(
-            role="trader",
-            summary=_truncate_sentences(market, 3),
-            full_analysis=market,
-        ))
-
-    # Advisor — final trade decision (synthesises everything)
-    ftd = final_state.get("final_trade_decision", "")
-    if ftd:
-        insights.append(SpecialistInsight(
-            role="advisor",
-            summary=_truncate_sentences(ftd, 3),
-            full_analysis=ftd,
-        ))
-
-    return insights
-
-
-def _extract_agent_reasoning(final_state: dict) -> dict:
-    """Extract per-agent reasoning into a structured dict for storage."""
-    return {
-        "market_report": final_state.get("market_report", ""),
-        "fundamentals_report": final_state.get("fundamentals_report", ""),
-        "news_report": final_state.get("news_report", ""),
-        "sentiment_report": final_state.get("sentiment_report", ""),
-        "investment_debate": {
-            "bull_case": final_state.get("investment_debate_state", {}).get("bull_history", ""),
-            "bear_case": final_state.get("investment_debate_state", {}).get("bear_history", ""),
-            "judge_decision": final_state.get("investment_debate_state", {}).get("judge_decision", ""),
-        },
-        "risk_debate": {
-            "aggressive": final_state.get("risk_debate_state", {}).get("aggressive_history", ""),
-            "conservative": final_state.get("risk_debate_state", {}).get("conservative_history", ""),
-            "neutral": final_state.get("risk_debate_state", {}).get("neutral_history", ""),
-            "judge_decision": final_state.get("risk_debate_state", {}).get("judge_decision", ""),
-        },
-        "trader_plan": final_state.get("trader_investment_plan", ""),
-        "investment_plan": final_state.get("investment_plan", ""),
-    }
+def _format_portfolio_summary(portfolio: list[dict] | None) -> str:
+    """Format portfolio items from mobile into a summary string for the agent."""
+    if not portfolio:
+        return ""
+    lines = []
+    for item in portfolio:
+        ticker = item.get("ticker", "?")
+        qty = item.get("quantity", 0)
+        avg_cost = item.get("avg_cost", 0)
+        asset_type = item.get("asset_type", "stock")
+        line = f"- {ticker} ({asset_type}): {qty} shares @ {avg_cost}"
+        lines.append(line)
+    return "\n".join(lines) if lines else "No holdings"
 
 
 def _split_chunks(text: str, chunk_size: int = 120) -> list[str]:
@@ -264,7 +165,7 @@ def _sse_data(payload: dict[str, Any]) -> str:
 # App
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Finly Agents API", version="0.2.0")
+app = FastAPI(title="Finly Agents API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -287,8 +188,8 @@ async def startup_event():
 # ---------------------------------------------------------------------------
 
 @app.get("/healthz")
-def healthz() -> dict:
-    """Health check — verifies DB connectivity and returns server info."""
+async def healthz() -> dict:
+    """Health check — verifies DB connectivity and agent server reachability."""
     db_ok = True
     try:
         from finly_agents.database import get_db
@@ -297,11 +198,14 @@ def healthz() -> dict:
     except Exception:
         db_ok = False
 
-    status = "ok" if db_ok else "degraded"
+    agent_ok = await agent_client.check_agent_health()
+
+    status = "ok" if (db_ok and agent_ok) else "degraded"
     return {
         "status": status,
         "version": app.version,
         "database": "connected" if db_ok else "error",
+        "agent_server": "connected" if agent_ok else "unreachable",
     }
 
 
@@ -322,7 +226,7 @@ def list_models() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# OpenAI-compatible chat completions (existing)
+# OpenAI-compatible chat completions (backward compat)
 # ---------------------------------------------------------------------------
 
 @app.post("/v1/chat/completions")
@@ -330,9 +234,21 @@ async def chat_completions(request: ChatCompletionsRequest):
     created = int(time.time())
     completion_id = f"chatcmpl-{uuid.uuid4().hex}"
 
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages is required")
+
+    prompt_text = _extract_last_user_text(request.messages)
+    ticker = (request.ticker or _extract_ticker(prompt_text) or os.getenv("FINLY_DEFAULT_TICKER") or "FPT").upper()
+    trade_date = request.trade_date or _extract_trade_date(prompt_text) or date.today().isoformat()
+    selected_analysts = request.selected_analysts or ["market", "social", "news", "fundamentals"]
+
     try:
-        result = await asyncio.to_thread(_run_finly_agents, request)
-    except Exception as e:
+        result = await agent_client.call_pipeline(
+            ticker=ticker,
+            trade_date=trade_date,
+            selected_analysts=selected_analysts,
+        )
+    except (AgentServerUnavailable, Exception) as e:
         logger.exception("Agent pipeline failed")
         return JSONResponse(
             status_code=200,
@@ -354,7 +270,7 @@ async def chat_completions(request: ChatCompletionsRequest):
             },
         )
 
-    assistant_text = result["content"]
+    assistant_text = result.get("content", "")
 
     if not request.stream:
         return JSONResponse(
@@ -479,14 +395,15 @@ async def intake_reset(user_id: str = Query(...)):
 
 
 # ---------------------------------------------------------------------------
-# Report generation
+# Report generation (proxied to agent server)
 # ---------------------------------------------------------------------------
 
 @app.post("/api/report/generate")
 async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
-    """Generate investment report using the 4-agent pipeline.
+    """Generate investment report using the agent pipeline.
 
-    Incorporates user profile, portfolio, goals brief, and memories as context.
+    Builds user_context from DB, optionally accepts portfolio from mobile,
+    then proxies to the Agent Server.
     """
     from finly_agents.context import build_user_context
 
@@ -497,6 +414,11 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
     user_context = build_user_context(req.user_id)
     goals_brief = user.get("goals_brief", "")
 
+    # Portfolio: prefer mobile-provided portfolio, fall back to DB
+    portfolio_summary = ""
+    if req.portfolio:
+        portfolio_summary = _format_portfolio_summary(req.portfolio)
+
     # Determine ticker
     ticker = req.ticker
     if not ticker and goals_brief:
@@ -505,22 +427,22 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
         ticker = os.getenv("FINLY_DEFAULT_TICKER", "FPT")
     ticker = ticker.upper()
 
-    # Build internal request
-    internal_req = ChatCompletionsRequest(
-        messages=[Message(role="user", content=f"Analyze {ticker} for investment")],
-        ticker=ticker,
-    )
-
     try:
-        result = await asyncio.to_thread(_run_finly_agents, internal_req, user_context)
+        result = await agent_client.call_pipeline(
+            ticker=ticker,
+            trade_date=date.today().isoformat(),
+            user_context=user_context,
+            portfolio_summary=portfolio_summary,
+        )
+    except AgentServerUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         logger.exception("Report generation failed")
         raise HTTPException(status_code=500, detail=str(e))
 
-    final_state = result.get("final_state", {})
-    agent_reasoning = _extract_agent_reasoning(final_state)
-    summary = _truncate_sentences(result.get("content", ""), 5)
-    full_report = final_state.get("final_trade_decision", result.get("content", ""))
+    agent_reasoning = result.get("agent_reasoning", {})
+    summary = result.get("summary", "")
+    full_report = result.get("content", "")
 
     # Save to database
     report = save_report(
@@ -533,7 +455,6 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
         intake_brief=goals_brief,
     )
 
-    # Record in chat history
     append_chat(req.user_id, "assistant", f"Report generated for {ticker}: {summary}")
 
     return ReportResponse(
@@ -549,25 +470,81 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
 
 
 # ---------------------------------------------------------------------------
-# Panel discussion (chat with the team)
+# Panel discussion (proxied to agent server)
 # ---------------------------------------------------------------------------
 
 @app.post("/api/report/chat")
 async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
-    """Chat with the team — Analyst, Researcher, Trader, and Advisor respond individually."""
-    from finly_agents.panel import run_panel_discussion
-
-    result = await run_panel_discussion(
-        user_id=req.user_id,
-        message=req.message,
-        report_id=req.report_id,
+    """Chat with the team — proxied to Agent Server's panel-chat endpoint."""
+    from finly_agents.context import build_user_context
+    from finly_agents.database import (
+        append_conversation,
+        get_conversation_history,
     )
 
+    report = get_latest_report(req.user_id)
+    if not report:
+        return PanelChatResponse(
+            user_id=req.user_id,
+            question=req.message,
+            agent_responses=[
+                AgentPanelMessage(
+                    agent_role="system",
+                    agent_name="Finly",
+                    response="No report has been generated yet. Please generate a report first.",
+                )
+            ],
+            memory_updates=[],
+        )
+
+    user_context = build_user_context(req.user_id)
+    conversation_history = get_conversation_history(req.user_id, conv_type="panel", limit=20)
+
+    # Record user message
+    append_conversation(req.user_id, "panel", "user", req.message)
+
+    # Build report_data for the agent server
+    report_data = {
+        "agent_reasoning": report.get("agent_reasoning", {}),
+        "summary": report.get("summary", ""),
+    }
+
+    try:
+        agent_responses = await agent_client.call_panel_chat(
+            message=req.message,
+            report_data=report_data,
+            user_context=user_context,
+            conversation_history=conversation_history,
+        )
+    except AgentServerUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.exception("Panel chat failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Record each agent's response in DB
+    for resp in agent_responses:
+        append_conversation(
+            req.user_id, "panel", "assistant", resp["response"], agent_role=resp["agent_role"]
+        )
+
+    # Extract memories (fire and forget)
+    memory_updates = []
+    try:
+        from finly_agents.memory import extract_and_store_memories
+
+        combined_response = "\n".join(
+            f"[{r['agent_name']}]: {r['response']}" for r in agent_responses
+        )
+        memory_updates = await extract_and_store_memories(req.user_id, req.message, combined_response)
+    except Exception as e:
+        logger.warning(f"Memory extraction in panel failed: {e}")
+
     return PanelChatResponse(
-        user_id=result["user_id"],
-        question=result["question"],
-        agent_responses=[AgentPanelMessage(**r) for r in result["agent_responses"]],
-        memory_updates=result.get("memory_updates", []),
+        user_id=req.user_id,
+        question=req.message,
+        agent_responses=[AgentPanelMessage(**r) for r in agent_responses],
+        memory_updates=memory_updates or [],
     )
 
 
@@ -577,15 +554,13 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
 
 @app.post("/api/report/regenerate")
 async def report_regenerate(req: ReportRegenerateRequest) -> ReportResponse:
-    """Regenerate report with updated user context (profile, memories, etc.)."""
-    # Get the previous report to know the ticker
+    """Regenerate report with updated user context."""
     previous = get_latest_report(req.user_id)
     if not previous:
         raise HTTPException(status_code=404, detail="No previous report found. Generate one first.")
 
     ticker = previous.get("ticker", os.getenv("FINLY_DEFAULT_TICKER", "FPT"))
 
-    # Regenerate with current user context (which may have been updated via panel chat)
     gen_req = ReportGenerateRequest(user_id=req.user_id, ticker=ticker)
     return await report_generate(gen_req)
 
@@ -606,12 +581,12 @@ async def user_reports(user_id: str, limit: int = Query(default=10, le=50)):
 
 
 # ---------------------------------------------------------------------------
-# Simplified chat endpoint (updated with context)
+# Simplified chat endpoint (proxied to agent server)
 # ---------------------------------------------------------------------------
 
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
-    """Simplified chat — returns structured ChatResponse with specialist insights."""
+    """Simplified chat — proxies to agent pipeline and returns structured response."""
     from finly_agents.context import build_user_context
     from finly_agents.memory import extract_and_store_memories
 
@@ -622,32 +597,31 @@ async def api_chat(req: ChatRequest):
 
     user_context = build_user_context(req.user_id)
 
-    internal_req = ChatCompletionsRequest(
-        messages=[Message(role="user", content=req.message)],
-        ticker=ticker,
-    )
-
     try:
-        result = await asyncio.to_thread(_run_finly_agents, internal_req, user_context)
+        result = await agent_client.call_pipeline(
+            ticker=ticker,
+            trade_date=date.today().isoformat(),
+            user_context=user_context,
+        )
+    except AgentServerUnavailable as e:
+        return JSONResponse(status_code=503, content={"error": str(e)})
     except Exception as e:
         logger.exception("Agent pipeline failed in /api/chat")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-    final_state = result.get("final_state", {})
-    insights = _extract_specialist_insights(final_state)
-    summary = _truncate_sentences(result.get("content", ""), 5)
+    insights = [SpecialistInsight(**i) for i in result.get("specialist_insights", [])]
+    summary = result.get("summary", "")
 
     response = ChatResponse(
         ticker=result["ticker"],
         decision=result["decision"],
         summary=summary,
         specialist_insights=insights,
-        full_report=final_state.get("final_trade_decision", result.get("content", "")),
+        full_report=result.get("content", ""),
     )
 
     append_chat(req.user_id, "assistant", response.summary)
 
-    # Extract memories in background
     try:
         await extract_and_store_memories(req.user_id, req.message, response.summary)
     except Exception:
@@ -657,7 +631,7 @@ async def api_chat(req: ChatRequest):
 
 
 # ---------------------------------------------------------------------------
-# Voice chat endpoint (updated with context)
+# Voice chat endpoint (proxied to agent server)
 # ---------------------------------------------------------------------------
 
 @app.post("/api/chat/voice")
@@ -672,20 +646,20 @@ async def api_chat_voice(req: ChatRequest):
 
     user_context = build_user_context(req.user_id)
 
-    internal_req = ChatCompletionsRequest(
-        messages=[Message(role="user", content=req.message)],
-        ticker=ticker,
-    )
-
     try:
-        result = await asyncio.to_thread(_run_finly_agents, internal_req, user_context)
+        result = await agent_client.call_pipeline(
+            ticker=ticker,
+            trade_date=date.today().isoformat(),
+            user_context=user_context,
+        )
+    except AgentServerUnavailable as e:
+        return JSONResponse(status_code=503, content={"error": str(e)})
     except Exception as e:
         logger.exception("Agent pipeline failed in /api/chat/voice")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-    final_state = result.get("final_state", {})
-    insights = _extract_specialist_insights(final_state)
-    summary = _truncate_sentences(result.get("content", ""), 5)
+    insights = [SpecialistInsight(**i) for i in result.get("specialist_insights", [])]
+    summary = result.get("summary", "")
 
     append_chat(req.user_id, "assistant", summary)
 
@@ -704,7 +678,7 @@ async def api_chat_voice(req: ChatRequest):
         decision=result["decision"],
         summary=summary,
         specialist_insights=insights,
-        full_report=final_state.get("final_trade_decision", result.get("content", "")),
+        full_report=result.get("content", ""),
     )
 
 
