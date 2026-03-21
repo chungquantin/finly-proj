@@ -24,25 +24,37 @@ async def text_to_speech(text: str) -> bytes | None:
     voice_id = os.getenv("ELEVENLABS_VOICE_ID", ELEVENLABS_VOICE_ID)
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(
-            url,
-            headers={
-                "xi-api-key": api_key,
-                "Content-Type": "application/json",
-            },
-            json={
-                "text": text[:5000],  # ElevenLabs limit
-                "model_id": "eleven_monolingual_v1",
-                "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75,
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
                 },
-            },
-        )
-        if resp.status_code == 200:
-            return resp.content
-        logger.warning("ElevenLabs TTS failed: status=%d body=%s", resp.status_code, resp.text[:200])
+                json={
+                    "text": text[:5000],  # ElevenLabs limit
+                    "model_id": "eleven_monolingual_v1",
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75,
+                    },
+                },
+            )
+            if resp.status_code == 200:
+                return resp.content
+            logger.warning(
+                "ElevenLabs TTS failed: status=%d body=%s", resp.status_code, resp.text[:200]
+            )
+            return None
+    except httpx.TimeoutException:
+        logger.warning("ElevenLabs TTS timeout")
+        return None
+    except httpx.HTTPError as e:
+        logger.warning("ElevenLabs TTS transport error: %s", e)
+        return None
+    except Exception as e:
+        logger.exception("Unexpected ElevenLabs TTS error: %s", e)
         return None
 
 
