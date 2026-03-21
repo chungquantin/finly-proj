@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Animated,
   Image,
+  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -15,6 +16,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient"
 import { useRouter } from "expo-router"
 import { MotiView } from "moti"
+import Markdown from "react-native-markdown-display"
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { HoldingRow } from "@/components/HoldingRow"
@@ -47,6 +49,11 @@ export default function HomeTab() {
   const [advisorNewsSummary, setAdvisorNewsSummary] = useState(
     "Today's holdings headlines are loading.",
   )
+  const [expandedInsight, setExpandedInsight] = useState<{
+    agentName: string
+    role: string
+    text: string
+  } | null>(null)
   const investorName = useOnboardingStore((state) => state.name).trim() || "Investor"
   const riskExpertise = useOnboardingStore((state) => state.riskExpertise)
   const investmentHorizon = useOnboardingStore((state) => state.investmentHorizon)
@@ -352,6 +359,13 @@ export default function HomeTab() {
                       key={agent.id}
                       agent={agent}
                       recentMessage={latestAgentMessages[agent.name] ?? "Monitoring the portfolio."}
+                      onPressMessage={() =>
+                        setExpandedInsight({
+                          agentName: agent.name,
+                          role: agent.role,
+                          text: latestAgentMessages[agent.name] ?? "Monitoring the portfolio.",
+                        })
+                      }
                       onPress={() => router.push(`/agent/${agent.id}`)}
                     />
                   ))}
@@ -360,6 +374,38 @@ export default function HomeTab() {
             ) : null}
           </View>
         </Animated.View>
+
+        <Modal
+          animationType="fade"
+          transparent
+          visible={expandedInsight !== null}
+          onRequestClose={() => setExpandedInsight(null)}
+        >
+          <View className="flex-1 items-center justify-center bg-[#0F172855] px-5">
+            <View className="max-h-[82%] w-full rounded-[26px] bg-white p-5">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="font-sans text-[19px] font-semibold text-[#0F1728]">
+                    {expandedInsight?.agentName}
+                  </Text>
+                  <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">
+                    {expandedInsight?.role}
+                  </Text>
+                </View>
+                <Pressable
+                  className="rounded-full bg-[#F2F5FB] px-3 py-1.5"
+                  onPress={() => setExpandedInsight(null)}
+                >
+                  <Text className="font-sans text-[12px] font-semibold text-[#425168]">Close</Text>
+                </Pressable>
+              </View>
+
+              <ScrollView className="mt-4">
+                <Markdown style={teamMarkdownStyles}>{expandedInsight?.text ?? ""}</Markdown>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   )
@@ -571,10 +617,12 @@ function PortfolioGrowthChart({
 function AgentCard({
   agent,
   recentMessage,
+  onPressMessage,
   onPress,
 }: {
   agent: (typeof teamAgents)[number]
   recentMessage: string
+  onPressMessage: () => void
   onPress: () => void
 }) {
   const avatar = getRandomAgentAvatar(agent.id)
@@ -621,11 +669,14 @@ function AgentCard({
         <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">{agent.lastUpdate}</Text>
       </View>
 
-      <View className="mt-4 rounded-[20px] rounded-tl-[8px] bg-[#F4F7FC] px-4 py-4">
-        <Text className="font-sans text-[15px] leading-7 text-[#445065]" numberOfLines={3}>
-          {recentMessage}
-        </Text>
-      </View>
+      <Pressable
+        className="mt-4 rounded-[20px] rounded-tl-[8px] bg-[#F4F7FC] px-4 py-4"
+        onPress={onPressMessage}
+      >
+        <View className="max-h-[126px] overflow-hidden">
+          <Markdown style={teamMarkdownStyles}>{recentMessage}</Markdown>
+        </View>
+      </Pressable>
 
       <Text className="mt-4 font-sans text-[13px] leading-5 text-[#6B7586]">{agent.coverage}</Text>
     </Pressable>
@@ -703,6 +754,49 @@ function buildTeamInsights(
     Noor: `Execution feedback: treat current holdings as one basket, scale adds/trims in clips, and keep risk controls tighter on weaker names like ${weakestHolding.ticker}.`,
     Milo: `Across current holdings, fundamentals stay mixed; prioritize catalyst checks on your largest positions, especially ${topHolding.ticker}, before changing sizing.`,
   }
+}
+
+const teamMarkdownStyles = {
+  body: {
+    color: "#445065",
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 10,
+    color: "#445065",
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  strong: {
+    color: "#0F1728",
+    fontWeight: "700",
+  },
+  bullet_list: {
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  ordered_list: {
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  list_item: {
+    marginBottom: 4,
+  },
+  code_inline: {
+    backgroundColor: "#EEF3FF",
+    color: "#29468F",
+    paddingHorizontal: 4,
+    borderRadius: 6,
+  },
+  blockquote: {
+    borderLeftWidth: 2,
+    borderLeftColor: "#D3DDF5",
+    paddingLeft: 10,
+    marginTop: 2,
+    marginBottom: 8,
+  },
 }
 
 function clamp(value: number, min: number, max: number) {

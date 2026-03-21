@@ -162,30 +162,21 @@ export default function BoardTab() {
                   </View>
 
                   <View className="flex-row items-start justify-between">
-                    <View className="flex-1 pr-3">
-                      <View
-                        className="self-start rounded-full px-3 py-1.5"
-                        style={{
-                          backgroundColor: decisionColors[thread.decision].background,
-                        }}
+                    <View
+                      className="self-start rounded-full px-3 py-1.5"
+                      style={{
+                        backgroundColor: decisionColors[thread.decision].background,
+                      }}
+                    >
+                      <Text
+                        className="font-sans text-[12px] font-semibold"
+                        style={{ color: decisionColors[thread.decision].text }}
                       >
-                        <Text
-                          className="font-sans text-[12px] font-semibold"
-                          style={{ color: decisionColors[thread.decision].text }}
-                        >
-                          {thread.stage === "intake"
-                            ? `Intake ${thread.followUpCount}/2`
-                            : thread.stage === "report_loading"
-                              ? "Generating"
-                              : thread.decision}
-                        </Text>
-                      </View>
-
-                      <Text className="mt-3 font-sans text-[21px] font-semibold text-[#0F1728]">
-                        {thread.title}
-                      </Text>
-                      <Text className="mt-1 font-sans text-[15px] text-[#607089]">
-                        Intake: {thread.intake}
+                        {thread.stage === "intake"
+                          ? `Intake ${thread.followUpCount}/2`
+                          : thread.stage === "report_loading"
+                            ? "Generating"
+                            : thread.decision}
                       </Text>
                     </View>
 
@@ -196,6 +187,13 @@ export default function BoardTab() {
                       {thread.isBusy ? <ActivityIndicator className="mt-2" color={BLUE} /> : null}
                     </View>
                   </View>
+
+                  <Text className="mt-3 font-sans text-[21px] font-semibold text-[#0F1728]">
+                    {thread.title}
+                  </Text>
+                  <Text className="mt-1 font-sans text-[15px] text-[#607089]">
+                    Intake: {thread.intake}
+                  </Text>
 
                   <Text
                     className="mt-3 font-sans text-[15px] leading-6 text-[#425168]"

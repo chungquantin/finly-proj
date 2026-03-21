@@ -43,11 +43,13 @@ The current team card copy is mostly static/thread-specific and does not consist
 - 2026-03-22: Renamed Portfolio Manager presentation to Advisor in team-role and thread role-mapping surfaces.
 - 2026-03-22: Updated panel-chat agent persona prompts so Analyst/Researcher/Trader/Advisor responses are portfolio-level and holdings-aware, with Advisor instructed to include today holdings news when context is present.
 - 2026-03-22: Added backend advisor-context enrichment that fetches same-day/latest headlines per holding and injects a `TODAY HOLDINGS NEWS` block for advisor panel responses.
+- 2026-03-22: Updated Home team message bubbles to render Markdown and open a full-response modal when tapped.
 
 ## Verification
 
 - Commands run:
   - `pnpm -C apps/mobile exec eslint 'app/(tabs)/home.tsx' 'src/utils/mockAppData.ts'`
+  - `pnpm -C apps/mobile exec eslint 'app/(tabs)/home.tsx'`
   - `python3 -m py_compile apps/backend/src/finly_backend/server.py apps/backend/src/finly_backend/heartbeat.py apps/agents/src/finly_agents/agent_server.py`
 - Manual checks:
   - Reviewed Home team-card text path to confirm each card now reflects portfolio-overall/current-holdings general feedback.
