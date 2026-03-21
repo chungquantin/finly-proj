@@ -117,7 +117,7 @@ export class Api {
     userId: string,
     audioUri: string,
   ): Promise<{ kind: "ok"; data: VoiceOnboardingResponse } | GeneralApiProblem> {
-    // Use FormData for multipart audio upload
+    // Use FormData for multipart audio upload (native path)
     const formData = new FormData()
     formData.append("user_id", userId)
     formData.append("audio", {
@@ -133,6 +133,28 @@ export class Api {
         timeout: 60000,
         headers: { "Content-Type": "multipart/form-data" },
       },
+    )
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+    return { kind: "ok", data: response.data! }
+  }
+
+  async voiceOnboardingUploadBase64(
+    userId: string,
+    audioBase64: string,
+    contentType = "audio/webm",
+  ): Promise<{ kind: "ok"; data: VoiceOnboardingResponse } | GeneralApiProblem> {
+    // JSON endpoint with base64 audio (web path)
+    const response: ApiResponse<VoiceOnboardingResponse> = await this.apisauce.post(
+      "/api/onboarding/voice",
+      {
+        user_id: userId,
+        audio_b64: audioBase64,
+        audio_content_type: contentType,
+      },
+      { timeout: 60000 },
     )
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)

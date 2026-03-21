@@ -18,7 +18,7 @@ import { api } from "@/services/api"
 import type { VoiceOnboardingResponse } from "@/services/api/types"
 import { useOnboardingStore } from "@/stores/onboardingStore"
 import type { RiskExpertise, InvestmentHorizon, FinancialKnowledge } from "@/stores/onboardingStore"
-import { startRecording, stopRecording, cancelRecording } from "@/utils/audioRecorder"
+import { startRecording, stopRecording, cancelRecording, type RecordingResult } from "@/utils/audioRecorder"
 import { DEFAULT_STOCK_ACCOUNT_ID } from "@/utils/mockStockAccounts"
 import { playBase64Audio, stopAudio } from "@/utils/playAudio"
 
@@ -162,15 +162,18 @@ export function VoiceOnboardingScreen() {
       setIsBusy(true)
 
       try {
-        const uri = await stopRecording()
-        if (!uri) {
+        const rec: RecordingResult | null = await stopRecording()
+        if (!rec) {
           setIsBusy(false)
           return
         }
 
         addMessage("user", "...")
 
-        const result = await api.voiceOnboardingUpload(FINLY_DEFAULT_USER_ID, uri)
+        // Web: send base64, Native: send file URI
+        const result = rec.base64
+          ? await api.voiceOnboardingUploadBase64(FINLY_DEFAULT_USER_ID, rec.base64, rec.mimeType)
+          : await api.voiceOnboardingUpload(FINLY_DEFAULT_USER_ID, rec.uri!)
         if (result.kind === "ok") {
           // Replace the "..." with the transcript
           if (result.data.transcript) {
