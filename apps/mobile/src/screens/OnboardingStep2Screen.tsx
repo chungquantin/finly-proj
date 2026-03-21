@@ -24,6 +24,9 @@ export function OnboardingStep2Screen() {
 
   const stockAccountId = useOnboardingStore((state) => state.stockAccountId)
   const setStockAccountId = useOnboardingStore((state) => state.setStockAccountId)
+  const setAccountSelectionCompleted = useOnboardingStore(
+    (state) => state.setAccountSelectionCompleted,
+  )
   const allTickers = useMemo(
     () =>
       Array.from(
@@ -43,7 +46,7 @@ export function OnboardingStep2Screen() {
       return
     }
 
-    router.replace("/onboarding/step-1")
+    router.replace("/onboarding/step-2")
   }
 
   return (
@@ -162,7 +165,10 @@ export function OnboardingStep2Screen() {
                 stockAccountId ? "bg-[#34C759]" : "bg-[#E7EAF3]",
               )}
               disabled={!stockAccountId}
-              onPress={() => router.push("/onboarding/step-4")}
+              onPress={() => {
+                setAccountSelectionCompleted(true)
+                router.push("/onboarding/step-4")
+              }}
               accessibilityRole="button"
             >
               <Text

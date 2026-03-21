@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -128,6 +129,19 @@ def _parse_response(text: str) -> tuple[str, bool, dict | None]:
     return display_text, is_complete, extracted
 
 
+def _strip_json_tail_for_stream(text: str) -> str:
+    """Remove trailing JSON directive block for progressive UI display."""
+    fenced_idx = text.find("```json")
+    if fenced_idx >= 0:
+        return text[:fenced_idx].strip()
+
+    inline_json_idx = text.find('{"is_complete"')
+    if inline_json_idx >= 0:
+        return text[:inline_json_idx].strip()
+
+    return text
+
+
 async def run_onboarding_chat(user_id: str, message: str) -> dict:
     """Run one turn of the voice onboarding conversation.
 
@@ -204,6 +218,107 @@ async def run_onboarding_chat(user_id: str, message: str) -> dict:
         "is_complete": is_complete,
         "turn_count": new_turn_count,
         "profile": profile,
+    }
+
+
+async def run_onboarding_chat_stream(user_id: str, message: str) -> AsyncIterator[dict]:
+    """Stream one onboarding turn token-by-token, then emit final structured result."""
+    turn_count = _count_turns(user_id)
+
+    append_conversation(user_id, "onboarding_voice", "user", message)
+
+    system_prompt = _build_system_prompt(turn_count + 1)
+    messages = [{"role": "system", "content": system_prompt}]
+
+    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
+    for msg in history:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+
+    messages.append({"role": "user", "content": message})
+
+    if turn_count + 1 >= MAX_TURNS:
+        messages[0]["content"] += (
+            "\n\nIMPORTANT: You MUST now produce is_complete: true and fill in ALL "
+            "extracted fields. Do NOT ask another question."
+        )
+
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    model = os.getenv(
+        "FINLY_INTAKE_MODEL", os.getenv("FINLY_AGENT_MODEL", "openai/gpt-4.1-mini")
+    )
+    base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+    yield {"type": "started"}
+
+    raw_text = ""
+    streamed_text = ""
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream(
+            "POST",
+            f"{base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 400,
+                "stream": True,
+            },
+        ) as resp:
+            resp.raise_for_status()
+            async for raw_line in resp.aiter_lines():
+                line = (raw_line or "").strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload:
+                    continue
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                except Exception:
+                    continue
+
+                delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                if not delta:
+                    continue
+
+                raw_text += str(delta)
+                visible = _strip_json_tail_for_stream(raw_text)
+                if len(visible) <= len(streamed_text):
+                    continue
+                next_delta = visible[len(streamed_text) :]
+                streamed_text = visible
+                if next_delta:
+                    yield {"type": "delta", "delta": next_delta}
+
+    display_text, is_complete, extracted = _parse_response(raw_text)
+    append_conversation(user_id, "onboarding_voice", "assistant", display_text)
+
+    new_turn_count = turn_count + 1
+    profile = None
+    if is_complete and extracted:
+        profile = {
+            "name": extracted.get("name") or "Investor",
+            "risk": extracted.get("risk") or "beginner",
+            "horizon": extracted.get("horizon") or "medium",
+            "knowledge": extracted.get("knowledge") or "novice",
+        }
+
+    yield {
+        "type": "done",
+        "result": {
+            "user_id": user_id,
+            "message": display_text,
+            "is_complete": is_complete,
+            "turn_count": new_turn_count,
+            "profile": profile,
+        },
     }
 
 

@@ -48,6 +48,8 @@ describe("onboardingStore", () => {
     expect(state.financialKnowledge).toBe("pro")
     expect(state.stockAccountId).toBe("balanced-index")
     expect(state.portfolioType).toBeNull()
+    expect(state.investorProfileReviewed).toBe(false)
+    expect(state.accountSelectionCompleted).toBe(false)
   })
 
   it("enforces branch guards between crypto wallet and stock import", async () => {
@@ -81,10 +83,12 @@ describe("onboardingStore", () => {
 
     const latestPayload = JSON.parse(saveCalls[saveCalls.length - 1][1])
 
-    expect(latestPayload.version).toBe(4)
+    expect(latestPayload.version).toBe(5)
     expect(latestPayload.state.riskExpertise).toBe("expert")
     expect(latestPayload.state.portfolioType).toBe("crypto")
     expect(latestPayload.state.walletAddress).toBe("0xabc123456789")
+    expect(latestPayload.state.investorProfileReviewed).toBe(false)
+    expect(latestPayload.state.accountSelectionCompleted).toBe(false)
     expect(latestPayload.state.onboardingCompleted).toBe(true)
   })
 })

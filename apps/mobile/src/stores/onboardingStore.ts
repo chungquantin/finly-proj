@@ -16,6 +16,8 @@ export type OnboardingState = {
   portfolioType: PortfolioType | null
   walletAddress: string
   stockAccountId: StockAccountId | null
+  investorProfileReviewed: boolean
+  accountSelectionCompleted: boolean
   onboardingCompleted: boolean
   setName: (value: string) => void
   setRiskExpertise: (value: RiskExpertise) => void
@@ -24,13 +26,15 @@ export type OnboardingState = {
   setPortfolioType: (value: PortfolioType | null) => void
   setWalletAddress: (value: string) => void
   setStockAccountId: (value: StockAccountId | null) => void
+  setInvestorProfileReviewed: (value: boolean) => void
+  setAccountSelectionCompleted: (value: boolean) => void
   setOnboardingCompleted: (value: boolean) => void
   completeOnboarding: () => void
   reset: () => void
 }
 
 const STORAGE_KEY = "finly.onboarding.profile.v1"
-const STORAGE_VERSION = 4
+const STORAGE_VERSION = 5
 
 const initialState: Pick<
   OnboardingState,
@@ -41,6 +45,8 @@ const initialState: Pick<
   | "portfolioType"
   | "walletAddress"
   | "stockAccountId"
+  | "investorProfileReviewed"
+  | "accountSelectionCompleted"
   | "onboardingCompleted"
 > = {
   name: "",
@@ -50,6 +56,8 @@ const initialState: Pick<
   portfolioType: null,
   walletAddress: "",
   stockAccountId: null,
+  investorProfileReviewed: false,
+  accountSelectionCompleted: false,
   onboardingCompleted: false,
 }
 
@@ -62,6 +70,8 @@ type PersistedState = Pick<
   | "portfolioType"
   | "walletAddress"
   | "stockAccountId"
+  | "investorProfileReviewed"
+  | "accountSelectionCompleted"
   | "onboardingCompleted"
 >
 
@@ -87,6 +97,8 @@ const selectPersistedState = (state: OnboardingState): PersistedState => ({
   portfolioType: state.portfolioType,
   walletAddress: state.walletAddress,
   stockAccountId: state.stockAccountId,
+  investorProfileReviewed: state.investorProfileReviewed,
+  accountSelectionCompleted: state.accountSelectionCompleted,
   onboardingCompleted: state.onboardingCompleted,
 })
 
@@ -152,6 +164,14 @@ const parsePersistedState = (value: unknown): PersistedState | null => {
 
   const onboardingCompleted =
     typeof stateRecord.onboardingCompleted === "boolean" ? stateRecord.onboardingCompleted : false
+  const investorProfileReviewed =
+    typeof stateRecord.investorProfileReviewed === "boolean"
+      ? stateRecord.investorProfileReviewed
+      : false
+  const accountSelectionCompleted =
+    typeof stateRecord.accountSelectionCompleted === "boolean"
+      ? stateRecord.accountSelectionCompleted
+      : false
 
   return {
     name,
@@ -161,6 +181,8 @@ const parsePersistedState = (value: unknown): PersistedState | null => {
     portfolioType,
     walletAddress,
     stockAccountId,
+    investorProfileReviewed,
+    accountSelectionCompleted,
     onboardingCompleted,
   }
 }
@@ -208,6 +230,8 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
       portfolioType: state.portfolioType ?? "stock",
       walletAddress: "",
     })),
+  setInvestorProfileReviewed: (investorProfileReviewed) => set({ investorProfileReviewed }),
+  setAccountSelectionCompleted: (accountSelectionCompleted) => set({ accountSelectionCompleted }),
   setOnboardingCompleted: (onboardingCompleted) => set({ onboardingCompleted }),
   completeOnboarding: () => set({ onboardingCompleted: true }),
   reset: () => set({ ...initialState }),

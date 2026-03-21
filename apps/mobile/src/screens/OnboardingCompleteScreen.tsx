@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-imports */
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ActivityIndicator, Pressable, Text, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
 import { MotiView } from "moti"
@@ -39,6 +39,8 @@ export function OnboardingCompleteScreen() {
   const portfolioType = useOnboardingStore((s) => s.portfolioType)
   const walletAddress = useOnboardingStore((s) => s.walletAddress)
   const stockAccountId = useOnboardingStore((s) => s.stockAccountId)
+  const investorProfileReviewed = useOnboardingStore((s) => s.investorProfileReviewed)
+  const accountSelectionCompleted = useOnboardingStore((s) => s.accountSelectionCompleted)
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding)
   const selectedStockAccount = getMockStockAccountById(
     stockAccountId ?? (portfolioType === "stock" ? DEFAULT_STOCK_ACCOUNT_ID : null),
@@ -98,6 +100,11 @@ export function OnboardingCompleteScreen() {
     portfolioType === "stock" && hasLiveQuotes && liveTotals
       ? liveTotals.todayGainPct
       : portfolio.todayGainPct
+
+  useEffect(() => {
+    if (investorProfileReviewed && accountSelectionCompleted) return
+    router.replace("/onboarding/step-2")
+  }, [accountSelectionCompleted, investorProfileReviewed, router])
 
   const handleBack = () => {
     if (router.canGoBack()) {

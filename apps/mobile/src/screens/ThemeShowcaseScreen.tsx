@@ -42,6 +42,10 @@ export function ThemeShowcaseScreen() {
   const setPortfolioType = useOnboardingStore((state) => state.setPortfolioType)
   const setWalletAddress = useOnboardingStore((state) => state.setWalletAddress)
   const setStockAccountId = useOnboardingStore((state) => state.setStockAccountId)
+  const setInvestorProfileReviewed = useOnboardingStore((state) => state.setInvestorProfileReviewed)
+  const setAccountSelectionCompleted = useOnboardingStore(
+    (state) => state.setAccountSelectionCompleted,
+  )
   const setOnboardingCompleted = useOnboardingStore((state) => state.setOnboardingCompleted)
 
   const handleBack = () => {
@@ -53,20 +57,24 @@ export function ThemeShowcaseScreen() {
     router.replace("/(tabs)/settings")
   }
 
-  const continueToStep2 = () => {
+  const continueToStep3 = () => {
+    setInvestorProfileReviewed(true)
+    setAccountSelectionCompleted(false)
     setPortfolioType("stock")
     setWalletAddress("")
     setStockAccountId(DEFAULT_STOCK_ACCOUNT_ID)
     setOnboardingCompleted(false)
-    router.push("/onboarding/step-2")
+    router.push("/onboarding/step-3/stock")
   }
 
-  const skipToStep4 = () => {
+  const skipToStep3 = () => {
+    setInvestorProfileReviewed(true)
+    setAccountSelectionCompleted(false)
     setPortfolioType("stock")
     setWalletAddress("")
     setStockAccountId(DEFAULT_STOCK_ACCOUNT_ID)
     setOnboardingCompleted(false)
-    router.push("/onboarding/step-4")
+    router.push("/onboarding/step-3/stock")
   }
 
   return (
@@ -233,13 +241,13 @@ export function ThemeShowcaseScreen() {
         >
           <Pressable
             className="mt-5 h-14 items-center justify-center rounded-[22px] bg-[#34C759]"
-            onPress={continueToStep2}
+            onPress={continueToStep3}
           >
             <Text className="font-sans text-[17px] font-semibold text-white">Continue</Text>
           </Pressable>
         </MotiView>
 
-        <Pressable className="items-center py-4" onPress={skipToStep4}>
+        <Pressable className="items-center py-4" onPress={skipToStep3}>
           <Text className="font-sans text-[15px] font-medium text-[#8E8E93]">Skip for now</Text>
         </Pressable>
       </View>

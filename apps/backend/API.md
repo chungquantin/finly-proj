@@ -175,6 +175,42 @@ Get a user's profile.
 
 **Query Params:** `limit` (int, default 20, max 100)
 
+### `POST /api/onboarding/voice`
+
+Conversational onboarding turn (non-stream fallback).
+
+**Request Body:**
+```json
+{
+  "user_id": "user123",
+  "message": "I'm Tin and I can take moderate risk"
+}
+```
+
+**Response:** `VoiceOnboardingResponse`
+
+### `POST /api/onboarding/voice/stream`
+
+Streaming conversational onboarding turn (SSE).
+
+**Request Body:**
+```json
+{
+  "user_id": "user123",
+  "message": "I prefer long-term investing"
+}
+```
+
+**SSE events:**
+- `{"type":"started"}`
+- `{"type":"delta","delta":"partial assistant text"}`
+- `{"type":"done","result":{...VoiceOnboardingResponse}}`
+- `{"type":"error","message":"..."}` (on failure)
+
+### `POST /api/onboarding/voice/reset?user_id={user_id}`
+
+Reset onboarding voice conversation state for a user.
+
 ---
 
 ## Portfolio Import

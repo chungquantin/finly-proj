@@ -16,6 +16,9 @@ export function OnboardingCryptoWalletScreen() {
 
   const walletAddress = useOnboardingStore((state) => state.walletAddress)
   const setWalletAddress = useOnboardingStore((state) => state.setWalletAddress)
+  const setAccountSelectionCompleted = useOnboardingStore(
+    (state) => state.setAccountSelectionCompleted,
+  )
 
   const trimmedAddress = walletAddress.trim()
   const hasError = trimmedAddress.length > 0 && trimmedAddress.length < WALLET_MIN_LENGTH
@@ -107,7 +110,10 @@ export function OnboardingCryptoWalletScreen() {
                 canContinue ? "bg-[#34C759]" : "bg-[#E7EAF3]",
               )}
               disabled={!canContinue}
-              onPress={() => router.push("/onboarding/step-4")}
+              onPress={() => {
+                setAccountSelectionCompleted(true)
+                router.push("/onboarding/step-4")
+              }}
               accessibilityRole="button"
             >
               <Text

@@ -282,6 +282,13 @@ export interface VoiceOnboardingResponse {
   transcript: string | null
 }
 
+export interface VoiceOnboardingStreamEvent {
+  type: "started" | "delta" | "done" | "error"
+  delta?: string
+  result?: VoiceOnboardingResponse
+  message?: string
+}
+
 // ---------------------------------------------------------------------------
 // Heartbeat Analysis
 // ---------------------------------------------------------------------------
@@ -326,12 +333,7 @@ export interface HeartbeatResultResponse {
 }
 
 export interface HeartbeatAnalyzeStreamEvent {
-  type:
-    | "started"
-    | "ticker_start"
-    | "ticker_done"
-    | "ticker_error"
-    | "done"
+  type: "started" | "ticker_start" | "ticker_done" | "ticker_error" | "done"
   tickers?: string[]
   ticker?: string
   decision?: string

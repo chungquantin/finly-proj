@@ -600,6 +600,100 @@ async def onboarding_voice(req: VoiceOnboardingRequest) -> VoiceOnboardingRespon
         )
 
 
+@app.post("/api/onboarding/voice/stream")
+async def onboarding_voice_stream(req: VoiceOnboardingRequest):
+    """Streaming onboarding chat response for progressive text rendering in mobile UI."""
+    import base64
+
+    from finly_backend.onboarding_chat import (
+        get_initial_greeting,
+        run_onboarding_chat_stream,
+    )
+    from finly_backend.voice import transcribe_audio
+
+    if not req.is_initial and not req.message and not req.audio_b64:
+        raise HTTPException(status_code=400, detail="Either message or audio_b64 is required")
+
+    async def event_stream():
+        transcript = None
+        try:
+            if req.is_initial:
+                greeting = get_initial_greeting()
+                done_result = VoiceOnboardingResponse(
+                    user_id=req.user_id,
+                    message=greeting,
+                    audio_b64=None,
+                    is_complete=False,
+                    turn_count=0,
+                    profile=None,
+                    transcript=None,
+                )
+                yield _sse_data({"type": "started"})
+                yield _sse_data({"type": "delta", "delta": greeting})
+                yield _sse_data({"type": "done", "result": done_result.model_dump()})
+                yield "data: [DONE]\n\n"
+                return
+
+            user_message = req.message
+            if req.audio_b64 and not req.message:
+                audio_bytes = base64.b64decode(req.audio_b64)
+                transcript = await transcribe_audio(audio_bytes, req.audio_content_type)
+                if not transcript:
+                    fallback = VoiceOnboardingResponse(
+                        user_id=req.user_id,
+                        message="Sorry, I couldn't catch that. Could you try again?",
+                        audio_b64=None,
+                        is_complete=False,
+                        turn_count=0,
+                        profile=None,
+                        transcript=None,
+                    )
+                    yield _sse_data({"type": "started"})
+                    yield _sse_data({"type": "delta", "delta": fallback.message})
+                    yield _sse_data({"type": "done", "result": fallback.model_dump()})
+                    yield "data: [DONE]\n\n"
+                    return
+                user_message = transcript
+
+            async for event in run_onboarding_chat_stream(req.user_id, str(user_message)):
+                event_type = str(event.get("type", "")).strip()
+                if event_type == "started":
+                    yield _sse_data({"type": "started"})
+                    continue
+                if event_type == "delta":
+                    yield _sse_data({"type": "delta", "delta": str(event.get("delta", ""))})
+                    continue
+                if event_type == "done":
+                    result = event.get("result") or {}
+                    profile_data = result.get("profile")
+                    profile = None
+                    if isinstance(profile_data, dict):
+                        profile = VoiceOnboardingProfile(
+                            name=profile_data.get("name"),
+                            risk=profile_data.get("risk"),
+                            horizon=profile_data.get("horizon"),
+                            knowledge=profile_data.get("knowledge"),
+                        )
+                    done_result = VoiceOnboardingResponse(
+                        user_id=str(result.get("user_id", req.user_id)),
+                        message=str(result.get("message", "")),
+                        audio_b64=None,
+                        is_complete=bool(result.get("is_complete", False)),
+                        turn_count=int(result.get("turn_count", 0)),
+                        profile=profile,
+                        transcript=transcript,
+                    )
+                    yield _sse_data({"type": "done", "result": done_result.model_dump()})
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.exception("Voice onboarding stream failed for user %s", req.user_id)
+            yield _sse_data({"type": "error", "message": str(e)})
+            yield _sse_data({"type": "done"})
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @app.post("/api/onboarding/voice/upload")
 async def onboarding_voice_upload(
     user_id: str = Form(...),

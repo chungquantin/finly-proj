@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-imports */
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -9,7 +9,7 @@ import { TickerLogo } from "@/components/TickerLogo"
 import { api } from "@/services/api"
 import type { TickerNewsItem } from "@/services/api/types"
 import { useAgentBoardStore } from "@/stores/agentBoardStore"
-import { boardThreads, holdingDecisions } from "@/utils/mockAppData"
+import { holdingDecisions } from "@/utils/mockAppData"
 import { openLinkInBrowser } from "@/utils/openLinkInBrowser"
 import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 
@@ -25,6 +25,7 @@ export default function HoldingDetailRoute() {
   const { ticker } = useLocalSearchParams<{ ticker: string }>()
   const { holdings, transactions } = useSelectedPortfolioData()
   const startThread = useAgentBoardStore((state) => state.startThread)
+  const boardThreads = useAgentBoardStore((state) => state.threads)
   const holding = holdings.find((item) => item.ticker === ticker)
   const holdingTransactions = transactions
     .filter((transaction) => transaction.ticker === ticker)
@@ -53,9 +54,21 @@ export default function HoldingDetailRoute() {
           relatedThreadIds: [],
         }
       : null)
-  const relatedThreads = boardThreads.filter((thread) =>
-    decision?.relatedThreadIds.includes(thread.id),
-  )
+  const relatedThreads = useMemo(() => {
+    const normalizedTicker = (ticker ?? "").trim().toUpperCase()
+    const relatedIds = new Set(decision?.relatedThreadIds ?? [])
+
+    return boardThreads
+      .filter((thread) => {
+        const threadTicker = thread.ticker.trim().toUpperCase()
+        return threadTicker === normalizedTicker || relatedIds.has(thread.id)
+      })
+      .sort((left, right) => {
+        const leftTs = new Date(left.updatedAt).getTime()
+        const rightTs = new Date(right.updatedAt).getTime()
+        return rightTs - leftTs
+      })
+  }, [boardThreads, decision?.relatedThreadIds, ticker])
   const quickPrompts = QUICK_PROMPT_TEMPLATES.map((template) =>
     template.replace("{ticker}", (ticker ?? "").toUpperCase()),
   )
@@ -171,7 +184,11 @@ export default function HoldingDetailRoute() {
                         className="flex-row items-center justify-between border-b border-[#C7D0DC] py-4 last:border-b-0"
                       >
                         <View className="mr-4 flex-row items-center">
-                          <TickerLogo ticker={transaction.ticker} logoUri={holding.logoUri} size={36} />
+                          <TickerLogo
+                            ticker={transaction.ticker}
+                            logoUri={holding.logoUri}
+                            size={36}
+                          />
                           <View className="ml-3">
                             <Text className="font-sans text-[15px] font-semibold text-[#0F1728]">
                               {transaction.ticker} {transaction.side === "buy" ? "Buy" : "Sell"}
@@ -309,27 +326,35 @@ export default function HoldingDetailRoute() {
                 ))}
               </View>
               <View className="mt-4 gap-3">
-                {relatedThreads.map((thread) => (
-                  <Pressable
-                    key={thread.id}
-                    className="rounded-[22px] border border-[#C7D0DC] bg-white px-4 py-4"
-                    onPress={() => router.push(`/thread/${thread.id}`)}
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1 pr-3">
-                        <Text className="font-sans text-[17px] font-semibold text-[#0F1728]">
-                          {thread.title}
-                        </Text>
-                        <Text className="mt-1 font-sans text-[14px] text-[#7A8699]">
-                          {thread.intake}
+                {relatedThreads.length ? (
+                  relatedThreads.map((thread) => (
+                    <Pressable
+                      key={thread.id}
+                      className="rounded-[22px] border border-[#EEF2F7] bg-white px-4 py-4"
+                      onPress={() => router.push(`/thread/${thread.id}`)}
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1 pr-3">
+                          <Text className="font-sans text-[17px] font-semibold text-[#0F1728]">
+                            {thread.title}
+                          </Text>
+                          <Text className="mt-1 font-sans text-[14px] text-[#7A8699]">
+                            {thread.intake}
+                          </Text>
+                        </View>
+                        <Text className="font-sans text-[13px] text-[#7A8699]">
+                          {formatRelativeTime(thread.updatedAt)}
                         </Text>
                       </View>
-                      <Text className="font-sans text-[13px] text-[#7A8699]">
-                        {thread.updatedAt}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
+                    </Pressable>
+                  ))
+                ) : (
+                  <View className="rounded-[18px] border border-[#EEF2F7] bg-white px-4 py-3">
+                    <Text className="font-sans text-[14px] text-[#7A8699]">
+                      No related conversation threads yet.
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -372,6 +397,19 @@ function formatPublishedAt(value: string) {
     day: "numeric",
     year: "numeric",
   })
+}
+
+function formatRelativeTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const diffMs = Date.now() - date.getTime()
+  if (diffMs < 60_000) return "now"
+  const minutes = Math.floor(diffMs / 60_000)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
 const $content = {

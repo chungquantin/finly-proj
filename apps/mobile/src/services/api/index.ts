@@ -29,6 +29,7 @@ import type {
   ReportResponse,
   UserProfile,
   VoiceOnboardingResponse,
+  VoiceOnboardingStreamEvent,
   TickerNewsResponse,
   HeartbeatRuleResponse,
   HeartbeatResultResponse,
@@ -115,6 +116,63 @@ export class Api {
       if (problem) return problem
     }
     return { kind: "ok", data: response.data! }
+  }
+
+  async voiceOnboardingMessageStream(
+    userId: string,
+    message: string,
+    onEvent: (event: VoiceOnboardingStreamEvent) => void,
+  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+    try {
+      const url = `${this.config.url}/api/onboarding/voice/stream`
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Accept": "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_id: userId, message }),
+      })
+
+      if (!response.ok) return { kind: "bad-data" }
+
+      if (!response.body) {
+        const fallback = await this.voiceOnboardingMessage(userId, message)
+        if (fallback.kind !== "ok") return fallback
+        onEvent({ type: "started" })
+        onEvent({ type: "delta", delta: fallback.data.message })
+        onEvent({ type: "done", result: fallback.data })
+        return { kind: "ok" }
+      }
+
+      const decoder = new TextDecoder()
+      const reader = response.body.getReader()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const raw of lines) {
+          const line = raw.trim()
+          if (!line.startsWith("data:")) continue
+          const payload = line.slice(5).trim()
+          if (!payload || payload === "[DONE]") continue
+          try {
+            onEvent(JSON.parse(payload) as VoiceOnboardingStreamEvent)
+          } catch {
+            // Ignore malformed SSE payloads.
+          }
+        }
+      }
+
+      return { kind: "ok" }
+    } catch {
+      return { kind: "cannot-connect", temporary: true }
+    }
   }
 
   async voiceOnboardingUpload(
@@ -547,7 +605,7 @@ export class Api {
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          Accept: "text/event-stream",
+          "Accept": "text/event-stream",
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -615,9 +673,7 @@ export class Api {
     return { kind: "ok", rules: response.data ?? [] }
   }
 
-  async deleteHeartbeatRule(
-    ruleId: string,
-  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+  async deleteHeartbeatRule(ruleId: string): Promise<{ kind: "ok" } | GeneralApiProblem> {
     const response = await this.apisauce.delete(`/api/heartbeat/rules/${ruleId}`)
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)
@@ -657,9 +713,7 @@ export class Api {
     return { kind: "ok", results: response.data ?? [] }
   }
 
-  async markHeartbeatResultRead(
-    resultId: string,
-  ): Promise<{ kind: "ok" } | GeneralApiProblem> {
+  async markHeartbeatResultRead(resultId: string): Promise<{ kind: "ok" } | GeneralApiProblem> {
     const response = await this.apisauce.post(`/api/heartbeat/results/${resultId}/read`)
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)
@@ -680,7 +734,6 @@ export class Api {
     }
     return { kind: "ok", count: response.data?.count ?? 0 }
   }
-
 }
 
 // Singleton instance

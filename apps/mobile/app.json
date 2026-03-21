@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "orientation": "portrait",
   "userInterfaceStyle": "automatic",
-  "icon": "./assets/images/app-icon-all.png",
+  "icon": "./assets/images/finly-logo.jpg",
   "updates": {
     "fallbackToCacheTimeout": 0
   },
@@ -15,17 +15,17 @@
     "**/*"
   ],
   "android": {
-    "icon": "./assets/images/app-icon-android-legacy.png",
+    "icon": "./assets/images/finly-logo.jpg",
     "package": "com.mobile",
     "adaptiveIcon": {
-      "foregroundImage": "./assets/images/app-icon-android-adaptive-foreground.png",
-      "backgroundImage": "./assets/images/app-icon-android-adaptive-background.png"
+      "foregroundImage": "./assets/images/finly-logo.jpg",
+      "backgroundColor": "#020A2A"
     },
     "allowBackup": false,
     "edgeToEdgeEnabled": true
   },
   "ios": {
-    "icon": "./assets/images/app-icon-ios.png",
+    "icon": "./assets/images/finly-logo.jpg",
     "supportsTablet": true,
     "bundleIdentifier": "com.mobile",
     "privacyManifests": {
@@ -43,7 +43,7 @@
     }
   },
   "web": {
-    "favicon": "./assets/images/app-icon-web-favicon.png",
+    "favicon": "./assets/images/finly-logo.jpg",
     "bundler": "metro"
   },
   "plugins": [
@@ -52,7 +52,7 @@
     [
       "expo-splash-screen",
       {
-        "image": "./assets/images/app-icon-android-adaptive-foreground.png",
+        "image": "./assets/images/finly-logo.jpg",
         "imageWidth": 300,
         "resizeMode": "contain",
         "backgroundColor": "#191015"

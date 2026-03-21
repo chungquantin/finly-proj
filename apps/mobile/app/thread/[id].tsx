@@ -8,6 +8,7 @@ import {
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type ScrollView as ScrollViewType,
   type ViewStyle,
@@ -82,6 +83,7 @@ const agentIdentityByRole: Record<string, string> = {
 }
 
 export default function ThreadDetailRoute() {
+  const { width } = useWindowDimensions()
   const router = useRouter()
   const { holdings } = useSelectedPortfolioData()
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -217,6 +219,8 @@ export default function ThreadDetailRoute() {
     const isHeldTicker = Boolean(holdingsByTicker[normalizedTicker])
     router.push(isHeldTicker ? `/holding/${normalizedTicker}` : `/watchlist/${normalizedTicker}`)
   }
+  const headerTitleFontSize = width < 380 ? 16 : 18
+  const headerTitleLineHeight = width < 380 ? 20 : 22
 
   return (
     <SafeAreaView className="flex-1 bg-[#FBFCFF]">
@@ -237,8 +241,13 @@ export default function ThreadDetailRoute() {
             <View className="ml-3 flex-1 flex-row items-center">
               {showThreadLogo ? <TickerLogo ticker={thread.ticker} logoUri={threadLogoUri} /> : null}
 
-              <View className={`${showThreadLogo ? "ml-3" : ""} flex-1`}>
-                <Text className="font-sans text-[20px] font-semibold text-[#0F1728]">
+              <View className={`${showThreadLogo ? "ml-3" : ""} mr-2 flex-1`}>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  className="font-sans font-semibold text-[#0F1728]"
+                  style={{ fontSize: headerTitleFontSize, lineHeight: headerTitleLineHeight }}
+                >
                   {thread.title}
                 </Text>
               </View>
