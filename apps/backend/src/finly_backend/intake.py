@@ -13,7 +13,7 @@ import os
 
 import httpx
 
-from finly_agents.database import (
+from finly_backend.database import (
     append_conversation,
     get_conversation_history,
     get_memories,
@@ -63,7 +63,7 @@ respond with a JSON block at the END of your message in this exact format:
 
 
 def _build_system_prompt(user: dict, follow_up_count: int) -> str:
-    from finly_agents.database import get_portfolio, get_memories
+    from finly_backend.database import get_portfolio, get_memories
 
     portfolio = get_portfolio(user["user_id"])
     portfolio_summary = "Empty" if not portfolio else ", ".join(
@@ -162,7 +162,7 @@ async def run_intake(user_id: str, message: str) -> dict:
     user = get_user(user_id)
     if not user:
         # Auto-create user with defaults
-        from finly_agents.database import upsert_user
+        from finly_backend.database import upsert_user
         user = upsert_user(user_id)
 
     # Record user message
@@ -223,7 +223,7 @@ async def run_intake(user_id: str, message: str) -> dict:
 
 def reset_intake(user_id: str) -> None:
     """Clear intake conversation history to start fresh."""
-    from finly_agents.database import get_db
+    from finly_backend.database import get_db
     with get_db() as conn:
         conn.execute(
             "DELETE FROM conversations WHERE user_id = ? AND conv_type = 'intake'",

@@ -24,9 +24,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from finly_agents import agent_client
-from finly_agents.agent_client import AgentServerUnavailable
-from finly_agents.models import (
+from finly_backend import agent_client
+from finly_backend.agent_client import AgentServerUnavailable
+from finly_backend.models import (
     AgentPanelMessage,
     ChatRequest,
     ChatResponse,
@@ -47,20 +47,20 @@ from finly_agents.models import (
     TickerSuggestion,
     UserProfile,
 )
-from finly_agents.database import (
+from finly_backend.database import (
     init_db,
     get_user,
     get_reports,
     get_latest_report,
     save_report,
 )
-from finly_agents.profiles import (
+from finly_backend.profiles import (
     append_chat,
     create_or_update_profile,
     get_chat_history,
     get_profile,
 )
-from finly_agents.heartbeat import (
+from finly_backend.heartbeat import (
     get_pending_alerts,
     seed_demo_alerts,
     trigger_alert,
@@ -68,7 +68,7 @@ from finly_agents.heartbeat import (
 
 load_dotenv()
 
-logger = logging.getLogger("finly_agents")
+logger = logging.getLogger("finly_backend")
 
 TICKER_PATTERN = re.compile(r"\b\$?([A-Z]{2,6})\b")
 DATE_PATTERN = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -238,7 +238,7 @@ def _sse_data(payload: dict[str, Any]) -> str:
 # App
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Finly Agents API", version="0.3.0")
+app = FastAPI(title="Finly Backend API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -253,7 +253,7 @@ app.add_middleware(
 async def startup_event():
     init_db()
     seed_demo_alerts()
-    logger.info("Finly Agents API started — DB initialised, demo alerts seeded")
+    logger.info("Finly Backend API started — DB initialised, demo alerts seeded")
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +265,7 @@ async def healthz() -> dict:
     """Health check — verifies DB connectivity and agent server reachability."""
     db_ok = True
     try:
-        from finly_agents.database import get_db
+        from finly_backend.database import get_db
         with get_db() as conn:
             conn.execute("SELECT 1")
     except Exception:
@@ -406,7 +406,7 @@ async def chat_completions(request: ChatCompletionsRequest):
 async def onboarding(req: OnboardingRequest) -> OnboardingResponse:
     import base64
 
-    from finly_agents.voice import text_to_speech
+    from finly_backend.voice import text_to_speech
 
     profile = create_or_update_profile(req)
     welcome = (
@@ -444,7 +444,7 @@ async def user_chat_history(user_id: str, limit: int = Query(default=20, le=100)
 @app.post("/api/portfolio/import")
 async def portfolio_import(req: PortfolioImportRequest) -> PortfolioResponse:
     """Import portfolio — modes: mock, csv, manual."""
-    from finly_agents.portfolio import import_portfolio
+    from finly_backend.portfolio import import_portfolio
 
     items_dicts = [item.model_dump() for item in req.items] if req.items else None
     result = import_portfolio(
@@ -458,7 +458,7 @@ async def portfolio_import(req: PortfolioImportRequest) -> PortfolioResponse:
 
 @app.get("/api/user/{user_id}/portfolio")
 async def user_portfolio(user_id: str):
-    from finly_agents.database import get_portfolio
+    from finly_backend.database import get_portfolio
     items = get_portfolio(user_id)
     return PortfolioResponse(user_id=user_id, items=items)
 
@@ -475,8 +475,8 @@ async def intake_endpoint(req: IntakeRequest) -> IntakeResponse:
     """
     import base64
 
-    from finly_agents.intake import run_intake
-    from finly_agents.voice import text_to_speech
+    from finly_backend.intake import run_intake
+    from finly_backend.voice import text_to_speech
 
     result = await run_intake(req.user_id, req.message)
     resp = IntakeResponse(**result)
@@ -492,7 +492,7 @@ async def intake_endpoint(req: IntakeRequest) -> IntakeResponse:
 @app.post("/api/intake/reset")
 async def intake_reset(user_id: str = Query(...)):
     """Reset intake conversation to start fresh."""
-    from finly_agents.intake import reset_intake
+    from finly_backend.intake import reset_intake
     reset_intake(user_id)
     return {"status": "ok", "message": "Intake conversation reset"}
 
@@ -508,7 +508,7 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
     Builds user_context from DB, optionally accepts portfolio from mobile,
     then proxies to the Agent Server.
     """
-    from finly_agents.context import build_user_context
+    from finly_backend.context import build_user_context
 
     user = get_user(req.user_id)
     if not user:
@@ -588,8 +588,8 @@ async def report_generate(req: ReportGenerateRequest) -> ReportResponse:
 @app.post("/api/report/chat")
 async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
     """Chat with the team — proxied to Agent Server's panel-chat endpoint."""
-    from finly_agents.context import build_user_context
-    from finly_agents.database import (
+    from finly_backend.context import build_user_context
+    from finly_backend.database import (
         append_conversation,
         get_conversation_history,
     )
@@ -643,7 +643,7 @@ async def report_chat(req: PanelChatRequest) -> PanelChatResponse:
     # Extract memories (fire and forget)
     memory_updates = []
     try:
-        from finly_agents.memory import extract_and_store_memories
+        from finly_backend.memory import extract_and_store_memories
 
         combined_response = "\n".join(
             f"[{r['agent_name']}]: {r['response']}" for r in agent_responses
@@ -683,7 +683,7 @@ async def report_regenerate(req: ReportRegenerateRequest) -> ReportResponse:
 
 @app.get("/api/user/{user_id}/memories")
 async def user_memories(user_id: str):
-    from finly_agents.database import get_memories
+    from finly_backend.database import get_memories
     return get_memories(user_id)
 
 
@@ -699,8 +699,8 @@ async def user_reports(user_id: str, limit: int = Query(default=10, le=50)):
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """Simplified chat — proxies to agent pipeline and returns structured response."""
-    from finly_agents.context import build_user_context
-    from finly_agents.memory import extract_and_store_memories
+    from finly_backend.context import build_user_context
+    from finly_backend.memory import extract_and_store_memories
 
     append_chat(req.user_id, "user", req.message)
 
@@ -749,7 +749,7 @@ async def api_chat(req: ChatRequest):
 @app.post("/api/chat/voice")
 async def api_chat_voice(req: ChatRequest):
     """Chat + ElevenLabs TTS audio response. Falls back to JSON if TTS unavailable."""
-    from finly_agents.context import build_user_context
+    from finly_backend.context import build_user_context
 
     append_chat(req.user_id, "user", req.message)
 
@@ -775,7 +775,7 @@ async def api_chat_voice(req: ChatRequest):
 
     append_chat(req.user_id, "assistant", summary)
 
-    from finly_agents.voice import text_to_speech
+    from finly_backend.voice import text_to_speech
 
     audio_bytes = await text_to_speech(summary)
     if audio_bytes:
@@ -800,7 +800,7 @@ async def api_chat_voice(req: ChatRequest):
 
 @app.get("/api/market-data")
 async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
-    from finly_agents.mock_data import _BASE_PRICES, _clean
+    from finly_backend.mock_data import _BASE_PRICES, _clean
 
     import random
 
@@ -853,9 +853,9 @@ async def heartbeat_trigger(scenario: str = Query(...), user_id: str = Query(def
 def run() -> None:
     import uvicorn
 
-    host = os.getenv("FINLY_AGENTS_HOST", "0.0.0.0")
-    port = int(os.getenv("FINLY_AGENTS_PORT", "8000"))
-    uvicorn.run("finly_agents.server:app", host=host, port=port, reload=False)
+    host = os.getenv("FINLY_BACKEND_HOST", "0.0.0.0")
+    port = int(os.getenv("FINLY_BACKEND_PORT", "8000"))
+    uvicorn.run("finly_backend.server:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":

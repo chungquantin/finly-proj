@@ -1,4 +1,4 @@
-name: Agents CI
+name: Python Apps CI
 
 on:
   pull_request:
@@ -7,8 +7,8 @@ on:
       - main
 
 jobs:
-  agents-checks:
-    name: Agents - lint and build checks
+  python-checks:
+    name: Agents and backend - lint and build checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,18 +19,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Setup just
+        uses: taiki-e/install-action@just
+
       - name: Install lint/build tooling
         run: |
           python -m pip install --upgrade pip
           python -m pip install ruff build
 
-      - name: Lint check (ruff)
-        run: ruff check apps/agents
-
-      - name: Build package
-        run: python -m build apps/agents
-
-      - name: Compile check
-        run: |
-          python -m py_compile apps/agents/main.py
-          find apps/agents/src -name "*.py" -print0 | xargs -0 -n1 python -m py_compile
+      - name: Lint and build checks
+        run: just lint-py

@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta
 
-from finly_agents.models import HeartbeatAlert
+from finly_backend.models import HeartbeatAlert
 
 SCENARIOS: dict[str, dict] = {
     "vcb_price_drop": {

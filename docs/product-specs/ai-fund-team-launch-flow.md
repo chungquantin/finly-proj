@@ -11,7 +11,8 @@ Define the first mobile user flow that lets a user configure a portfolio profile
 ## Platforms And Services
 
 - Mobile app: iOS (SwiftUI)
-- Agent server: Python service (API integration to be implemented)
+- Backend API: Python service for user data and orchestration endpoints
+- Agent server: Python service for specialized agent execution
 
 ## Users
 

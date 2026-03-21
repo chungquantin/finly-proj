@@ -6,13 +6,13 @@ with existing code that imports from profiles.py.
 
 from __future__ import annotations
 
-from finly_agents.database import (
+from finly_backend.database import (
     append_conversation,
     get_conversation_history,
     get_user,
     upsert_user,
 )
-from finly_agents.models import OnboardingRequest, UserProfile
+from finly_backend.models import OnboardingRequest, UserProfile
 
 
 def create_or_update_profile(req: OnboardingRequest) -> UserProfile:

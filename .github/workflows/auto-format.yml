@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   auto-format:
-    name: Auto-format mobile and agents
+    name: Auto-format mobile and python apps
     runs-on: ubuntu-latest
     if: >
       github.actor != 'github-actions[bot]' &&
@@ -46,27 +46,21 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Setup just
+        uses: taiki-e/install-action@just
+
       - name: Install format tools
         run: |
-          cd apps/mobile
-          pnpm install --frozen-lockfile
           python -m pip install --upgrade pip
           python -m pip install ruff
 
-      - name: Auto format mobile (Prettier)
-        run: |
-          cd apps/mobile
-          pnpm exec prettier --write .
-
-      - name: Auto format agents (Ruff)
-        run: |
-          ruff format apps/agents
-          ruff check apps/agents --fix
+      - name: Auto format repo
+        run: just format
 
       - name: Commit formatting fixes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore(ci): auto-format mobile and agents"
+          commit_message: "chore(ci): auto-format mobile and python apps"
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
-          file_pattern: apps/mobile apps/agents
+          file_pattern: apps/mobile apps/agents apps/backend justfile

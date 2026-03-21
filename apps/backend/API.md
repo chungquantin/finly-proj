@@ -1,4 +1,4 @@
-# Finly Agents API Reference
+# Finly Backend API Reference
 
 **Architecture:** Two-server design — Backend API (port 8000) handles user data and proxies to the stateless Agent Server (port 8001).
 
@@ -25,7 +25,7 @@ Mobile App ──→ Backend API (port 8000) ──→ Agent Server (port 8001)
 finly-agent-server
 
 # Start backend API (port 8000) — handles user data, proxies to agent server
-finly-agents-api
+finly-backend-api
 ```
 
 ---
@@ -386,7 +386,7 @@ Exa.ai tools are automatically added to news and social media analysts when `EXA
 ## Recommended Flow
 
 ```
-1. Start servers:     finly-agent-server && finly-agents-api
+1. Start servers:     finly-agent-server and finly-backend-api
 2. POST /api/onboarding          → Create user profile
 3. POST /api/portfolio/import    → Import portfolio (mock for demo)
 4. POST /api/intake              → Conversational goal extraction (1-3 calls)

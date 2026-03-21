@@ -29,17 +29,14 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: apps/mobile/pnpm-lock.yaml
 
+      - name: Setup just
+        uses: taiki-e/install-action@just
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Prettier format check
-        run: pnpm exec prettier --check .
-
-      - name: Lint check
-        run: pnpm run lint:check
-
-      - name: Build check (TypeScript compile)
-        run: pnpm run compile
+      - name: Format, lint, and build checks
+        run: cd "$GITHUB_WORKSPACE" && just lint-ts
 
       - name: Test
         run: pnpm run test -- --ci

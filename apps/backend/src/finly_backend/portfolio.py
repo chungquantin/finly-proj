@@ -6,7 +6,7 @@ import csv
 import io
 import logging
 
-from finly_agents.database import add_portfolio_item, clear_portfolio, get_portfolio
+from finly_backend.database import add_portfolio_item, clear_portfolio, get_portfolio
 
 logger = logging.getLogger("finly_agents.portfolio")
 
@@ -107,7 +107,7 @@ def import_portfolio(user_id: str, mode: str, items: list[dict] | None = None, c
     """Unified portfolio import entry point."""
     if mode == "mock":
         # Determine profile type from user's risk score
-        from finly_agents.database import get_user
+        from finly_backend.database import get_user
         user = get_user(user_id)
         risk = user.get("risk_score", 50) if user else 50
         if risk <= 30:

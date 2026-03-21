@@ -21,7 +21,7 @@ The current holdings UI shows static prices and percent moves, which breaks the 
 
 ## Constraints
 
-- Architectural: Reuse the existing `apps/agents` FastAPI server instead of adding a new backend surface.
+- Architectural: Serve market data from the backend API surface rather than adding a separate quote service.
 - Reliability: Mobile screens must still render if the backend is unavailable.
 - Security: No API secrets in the mobile client; `yfinance` stays server-side.
 
@@ -46,7 +46,7 @@ The current holdings UI shows static prices and percent moves, which breaks the 
 ## Verification
 
 - Commands run:
-  - `python3 -m py_compile apps/agents/src/finly_agents/server.py`
+  - `python3 -m py_compile apps/backend/src/finly_backend/server.py`
   - `pnpm -C apps/mobile run compile`
   - `pnpm -C apps/mobile exec eslint src/services/marketData.ts app/(tabs)/home.tsx app/(tabs)/portfolio.tsx src/config/config.dev.ts src/config/config.prod.ts`
   - `pnpm -C apps/mobile exec eslint src/services/marketData.ts src/config/config.dev.ts src/config/config.prod.ts app/(tabs)/home.tsx app/(tabs)/portfolio.tsx`

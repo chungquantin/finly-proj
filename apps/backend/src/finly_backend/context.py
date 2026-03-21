@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from finly_agents.database import get_user, get_memories
-from finly_agents.portfolio import get_portfolio_summary
+from finly_backend.database import get_user, get_memories
+from finly_backend.portfolio import get_portfolio_summary
 
 HORIZON_LABELS = {
     "short": "Short-term (< 6 months)",

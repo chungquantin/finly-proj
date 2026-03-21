@@ -1,5 +1,9 @@
 # Execution Plan: Migrate apps/agents to Finly API Server (No CLI)
 
+## Status
+
+Superseded by `docs/exec-plans/active/apps-backend-agents-separation.md` as of 2026-03-21. The backend API server introduced here now lives in `apps/backend`, while `apps/agents` is reserved for stateless agent orchestration.
+
 ## Objective
 
 Replace the current CLI-oriented `apps/agents` entry surface with a Finly-focused API server that supports OpenAI-compatible chat completions and streaming responses for agent-team communication.

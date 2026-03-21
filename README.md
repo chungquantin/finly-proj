@@ -35,7 +35,8 @@ This repository is still organized as an agent-first harness:
 ## Current Code Areas
 
 - `apps/mobile/`: mobile client prototype surface
-- `apps/agents/`: local Python scaffold for TradingAgents-style multi-agent runtime
+- `apps/agents/`: local Python agent runtime for TradingAgents-style orchestration
+- `apps/backend/`: local Python backend API for user data, storage, and agent proxy endpoints
 - `templates/`: repo-owned bootstrap templates (`web-nextjs`, `mobile-react-native`)
 
 ## Current Mobile Prototype Notes

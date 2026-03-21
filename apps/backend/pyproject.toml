@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finly-backend"
+version = "0.1.0"
+description = "Finly backend API for app data and agent proxy endpoints."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.116.1",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "uvicorn>=0.35.0",
+    "yfinance>=0.2.63",
+]
+
+[project.scripts]
+finly-backend-api = "finly_backend.server:run"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["finly_backend*"]

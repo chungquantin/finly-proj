@@ -13,7 +13,7 @@ import os
 
 import httpx
 
-from finly_agents.database import get_memories, get_user, upsert_memory, delete_memory
+from finly_backend.database import get_memories, get_user, upsert_memory, delete_memory
 
 logger = logging.getLogger("finly_agents.memory")
 
@@ -138,7 +138,7 @@ def _apply_preference_update(user_id: str, update_description: str) -> None:
 
     Looks for keywords like 'more aggressive', 'conservative', 'long term' etc.
     """
-    from finly_agents.database import update_user_field
+    from finly_backend.database import update_user_field
 
     desc_lower = update_description.lower()
 

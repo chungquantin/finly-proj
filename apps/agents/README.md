@@ -1,19 +1,16 @@
 # apps/agents
 
-Finly API server for multi-agent investment analysis, initialized from TradingAgents modules.
+Finly agent runtime for multi-agent investment analysis.
 
 - Upstream repository: `https://github.com/TauricResearch/TradingAgents`
 - Source package path: `tradingagents/`
 - Snapshot commit: `f362a160c309a680cac460aa9de217ec63e434e6`
 
-## Included Agent Teams
+## Responsibility
 
-- `analysts`
-- `researchers`
-- `trader`
-- `risk_mgmt`
-- `managers`
-- `utils`
+- Owns agentic orchestration logic
+- Runs the stateless agent pipeline and panel chat endpoints
+- Does not own user profiles, report storage, or application data APIs
 
 ## Local Setup
 
@@ -25,63 +22,30 @@ pip install -e .
 cp .env.example .env
 ```
 
-## Run API Server
+## Run Agent Server
 
 ```bash
 cd apps/agents
 python3 main.py
 # or
-finly-agents-api
+finly-agent-server
 ```
 
 Server defaults:
 
 - Host: `0.0.0.0`
-- Port: `8000`
+- Port: `8001`
 
 Override with:
 
 - `FINLY_AGENTS_HOST`
-- `FINLY_AGENTS_PORT`
+- `FINLY_AGENT_SERVER_PORT`
 
-## OpenAI-Compatible Endpoint
+## Endpoints
 
-`POST /v1/chat/completions`
-
-Example (non-streaming):
-
-```bash
-curl -s http://localhost:8000/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "finly-agents-v1",
-    "messages": [
-      {"role": "user", "content": "Analyze FPT for 2025-03-10"}
-    ]
-  }'
-```
-
-Example (streaming SSE):
-
-```bash
-curl -N http://localhost:8000/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "finly-agents-v1",
-    "stream": true,
-    "messages": [
-      {"role": "user", "content": "Analyze VNM for 2025-03-10"}
-    ]
-  }'
-```
-
-## Optional Request Extensions
-
-The OpenAI-compatible request body also accepts Finly runtime hints:
-
-- `ticker`: explicit ticker symbol (overrides prompt extraction)
-- `trade_date`: `YYYY-MM-DD`
-- `selected_analysts`: subset of analysts, e.g. `['market', 'news']`
+- `GET /healthz`
+- `POST /agent/run-pipeline`
+- `POST /agent/panel-chat`
 
 ## Smoke Checks
 
@@ -89,6 +53,3 @@ The OpenAI-compatible request body also accepts Finly runtime hints:
 cd apps/agents
 python3 -m py_compile main.py $(find src -name '*.py')
 ```
-
-Set at least one LLM API key in `.env` before running live workflows.
-Finly default runtime expects `OPENROUTER_API_KEY`.

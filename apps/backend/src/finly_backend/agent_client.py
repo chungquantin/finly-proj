@@ -11,7 +11,7 @@ import os
 
 import httpx
 
-logger = logging.getLogger("finly_agents.agent_client")
+logger = logging.getLogger("finly_backend.agent_client")
 
 AGENT_SERVER_URL = os.getenv("FINLY_AGENT_SERVER_URL", "http://localhost:8001")
 

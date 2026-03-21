@@ -18,19 +18,21 @@ This repository contains early implementation slices for the Finly product and r
 3. `apps/mobile/`
    Stores the mobile prototype surface.
 4. `apps/agents/`
-   Stores the local Python TradingAgents-style scaffold used for specialized investment agents.
-5. `templates/`
+   Stores the local Python TradingAgents-style runtime used for specialized investment agents and stateless agent endpoints.
+5. `apps/backend/`
+   Stores the local Python backend API for user profiles, portfolios, reports, chat history, and proxy endpoints into `apps/agents`.
+6. `templates/`
    Stores deterministic bootstrap templates (`web-nextjs`, `mobile-react-native`) used by `scripts/bootstrap_codebase.py`.
-6. `.github/workflows/`
+7. `.github/workflows/`
    Stores CI enforcement for repository invariants.
-7. `.agents/skills/`
+8. `.agents/skills/`
    Stores repository-local agent skills for recurring workflows such as setup and git operations.
 
 ## Planned Evolution
 
 When the hackathon build is stabilized, extend this file with:
 
-- Hard boundaries between voice client, orchestration API, and agent runtime
+- Harder dependency rules between mobile client, backend API, and agent runtime
 - Allowed dependency directions between UI, backend, and simulation modules
 - Runtime observability and error handling contracts
 - Test strategy by layer and by demo-critical flow
@@ -38,8 +40,8 @@ When the hackathon build is stabilized, extend this file with:
 ## Target Runtime Shape (PRD-Aligned)
 
 - Frontend: React + Tailwind UI with Agora Web voice integration (hackathon target)
-- Backend API: Node.js + Express orchestration layer (planned)
-- Agent runtime: Multi-agent LLM orchestration for Portfolio Manager, Market Analyst, Risk Assessor, Researcher
+- Backend API: Python + FastAPI application layer for user data and client-facing endpoints
+- Agent runtime: Python + FastAPI stateless multi-agent orchestration for Portfolio Manager, Market Analyst, Risk Assessor, Researcher
 - Data: Mock market engine and mock portfolio state for demo safety and speed
 
 See `docs/design-docs/harness-engineering-guide.md` for the default stack policy and setup expectations.
