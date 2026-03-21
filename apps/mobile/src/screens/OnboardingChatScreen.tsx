@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  ImageStyle,
   Pressable,
   TextInput,
   TextStyle,
@@ -230,7 +231,6 @@ export function OnboardingChatScreen() {
             {!isUser && (
               <Image
                 source={require("../../assets/images/finly-logo.jpg")}
-                className="mr-2 h-8 w-8 rounded-full"
                 style={$assistantAvatarImage}
               />
             )}
@@ -401,7 +401,11 @@ const $subtitleText: TextStyle = {
   textAlign: "center",
 }
 
-const $assistantAvatarImage: ViewStyle = {
+const $assistantAvatarImage: ImageStyle = {
+  width: 32,
+  height: 32,
+  borderRadius: 16,
+  marginRight: 8,
   overflow: "hidden",
 }
 
