@@ -1,8 +1,8 @@
 /* eslint-disable no-restricted-imports */
 import { Pressable, ScrollView, Text, TextInput, View, type ViewStyle } from "react-native"
+import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs"
-import { useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
