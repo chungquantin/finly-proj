@@ -22,6 +22,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { HoldingRow } from "@/components/HoldingRow"
 import { api } from "@/services/api"
 import { useMarketData } from "@/services/marketData"
+import { usePortfolioGrowthHistory } from "@/services/portfolioHistory"
 import { useOnboardingStore } from "@/stores/onboardingStore"
 import { getRandomAgentAvatar } from "@/utils/agentAvatars"
 import { teamAgents } from "@/utils/mockAppData"
@@ -30,6 +31,8 @@ import { useSelectedPortfolioData } from "@/utils/selectedPortfolio"
 const BORDER = "#C7D0DC"
 const COLLAPSED_VISIBLE_HEIGHT = 228
 const SNAP_THRESHOLD = 96
+const PORTFOLIO_GROWTH_POINTS = [18, 24, 22, 31, 29, 37, 42, 40, 49, 58, 55, 64] as const
+const X_TICK_LABELS = ["8", "15", "22", "29"] as const
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -54,7 +57,7 @@ export default function HomeTab() {
   const riskExpertise = useOnboardingStore((state) => state.riskExpertise)
   const investmentHorizon = useOnboardingStore((state) => state.investmentHorizon)
   const financialKnowledge = useOnboardingStore((state) => state.financialKnowledge)
-  const { holdings } = useSelectedPortfolioData()
+  const { holdings, transactions, snapshot: portfolioSnapshot } = useSelectedPortfolioData()
   const { quotes, isLoading, hasLiveQuotes } = useMarketData(
     holdings.map((holding) => holding.ticker),
   )
@@ -75,6 +78,7 @@ export default function HomeTab() {
     () => enrichedHoldings.reduce((sum, holding) => sum + holding.valueUsd, 0),
     [enrichedHoldings],
   )
+  const growthHistory = usePortfolioGrowthHistory(transactions)
   const teamPreviewAgents = useMemo(() => teamAgents.slice(0, 4), [])
   const expandedHeight = Math.max(height - insets.top - 12, COLLAPSED_VISIBLE_HEIGHT)
   const sheetHeight = useRef(new Animated.Value(COLLAPSED_VISIBLE_HEIGHT)).current
@@ -218,6 +222,19 @@ export default function HomeTab() {
                   animate={{ opacity: 1, translateY: 0 }}
                   from={{ opacity: 0, translateY: 16 }}
                   transition={{ delay: 220, duration: 420, type: "timing" }}
+                >
+                  <PortfolioGrowthChart
+                    history={growthHistory}
+                    holdingsCount={enrichedHoldings.length}
+                    snapshot={portfolioSnapshot}
+                    totalValueUsd={totalValueUsd}
+                  />
+                </MotiView>
+
+                <MotiView
+                  animate={{ opacity: 1, translateY: 0 }}
+                  from={{ opacity: 0, translateY: 16 }}
+                  transition={{ delay: 280, duration: 420, type: "timing" }}
                 >
                   <View className="mt-1">
                     {showPortfolioSkeleton
@@ -458,6 +475,212 @@ function InvestmentProfileCard({
       </View>
     </View>
   )
+}
+
+function PortfolioGrowthChart({
+  history,
+  holdingsCount,
+  snapshot,
+  totalValueUsd,
+}: {
+  history: ReturnType<typeof usePortfolioGrowthHistory>
+  holdingsCount: number
+  snapshot: {
+    totalValueUsd: number
+    dailyPnlUsd: number
+    monthlyPnlPercent: number
+  }
+  totalValueUsd: number
+}) {
+  const { width } = useWindowDimensions()
+  const [chartFrameWidth, setChartFrameWidth] = useState(0)
+  const fallbackChartWidth = Math.max(width - 88, 260)
+  const chartWidth = chartFrameWidth > 0 ? chartFrameWidth : fallbackChartWidth
+  const plotInsetLeft = 28
+  const plotInsetRight = 44
+  const plotInsetTop = 6
+  const plotWidth = Math.max(chartWidth - plotInsetLeft - plotInsetRight, 180)
+  const plotHeight = 96
+  const chartValues = useMemo(() => {
+    if (history.hasLiveHistory && history.points.length > 1) {
+      return history.points.map((point) => point.value)
+    }
+    return createFallbackPortfolioSeries(snapshot.totalValueUsd)
+  }, [history.hasLiveHistory, history.points, snapshot.totalValueUsd])
+  const points = useMemo(
+    () => createChartPoints(chartValues, plotWidth, plotHeight),
+    [chartValues, plotHeight, plotWidth],
+  )
+  const lastPoint = points[points.length - 1]
+  const monthlyChange = history.hasLiveHistory
+    ? history.monthlyChangePercent
+    : snapshot.monthlyPnlPercent
+  const yTickValues = useMemo(() => {
+    const minValue = Math.min(...chartValues)
+    const maxValue = Math.max(...chartValues)
+    const range = Math.max(maxValue - minValue, 1)
+    const paddedMin = Math.max(0, minValue - range * 0.25)
+    const paddedMax = maxValue + range * 0.15
+    const mid = paddedMin + (paddedMax - paddedMin) / 2
+    return [paddedMax, mid, paddedMin]
+  }, [chartValues])
+  const xTicks = useMemo(
+    () =>
+      X_TICK_LABELS.map((label, index) => ({
+        label,
+        x: plotInsetLeft + (index / (X_TICK_LABELS.length - 1)) * plotWidth,
+      })),
+    [plotInsetLeft, plotWidth],
+  )
+
+  return (
+    <View className="mt-8 rounded-[30px] border bg-white px-4 py-4" style={{ borderColor: BORDER }}>
+      <View className="flex-row items-start justify-between">
+        <View>
+          <Text className="font-sans text-[31px] font-semibold leading-[36px] tracking-[-0.8px] text-[#0F1728]">
+            Portfolio
+          </Text>
+          <Text className="mt-1 font-sans text-[15px] text-[#7A8699]">{holdingsCount} holdings</Text>
+        </View>
+        <View className="items-end">
+          <Text className="font-sans text-[31px] font-semibold text-[#0F1728] tracking-[-0.8px]">
+            {money(totalValueUsd)}
+          </Text>
+          <Text
+            className={`mt-1 font-sans text-[16px] font-semibold ${monthlyChange >= 0 ? "text-[#22B45A]" : "text-[#F04438]"}`}
+          >
+            {monthlyChange >= 0 ? "+" : ""}
+            {monthlyChange.toFixed(2)}%
+          </Text>
+        </View>
+      </View>
+
+      <View
+        className="mt-4 h-[152px] overflow-hidden rounded-[24px] bg-[#FCFDFF] px-3 py-3"
+        onLayout={(event) => setChartFrameWidth(event.nativeEvent.layout.width)}
+      >
+        <View className="absolute h-px bg-[#D7DEE9]" style={{ left: 26, right: 12, top: 18 }} />
+        <View className="absolute h-px bg-[#D7DEE9]" style={{ left: 26, right: 12, top: 54 }} />
+        <View className="absolute h-px bg-[#D7DEE9]" style={{ left: 26, right: 12, top: 90 }} />
+        {xTicks.slice(1).map((tick) => (
+          <View
+            key={`x-grid-${tick.label}`}
+            className="absolute w-px bg-[#D7DEE9]"
+            style={{ left: tick.x, top: 14, bottom: 30 }}
+          />
+        ))}
+
+        <View className="absolute left-1 top-0">
+          {yTickValues.map((tick, index) => (
+            <Text
+              key={`y-${tick}-${index}`}
+              className="font-sans text-[11px] text-[#8B97AA]"
+              style={{ marginTop: index === 0 ? 10 : 22 }}
+            >
+              {formatAxisTick(tick)}
+            </Text>
+          ))}
+        </View>
+
+        <View className="absolute bottom-2 left-0 right-0 h-4">
+          {xTicks.map((tick) => (
+            <Text
+              key={`x-${tick.label}`}
+              className="absolute font-sans text-[11px] text-[#8B97AA]"
+              style={{ left: tick.x - 4 }}
+            >
+              {tick.label}
+            </Text>
+          ))}
+        </View>
+
+        <View className="h-full">
+          {points.slice(0, -1).map((point, index) => {
+            const segment = segmentStyle(point, points[index + 1], 5)
+            return (
+              <View
+                key={`segment-${point.x}`}
+                className="absolute left-0 top-0 rounded-full bg-[#2453FF]"
+                style={{
+                  ...segment,
+                  left: segment.left + plotInsetLeft,
+                  top: segment.top + plotInsetTop,
+                }}
+              />
+            )
+          })}
+          {lastPoint ? (
+            <View
+              className="absolute h-3.5 w-3.5 rounded-full border-2 border-white bg-[#2453FF]"
+              style={{
+                left: lastPoint.x + plotInsetLeft - 7,
+                top: lastPoint.y + plotInsetTop - 7,
+              }}
+            />
+          ) : null}
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function createChartPoints(values: number[], width: number, height: number) {
+  if (values.length < 2) {
+    return [
+      { x: 0, y: height * 0.6 },
+      { x: width, y: height * 0.4 },
+    ]
+  }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = Math.max(max - min, 1)
+
+  return values.map((value, index) => ({
+    x: (index / (values.length - 1)) * width,
+    y: height - ((value - min) / range) * height,
+  }))
+}
+
+function createFallbackPortfolioSeries(latestValue: number) {
+  const min = Math.min(...PORTFOLIO_GROWTH_POINTS)
+  const max = Math.max(...PORTFOLIO_GROWTH_POINTS)
+  const range = Math.max(max - min, 1)
+  const startValue = latestValue * 0.88
+  const valueRange = latestValue - startValue
+
+  return PORTFOLIO_GROWTH_POINTS.map((point) => {
+    const normalized = (point - min) / range
+    return startValue + normalized * valueRange
+  })
+}
+
+function formatAxisTick(value: number) {
+  if (value >= 1000) {
+    return `${Math.round(value / 1000)}k`
+  }
+  return `${Math.round(value)}`
+}
+
+function segmentStyle(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  thickness = 4,
+) {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const length = Math.sqrt(dx * dx + dy * dy)
+  const angle = `${(Math.atan2(dy, dx) * 180) / Math.PI}deg`
+  const midpointX = (start.x + end.x) / 2
+  const midpointY = (start.y + end.y) / 2
+
+  return {
+    height: thickness,
+    left: midpointX - length / 2,
+    top: midpointY - thickness / 2,
+    transform: [{ rotate: angle }],
+    width: length,
+  }
 }
 
 function AgentCard({
