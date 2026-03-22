@@ -8,6 +8,12 @@ import { DEFAULT_STOCK_ACCOUNT_ID } from "@/utils/mockStockAccounts"
 import { loadString, saveString } from "@/utils/storage"
 
 // ---------------------------------------------------------------------------
+// Demo: NVDA Export Ban Crash Scenario
+// ---------------------------------------------------------------------------
+
+const DEMO_TICKERS = ["NVDA", "MSFT", "GOOGL", "META", "AAPL"]
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -35,6 +41,7 @@ type HeartbeatState = {
   // Actions
   refresh: (userId: string) => Promise<void>
   startAnalysis: (userId: string, tickers?: string[]) => Promise<void>
+  startDemoAnalysis: () => Promise<void>
   createRule: (userId: string, rawRule: string) => Promise<void>
   deleteRule: (ruleId: string) => Promise<void>
   toggleRule: (ruleId: string) => Promise<void>
@@ -184,6 +191,67 @@ export const useHeartbeatStore = create<HeartbeatState>((set, get) => ({
       })
       return
     }
+
+    // Safety — mark done if stream ended without "done" event
+    if (get().isAnalyzing) {
+      set({ isAnalyzing: false, currentTicker: null })
+    }
+  },
+
+  startDemoAnalysis: async () => {
+    const scopeKey = resolveAccountScopeKey()
+    const userId = resolveScopedFinlyUserId(scopeKey)
+
+    set({
+      isAnalyzing: true,
+      liveResults: {},
+      completedTickers: [],
+      currentTicker: null,
+      analyzingTickers: DEMO_TICKERS,
+    })
+
+    await api.heartbeatAnalyzeStream(userId, DEMO_TICKERS, (event: Record<string, unknown>) => {
+      switch (event.type) {
+        case "started":
+          set({ analyzingTickers: (event.tickers as string[]) ?? DEMO_TICKERS })
+          break
+        case "ticker_start":
+          set({ currentTicker: event.ticker as string })
+          break
+        case "ticker_done":
+          set({
+            currentTicker: null,
+            completedTickers: [...get().completedTickers, event.ticker as string],
+            liveResults: {
+              ...get().liveResults,
+              [event.ticker as string]: {
+                decision: event.decision as string,
+                summary: event.summary as string,
+                severity: event.severity as string,
+              },
+            },
+          })
+          break
+        case "ticker_error":
+          set({
+            currentTicker: null,
+            completedTickers: [...get().completedTickers, event.ticker as string],
+            liveResults: {
+              ...get().liveResults,
+              [event.ticker as string]: {
+                decision: "ERROR",
+                summary: (event.error as string) ?? "Analysis failed",
+                severity: "critical",
+              },
+            },
+          })
+          break
+        case "done":
+          set({ isAnalyzing: false, currentTicker: null })
+          void get().refresh(userId)
+          break
+      }
+    })
 
     // Safety — mark done if stream ended without "done" event
     if (get().isAnalyzing) {

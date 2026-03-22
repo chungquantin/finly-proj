@@ -64,6 +64,7 @@ export default function HeartbeatTab() {
   const lastAnalysisError = useHeartbeatStore((s) => s.lastAnalysisError)
 
   const startAnalysis = useHeartbeatStore((s) => s.startAnalysis)
+  const startDemoAnalysis = useHeartbeatStore((s) => s.startDemoAnalysis)
   const createRule = useHeartbeatStore((s) => s.createRule)
   const deleteRule = useHeartbeatStore((s) => s.deleteRule)
   const toggleRule = useHeartbeatStore((s) => s.toggleRule)
@@ -77,6 +78,11 @@ export default function HeartbeatTab() {
     const tickers = holdings.map((holding) => holding.ticker)
     void startAnalysis(getUserId(), tickers)
   }, [holdings, isAnalyzing, startAnalysis])
+
+  const handleDemoAnalyze = useCallback(() => {
+    if (isAnalyzing) return
+    void startDemoAnalysis()
+  }, [isAnalyzing, startDemoAnalysis])
 
   const handleCreateRule = useCallback(() => {
     const text = ruleDraft.trim()
@@ -122,7 +128,7 @@ export default function HeartbeatTab() {
                   <View className="flex-row items-center gap-2">
                     <ActivityIndicator color="#FFFFFF" size="small" />
                     <Text className="font-sans text-[16px] font-semibold text-white">
-                      Analyzing...
+                      Agents Analyzing...
                     </Text>
                   </View>
                 ) : (
@@ -141,6 +147,22 @@ export default function HeartbeatTab() {
                 <Text className="mt-2 text-center font-sans text-[13px] text-[#D64545]">
                   {lastAnalysisError}
                 </Text>
+              )}
+
+              {/* Crash simulation */}
+              {!isAnalyzing && (
+                <Pressable
+                  className="mt-2 items-center rounded-full border py-2.5"
+                  style={{ borderColor: "#F04438", backgroundColor: "#FFF1F1" }}
+                  onPress={handleDemoAnalyze}
+                >
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="warning" size={16} color="#D64545" />
+                    <Text className="font-sans text-[14px] font-semibold text-[#D64545]">
+                      Simulate: NVDA Export Ban Crash
+                    </Text>
+                  </View>
+                </Pressable>
               )}
 
               {/* Live progress */}
