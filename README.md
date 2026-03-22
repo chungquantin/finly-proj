@@ -2,7 +2,9 @@
 
 Finly is an AI agentic investment team product being built for Lotus Hacks 2026 (March 20-22, Vietnam).
 
-The product direction is a voice-first advisory experience for beginner investors, combining:
+<img width="791" height="449" alt="image" src="https://github.com/user-attachments/assets/d7b9e678-2e44-46f6-876c-b6b8cae515f3" />
+
+The product direction is a multi-agent advisory experience for beginner investors, combining:
 
 - A 4-agent investment team
 - Real-time conversational UX using Agora Voice
@@ -17,9 +19,9 @@ The product direction is a voice-first advisory experience for beginner investor
 - Core agent roles:
   - Portfolio Manager
   - Market Analyst
-  - Risk Assessor
+  - Trader
   - Researcher
-- Market focus: Vietnamese stocks (initially VCB, VNM, TPB, FPT)
+- Market focus: English stocks 
 
 See the PRD source of truth at `docs/product-specs/finly-agentic-investment-team-prd.md`.
 
