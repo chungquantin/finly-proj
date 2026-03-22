@@ -5,9 +5,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY pyproject.toml .
-COPY README.md .
-COPY src/ src/
+COPY apps/backend/pyproject.toml .
+COPY apps/backend/README.md .
+COPY apps/backend/src/ src/
 
 RUN pip install --no-cache-dir -e .
 

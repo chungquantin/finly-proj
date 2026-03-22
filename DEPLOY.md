@@ -34,8 +34,6 @@ More resilient — each service restarts independently, scales independently.
 
 **Build**: Dockerfile (already exists at `apps/backend/Dockerfile`)
 
-**Important**: The backend Dockerfile expects the build context to be `apps/backend` (it uses `COPY pyproject.toml` and `COPY src/`). If root directory is `.` instead, deploys can fail or appear stale.
-
 **Start command**: `python main.py`
 
 **Environment variables**:
@@ -58,8 +56,6 @@ ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
 **Root directory**: `apps/agents`
 
 **Build**: Dockerfile (already exists at `apps/agents/Dockerfile`)
-
-**Important**: The agent Dockerfile expects the build context to be `apps/agents` (it uses `COPY pyproject.toml` and `COPY src/`). If root directory is `.` instead, deploys can fail or appear stale.
 
 **Start command**: `python main.py`
 
@@ -158,14 +154,6 @@ FINLY_AGENT_SERVER_URL=http://localhost:8001
 6. Deploy
 7. On the backend service: Settings → Generate Domain (this is the public URL)
 8. Copy the domain URL for your mobile app's `config.prod.ts`
-
-### If Railway seems to run an old image
-
-1. Confirm each service root directory is correct:
-   - `finly-backend` -> `apps/backend`
-   - `finly-agent-server` -> `apps/agents`
-2. Trigger a manual redeploy from the latest commit for each service.
-3. Check deployment logs to verify Docker rebuild includes `COPY pyproject.toml` and `COPY src/` steps from the correct app directory.
 
 ### Railway CLI Deploy
 
