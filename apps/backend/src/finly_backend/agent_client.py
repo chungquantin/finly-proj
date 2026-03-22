@@ -193,6 +193,31 @@ async def call_heartbeat_analyze(ticker: str, user_context: str = "") -> dict:
             )
             resp.raise_for_status()
             return resp.json()
+    except httpx.HTTPStatusError as e:
+        # Degrade gracefully when the agent pipeline fails server-side.
+        # Heartbeat should still return a usable alert payload instead of crashing.
+        detail = ""
+        try:
+            detail = str(e.response.json().get("detail", "")).strip()
+        except Exception:
+            detail = (e.response.text or "").strip()
+        logger.warning(
+            "Heartbeat analyze fallback for %s due to agent server %s: %s",
+            ticker,
+            e.response.status_code,
+            detail[:240],
+        )
+        fallback_summary = "Agent pipeline unavailable; using fallback heartbeat summary."
+        if detail:
+            fallback_summary = f"{fallback_summary} {detail[:140]}"
+        return {
+            "ticker": ticker,
+            "decision": "HOLD",
+            "summary": fallback_summary,
+            "full_analysis": fallback_summary,
+            "severity": "warning",
+            "specialist_insights": {},
+        }
     except httpx.ConnectError:
         raise AgentServerUnavailable(
             f"Agent server at {AGENT_SERVER_URL} is not reachable."

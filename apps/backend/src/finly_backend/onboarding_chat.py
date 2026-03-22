@@ -86,7 +86,7 @@ def _build_system_prompt(turn_count: int) -> str:
 
 
 def _count_turns(user_id: str) -> int:
-    history = get_conversation_history(user_id, conv_type="onboarding_chat", limit=100)
+    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
     return sum(1 for msg in history if msg["role"] == "assistant")
 
 
@@ -154,13 +154,13 @@ async def run_onboarding_chat(user_id: str, message: str) -> dict:
     turn_count = _count_turns(user_id)
 
     # Record user message
-    append_conversation(user_id, "onboarding_chat", "user", message)
+    append_conversation(user_id, "onboarding_voice", "user", message)
 
     # Build messages
     system_prompt = _build_system_prompt(turn_count + 1)
     messages = [{"role": "system", "content": system_prompt}]
 
-    history = get_conversation_history(user_id, conv_type="onboarding_chat", limit=100)
+    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -201,7 +201,7 @@ async def run_onboarding_chat(user_id: str, message: str) -> dict:
     display_text, is_complete, extracted = _parse_response(assistant_text)
 
     # Record assistant response
-    append_conversation(user_id, "onboarding_chat", "assistant", display_text)
+    append_conversation(user_id, "onboarding_voice", "assistant", display_text)
 
     new_turn_count = turn_count + 1
 
@@ -228,12 +228,12 @@ async def run_onboarding_chat_stream(user_id: str, message: str) -> AsyncIterato
     """Stream one onboarding turn token-by-token, then emit final structured result."""
     turn_count = _count_turns(user_id)
 
-    append_conversation(user_id, "onboarding_chat", "user", message)
+    append_conversation(user_id, "onboarding_voice", "user", message)
 
     system_prompt = _build_system_prompt(turn_count + 1)
     messages = [{"role": "system", "content": system_prompt}]
 
-    history = get_conversation_history(user_id, conv_type="onboarding_chat", limit=100)
+    history = get_conversation_history(user_id, conv_type="onboarding_voice", limit=100)
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -301,7 +301,7 @@ async def run_onboarding_chat_stream(user_id: str, message: str) -> AsyncIterato
                     yield {"type": "delta", "delta": next_delta}
 
     display_text, is_complete, extracted = _parse_response(raw_text)
-    append_conversation(user_id, "onboarding_chat", "assistant", display_text)
+    append_conversation(user_id, "onboarding_voice", "assistant", display_text)
 
     new_turn_count = turn_count + 1
     profile = None
@@ -340,6 +340,6 @@ def reset_onboarding_chat(user_id: str) -> None:
 
     with get_db() as conn:
         conn.execute(
-            "DELETE FROM conversations WHERE user_id = ? AND conv_type = 'onboarding_chat'",
+            "DELETE FROM conversations WHERE user_id = ? AND conv_type = 'onboarding_voice'",
             (user_id,),
         )

@@ -60,6 +60,7 @@ from finly_backend.models import (
 from finly_backend.database import (
     init_db,
     get_user,
+    upsert_user,
     get_report,
     get_reports,
     get_reports_for_ticker,
@@ -2130,6 +2131,9 @@ async def heartbeat_analyze(req: HeartbeatAnalyzeRequest):
     """One-shot portfolio risk analysis — streams results via SSE."""
     from finly_backend.context import build_user_context
 
+    # Heartbeat results table has FK -> users(user_id). Ensure the user row exists.
+    upsert_user(req.user_id)
+
     tickers = req.tickers
     if not tickers:
         # Get tickers from user's portfolio
@@ -2202,6 +2206,9 @@ async def heartbeat_analyze(req: HeartbeatAnalyzeRequest):
 @app.post("/api/heartbeat/rules")
 async def create_rule(req: HeartbeatRuleCreateRequest):
     """Create a monitoring rule from natural language."""
+    # Heartbeat rules table has FK -> users(user_id). Ensure the user row exists.
+    upsert_user(req.user_id)
+
     try:
         parsed = await agent_client.call_parse_rule(req.raw_rule)
     except Exception as e:
