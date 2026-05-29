@@ -3,6 +3,18 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
   @just --list
 
+env profile="dev_local":
+  env_file="configs/{{profile}}/.env"; \
+  if [[ ! -f "$env_file" ]]; then \
+    echo "Missing env file: $env_file"; \
+    exit 1; \
+  fi; \
+  set -a; \
+  source "$env_file"; \
+  set +a; \
+  echo "Entering shell with env profile: {{profile}}"; \
+  exec zsh -i
+
 setup: setup-frontend setup-python
 
 setup-dev:
