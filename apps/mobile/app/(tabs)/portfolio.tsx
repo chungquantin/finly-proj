@@ -190,7 +190,10 @@ export default function PortfolioTab() {
             />
           </View>
 
-          <View className="rounded-[30px] border bg-white p-5" style={{ borderColor: PORTFOLIO_BORDER }}>
+          <View
+            className="rounded-[30px] border bg-white p-5"
+            style={{ borderColor: PORTFOLIO_BORDER }}
+          >
             <View className="mt-2 flex-row items-end">
               <Text className="font-sans text-[40px] font-semibold leading-[44px] tracking-[-0.8px] text-black">
                 {moneyWithCents(accountBalanceUsd)}

@@ -604,7 +604,12 @@ export class Api {
         for (const message of fallback.data.agent_responses) {
           const messageId = `fallback_${message.agent_role}_${Date.now()}`
           onEvent({ type: "agent_message_start", message, message_id: messageId })
-          onEvent({ type: "agent_message_delta", message, delta: message.response, message_id: messageId })
+          onEvent({
+            type: "agent_message_delta",
+            message,
+            delta: message.response,
+            message_id: messageId,
+          })
           onEvent({ type: "agent_message_done", message, message_id: messageId })
         }
         onEvent({

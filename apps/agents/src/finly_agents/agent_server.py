@@ -53,7 +53,9 @@ class AgentPanelRequest(BaseModel):
     report_data: dict  # agent_reasoning + summary from stored report
     user_context: str = ""
     conversation_history: list[dict] = []
-    target_agents: list[str] | None = None  # e.g. ["advisor"], ["trader", "analyst"]; None = all
+    target_agents: list[str] | None = (
+        None  # e.g. ["advisor"], ["trader", "analyst"]; None = all
+    )
 
 
 class HeartbeatAnalyzeAgentRequest(BaseModel):
@@ -665,6 +667,7 @@ def _run_heartbeat_pipeline(req: HeartbeatAnalyzeAgentRequest) -> dict[str, Any]
     )
 
     from datetime import date as _date
+
     trade_date = _date.today().isoformat()
 
     final_state, decision = graph.propagate(
@@ -676,7 +679,13 @@ def _run_heartbeat_pipeline(req: HeartbeatAnalyzeAgentRequest) -> dict[str, Any]
     specialist_insights = _extract_specialist_insights(final_state)
 
     decision_str = str(decision).strip().upper()
-    severity = "critical" if decision_str == "SELL" else "warning" if decision_str == "BUY" else "info"
+    severity = (
+        "critical"
+        if decision_str == "SELL"
+        else "warning"
+        if decision_str == "BUY"
+        else "info"
+    )
 
     return {
         "ticker": req.ticker,

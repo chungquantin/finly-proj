@@ -57,15 +57,21 @@ def _search(
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         if status == 429:
-            logger.warning("Exa rate-limited (429) for query '%s'; using empty fallback", query)
+            logger.warning(
+                "Exa rate-limited (429) for query '%s'; using empty fallback", query
+            )
             return []
-        logger.warning("Exa HTTP error %s for query '%s'; using empty fallback", status, query)
+        logger.warning(
+            "Exa HTTP error %s for query '%s'; using empty fallback", status, query
+        )
         return []
     except httpx.TimeoutException:
         logger.warning("Exa timeout for query '%s'; using empty fallback", query)
         return []
     except httpx.RequestError as e:
-        logger.warning("Exa request error for query '%s': %s; using empty fallback", query, e)
+        logger.warning(
+            "Exa request error for query '%s': %s; using empty fallback", query, e
+        )
         return []
 
 

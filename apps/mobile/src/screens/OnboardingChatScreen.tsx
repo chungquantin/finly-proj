@@ -152,8 +152,8 @@ export function OnboardingChatScreen() {
           )
         }
       } finally {
-      if (mounted) setIsBusy(false)
-    }
+        if (mounted) setIsBusy(false)
+      }
     }
 
     fetchGreeting()

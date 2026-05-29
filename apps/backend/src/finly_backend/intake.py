@@ -299,9 +299,7 @@ async def run_intake_stream(user_id: str, message: str) -> AsyncIterator[dict]:
                 except Exception:
                     continue
                 delta = (
-                    chunk.get("choices", [{}])[0]
-                    .get("delta", {})
-                    .get("content", "")
+                    chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
                 )
                 if not delta:
                     continue

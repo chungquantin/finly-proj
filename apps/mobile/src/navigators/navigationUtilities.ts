@@ -21,8 +21,9 @@ export type AppStackParamList = {
   [key: string]: undefined | object
 }
 
-export interface NavigationProps
-  extends Partial<ComponentProps<typeof NavigationContainer<AppStackParamList>>> {}
+export interface NavigationProps extends Partial<
+  ComponentProps<typeof NavigationContainer<AppStackParamList>>
+> {}
 
 type Storage = typeof storage
 

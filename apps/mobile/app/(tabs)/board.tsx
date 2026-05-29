@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react"
 /* eslint-disable no-restricted-imports */
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native"
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"

@@ -9,9 +9,7 @@ import uuid
 from contextlib import contextmanager
 from typing import Any
 
-DB_PATH = os.getenv("FINLY_DB_PATH", "") or os.path.join(
-    os.getcwd(), "finly.db"
-)
+DB_PATH = os.getenv("FINLY_DB_PATH", "") or os.path.join(os.getcwd(), "finly.db")
 
 _CREATE_TABLES = """
 CREATE TABLE IF NOT EXISTS users (
@@ -360,7 +358,10 @@ def get_conversation_history(
             metadata = json.loads(item.get("metadata_json", "{}") or "{}")
             item["metadata"] = metadata
             if metadata_filters:
-                if not all(metadata.get(key) == value for key, value in metadata_filters.items()):
+                if not all(
+                    metadata.get(key) == value
+                    for key, value in metadata_filters.items()
+                ):
                     continue
             results.append(item)
         return results[-limit:]
@@ -500,7 +501,9 @@ def get_report_related_tickers(report_id: str) -> list[dict]:
                ORDER BY created_at ASC""",
             (report_id,),
         ).fetchall()
-        return [{"ticker": row["ticker"], "reason": row["reason"] or ""} for row in rows]
+        return [
+            {"ticker": row["ticker"], "reason": row["reason"] or ""} for row in rows
+        ]
 
 
 def get_reports_for_ticker(user_id: str, ticker: str, limit: int = 20) -> list[dict]:
@@ -611,9 +614,7 @@ def get_active_heartbeat_rules() -> list[dict]:
 
 def delete_heartbeat_rule(rule_id: str) -> bool:
     with get_db() as conn:
-        cursor = conn.execute(
-            "DELETE FROM heartbeat_rules WHERE id = ?", (rule_id,)
-        )
+        cursor = conn.execute("DELETE FROM heartbeat_rules WHERE id = ?", (rule_id,))
         return cursor.rowcount > 0
 
 
@@ -660,7 +661,16 @@ def save_heartbeat_result(
         conn.execute(
             """INSERT INTO heartbeat_results (id, user_id, rule_id, ticker, decision, summary, full_analysis, severity)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (result_id, user_id, rule_id, ticker.upper(), decision, summary, full_analysis, severity),
+            (
+                result_id,
+                user_id,
+                rule_id,
+                ticker.upper(),
+                decision,
+                summary,
+                full_analysis,
+                severity,
+            ),
         )
         row = conn.execute(
             "SELECT * FROM heartbeat_results WHERE id = ?", (result_id,)
@@ -668,7 +678,9 @@ def save_heartbeat_result(
         return dict(row)
 
 
-def get_heartbeat_results(user_id: str, unread_only: bool = False, limit: int = 50) -> list[dict]:
+def get_heartbeat_results(
+    user_id: str, unread_only: bool = False, limit: int = 50
+) -> list[dict]:
     with get_db() as conn:
         if unread_only:
             rows = conn.execute(

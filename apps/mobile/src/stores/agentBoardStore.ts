@@ -831,7 +831,9 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => ({
                 isBusy: false,
                 lastError: streamError || "Team chat failed. Please try again.",
                 messages: thread.messages.map((item) =>
-                  item.role === "user" && item.content === prompt && item.deliveryStatus === "sending"
+                  item.role === "user" &&
+                  item.content === prompt &&
+                  item.deliveryStatus === "sending"
                     ? { ...item, deliveryStatus: "failed" }
                     : item,
                 ),

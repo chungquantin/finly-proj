@@ -1,0 +1,20 @@
+services:
+  agents:
+    build:
+      context: .
+      dockerfile: apps/agents/Dockerfile
+    env_file:
+      - apps/agents/.env
+    ports:
+      - "8001:8001"
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    env_file:
+      - apps/backend/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - agents

@@ -313,11 +313,7 @@ export default function HoldingDetailRoute() {
                     {tickerProfile.long_name || tickerProfile.short_name || holding.ticker}
                   </Text>
                   <Text className="mt-1 font-sans text-[14px] text-[#607089]">
-                    {[
-                      tickerProfile.sector,
-                      tickerProfile.industry,
-                      tickerProfile.exchange,
-                    ]
+                    {[tickerProfile.sector, tickerProfile.industry, tickerProfile.exchange]
                       .filter(Boolean)
                       .join(" · ") || "No sector/industry details available"}
                   </Text>
@@ -495,7 +491,6 @@ export default function HoldingDetailRoute() {
                     </Text>
                   </View>
                 ) : null}
-
               </View>
             </View>
 

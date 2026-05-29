@@ -156,7 +156,9 @@ async def call_panel_chat_stream(
                         try:
                             yield json.loads(data)
                         except Exception:
-                            logger.warning("Invalid panel stream payload from agent server")
+                            logger.warning(
+                                "Invalid panel stream payload from agent server"
+                            )
                             continue
             except httpx.HTTPStatusError as e:
                 # Backward compatibility: older agent-server builds may not expose
@@ -207,7 +209,9 @@ async def call_heartbeat_analyze(ticker: str, user_context: str = "") -> dict:
             e.response.status_code,
             detail[:240],
         )
-        fallback_summary = "Agent pipeline unavailable; using fallback heartbeat summary."
+        fallback_summary = (
+            "Agent pipeline unavailable; using fallback heartbeat summary."
+        )
         if detail:
             fallback_summary = f"{fallback_summary} {detail[:140]}"
         return {

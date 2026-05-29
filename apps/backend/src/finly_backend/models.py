@@ -155,7 +155,9 @@ class PanelChatRequest(BaseModel):
     user_id: str
     message: str
     report_id: str | None = None  # references a specific report
-    target_agents: list[str] | None = None  # e.g. ["advisor"], ["trader"]; None = advisor only
+    target_agents: list[str] | None = (
+        None  # e.g. ["advisor"], ["trader"]; None = advisor only
+    )
 
 
 class AgentPanelMessage(BaseModel):
@@ -236,6 +238,7 @@ class TickerNewsResponse(BaseModel):
     source: str
     items: list[TickerNewsItem] = []
 
+
 class TickerNewsInsightRequest(BaseModel):
     ticker: str
     title: str
@@ -270,7 +273,9 @@ class VoiceOnboardingResponse(BaseModel):
     message: str
     audio_b64: str | None = None  # TTS response audio
     is_complete: bool = False
-    status: str = "in_progress"  # started | in_progress | profile_ready | completed | error
+    status: str = (
+        "in_progress"  # started | in_progress | profile_ready | completed | error
+    )
     recoverable_error: str | None = None
     turn_count: int = 0
     profile: VoiceOnboardingProfile | None = None

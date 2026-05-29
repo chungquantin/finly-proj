@@ -7,7 +7,12 @@ export type InvestmentHorizon = "short" | "medium" | "long"
 export type FinancialKnowledge = "novice" | "savvy" | "pro"
 export type PortfolioType = "crypto" | "stock"
 export type StockAccountId = "growth-tech" | "dividend-core" | "balanced-index"
-export type OnboardingLifecycle = "started" | "in_progress" | "profile_ready" | "completed" | "error"
+export type OnboardingLifecycle =
+  | "started"
+  | "in_progress"
+  | "profile_ready"
+  | "completed"
+  | "error"
 
 export type OnboardingState = {
   name: string

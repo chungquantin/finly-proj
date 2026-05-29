@@ -54,8 +54,6 @@ from finly_backend.models import (
     TickerReportListItem,
     HeartbeatAnalyzeRequest,
     HeartbeatRuleCreateRequest,
-    HeartbeatRuleResponse,
-    HeartbeatResultResponse,
 )
 from finly_backend.database import (
     init_db,
@@ -403,7 +401,9 @@ def _ticker_news_user_prompt(
     )
 
 
-async def _build_today_holdings_news_context(user_id: str, max_holdings: int = 8) -> str:
+async def _build_today_holdings_news_context(
+    user_id: str, max_holdings: int = 8
+) -> str:
     """Build a compact same-day holdings-news summary for advisor context."""
     portfolio = get_portfolio(user_id)
     if not portfolio:
@@ -439,16 +439,19 @@ async def _build_today_holdings_news_context(user_id: str, max_holdings: int = 8
         if not items:
             return f"- {ticker}: no major headline today."
 
-        headline = next((item for item in items if item.published_at.startswith(today)), None)
+        headline = next(
+            (item for item in items if item.published_at.startswith(today)), None
+        )
         if headline is None:
             headline = items[0]
         title = headline.title.strip() if headline.title else "No title available"
         source = headline.source.strip() if headline.source else "Unknown"
         return f"- {ticker}: {title} ({source})"
 
-    lines = await asyncio.gather(*(latest_line_for_ticker(ticker) for ticker in tickers))
+    lines = await asyncio.gather(
+        *(latest_line_for_ticker(ticker) for ticker in tickers)
+    )
     return "TODAY HOLDINGS NEWS\n" + "\n".join(lines)
-
 
 
 def _sse_data(payload: dict[str, Any]) -> str:
@@ -474,7 +477,9 @@ app.add_middleware(
 async def startup_event():
     init_db()
     start_heartbeat_scheduler()
-    logger.info("Finly Backend API started — DB initialised, heartbeat scheduler started")
+    logger.info(
+        "Finly Backend API started — DB initialised, heartbeat scheduler started"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -694,7 +699,9 @@ async def onboarding_voice(req: VoiceOnboardingRequest) -> VoiceOnboardingRespon
     if req.is_initial:
         greeting = get_initial_greeting()
         audio_bytes = await text_to_speech(greeting)
-        audio_b64 = base64.b64encode(audio_bytes).decode("ascii") if audio_bytes else None
+        audio_b64 = (
+            base64.b64encode(audio_bytes).decode("ascii") if audio_bytes else None
+        )
         return VoiceOnboardingResponse(
             user_id=req.user_id,
             message=greeting,
@@ -721,13 +728,17 @@ async def onboarding_voice(req: VoiceOnboardingRequest) -> VoiceOnboardingRespon
             user_message = transcript
 
         if not user_message:
-            raise HTTPException(status_code=400, detail="Either message or audio_b64 is required")
+            raise HTTPException(
+                status_code=400, detail="Either message or audio_b64 is required"
+            )
 
         # Run conversational onboarding
         result = await run_onboarding_chat(req.user_id, user_message)
         # Generate TTS for the response
         audio_bytes = await text_to_speech(result["message"])
-        audio_b64 = base64.b64encode(audio_bytes).decode("ascii") if audio_bytes else None
+        audio_b64 = (
+            base64.b64encode(audio_bytes).decode("ascii") if audio_bytes else None
+        )
 
         # Build profile if complete
         profile = None
@@ -771,7 +782,9 @@ async def onboarding_voice_stream(req: VoiceOnboardingRequest):
     from finly_backend.voice import transcribe_audio
 
     if not req.is_initial and not req.message and not req.audio_b64:
-        raise HTTPException(status_code=400, detail="Either message or audio_b64 is required")
+        raise HTTPException(
+            status_code=400, detail="Either message or audio_b64 is required"
+        )
 
     async def event_stream():
         transcript = None
@@ -814,13 +827,17 @@ async def onboarding_voice_stream(req: VoiceOnboardingRequest):
                     return
                 user_message = transcript
 
-            async for event in run_onboarding_chat_stream(req.user_id, str(user_message)):
+            async for event in run_onboarding_chat_stream(
+                req.user_id, str(user_message)
+            ):
                 event_type = str(event.get("type", "")).strip()
                 if event_type == "started":
                     yield _sse_data({"type": "started"})
                     continue
                 if event_type == "delta":
-                    yield _sse_data({"type": "delta", "delta": str(event.get("delta", ""))})
+                    yield _sse_data(
+                        {"type": "delta", "delta": str(event.get("delta", ""))}
+                    )
                     continue
                 if event_type == "done":
                     result = event.get("result") or {}
@@ -842,7 +859,9 @@ async def onboarding_voice_stream(req: VoiceOnboardingRequest):
                         profile=profile,
                         transcript=transcript,
                     )
-                    yield _sse_data({"type": "done", "result": done_result.model_dump()})
+                    yield _sse_data(
+                        {"type": "done", "result": done_result.model_dump()}
+                    )
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.exception("Voice onboarding stream failed for user %s", req.user_id)
@@ -994,7 +1013,9 @@ async def intake_stream_endpoint(req: IntakeRequest):
                 if event_type == "started":
                     yield _sse_data({"type": "started"})
                 elif event_type == "delta":
-                    yield _sse_data({"type": "delta", "delta": str(event.get("delta", ""))})
+                    yield _sse_data(
+                        {"type": "delta", "delta": str(event.get("delta", ""))}
+                    )
                 elif event_type == "done":
                     yield _sse_data({"type": "done", "result": event.get("result", {})})
             yield "data: [DONE]\n\n"
@@ -1233,8 +1254,11 @@ async def report_chat_stream(req: PanelChatRequest):
     )
 
     if not report:
+
         async def no_report_stream():
-            message = "No report has been generated yet. Please generate a report first."
+            message = (
+                "No report has been generated yet. Please generate a report first."
+            )
             message_id = f"panel_{uuid.uuid4().hex}"
             fallback = {
                 "agent_role": "system",
@@ -1242,10 +1266,29 @@ async def report_chat_stream(req: PanelChatRequest):
                 "response": message,
             }
             yield _sse_data({"type": "started"})
-            yield _sse_data({"type": "agent_message_start", "message": fallback, "message_id": message_id})
+            yield _sse_data(
+                {
+                    "type": "agent_message_start",
+                    "message": fallback,
+                    "message_id": message_id,
+                }
+            )
             for part in _split_chunks(message, chunk_size=60):
-                yield _sse_data({"type": "agent_message_delta", "message": fallback, "delta": part, "message_id": message_id})
-            yield _sse_data({"type": "agent_message_done", "message": fallback, "message_id": message_id})
+                yield _sse_data(
+                    {
+                        "type": "agent_message_delta",
+                        "message": fallback,
+                        "delta": part,
+                        "message_id": message_id,
+                    }
+                )
+            yield _sse_data(
+                {
+                    "type": "agent_message_done",
+                    "message": fallback,
+                    "message_id": message_id,
+                }
+            )
             yield _sse_data({"type": "done"})
             yield "data: [DONE]\n\n"
 
@@ -1304,9 +1347,17 @@ async def report_chat_stream(req: PanelChatRequest):
                     continue
 
                 if event_type == "agent_response":
-                    response = event.get("response") if isinstance(event.get("response"), dict) else {}
-                    agent_role = str(response.get("agent_role", "")).strip() or "advisor"
-                    agent_name = str(response.get("agent_name", "")).strip() or "Advisor"
+                    response = (
+                        event.get("response")
+                        if isinstance(event.get("response"), dict)
+                        else {}
+                    )
+                    agent_role = (
+                        str(response.get("agent_role", "")).strip() or "advisor"
+                    )
+                    agent_name = (
+                        str(response.get("agent_name", "")).strip() or "Advisor"
+                    )
                     response_text = str(response.get("response", "")).strip()
                     message_id = f"panel_{agent_role}_{uuid.uuid4().hex}"
                     yield _sse_data(
@@ -1338,7 +1389,13 @@ async def report_chat_stream(req: PanelChatRequest):
                         "agent_name": agent_name,
                         "response": response_text,
                     }
-                    yield _sse_data({"type": "agent_message_done", "message": final_message, "message_id": message_id})
+                    yield _sse_data(
+                        {
+                            "type": "agent_message_done",
+                            "message": final_message,
+                            "message_id": message_id,
+                        }
+                    )
                     append_conversation(
                         req.user_id,
                         "panel",
@@ -1350,7 +1407,11 @@ async def report_chat_stream(req: PanelChatRequest):
                     collected_responses.append(final_message)
                     continue
 
-                message = event.get("message") if isinstance(event.get("message"), dict) else {}
+                message = (
+                    event.get("message")
+                    if isinstance(event.get("message"), dict)
+                    else {}
+                )
                 agent_role = str(message.get("agent_role", "")).strip() or "advisor"
                 agent_name = str(message.get("agent_name", "")).strip() or "Advisor"
 
@@ -1429,13 +1490,19 @@ async def report_chat_stream(req: PanelChatRequest):
                 )
                 collected_responses.append(final_message)
         except AgentServerUnavailable as e:
-            logger.warning("panel.stream_unavailable user_id=%s report_id=%s", req.user_id, report["id"])
+            logger.warning(
+                "panel.stream_unavailable user_id=%s report_id=%s",
+                req.user_id,
+                report["id"],
+            )
             yield _sse_data({"type": "error", "message": str(e)})
             yield _sse_data({"type": "done"})
             yield "data: [DONE]\n\n"
             return
         except Exception as e:
-            logger.exception("panel.stream_failed user_id=%s report_id=%s", req.user_id, report["id"])
+            logger.exception(
+                "panel.stream_failed user_id=%s report_id=%s", req.user_id, report["id"]
+            )
             yield _sse_data({"type": "error", "message": str(e)})
             yield _sse_data({"type": "done"})
             yield "data: [DONE]\n\n"
@@ -1446,7 +1513,8 @@ async def report_chat_stream(req: PanelChatRequest):
             from finly_backend.memory import extract_and_store_memories
 
             combined_response = "\n".join(
-                f"[{item['agent_name']}]: {item['response']}" for item in collected_responses
+                f"[{item['agent_name']}]: {item['response']}"
+                for item in collected_responses
             )
             memory_updates = await extract_and_store_memories(
                 req.user_id,
@@ -1456,7 +1524,9 @@ async def report_chat_stream(req: PanelChatRequest):
         except Exception as e:
             logger.warning(f"Memory extraction in panel stream failed: {e}")
 
-        yield _sse_data({"type": "memory_updates", "memory_updates": memory_updates or []})
+        yield _sse_data(
+            {"type": "memory_updates", "memory_updates": memory_updates or []}
+        )
         yield _sse_data({"type": "done"})
         yield "data: [DONE]\n\n"
 
@@ -1697,7 +1767,7 @@ async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
     def _to_float(value: Any) -> float | None:
         try:
             number = float(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         if number != number:  # NaN guard
             return None
@@ -1721,9 +1791,9 @@ async def market_data(tickers: str = Query(default="VCB,FPT,VNM,TPB")):
         price = _to_float(_fast_info_value(fast_info, "lastPrice")) or _to_float(
             _fast_info_value(fast_info, "regularMarketPrice")
         )
-        previous_close = _to_float(_fast_info_value(fast_info, "previousClose")) or _to_float(
-            _fast_info_value(fast_info, "regularMarketPreviousClose")
-        )
+        previous_close = _to_float(
+            _fast_info_value(fast_info, "previousClose")
+        ) or _to_float(_fast_info_value(fast_info, "regularMarketPreviousClose"))
         currency = str(_fast_info_value(fast_info, "currency") or "USD").upper()
 
         # `fast_info` can be incomplete; fall back to the latest daily candles.
@@ -1795,7 +1865,7 @@ async def market_data_profile(ticker: str = Query(...)):
     def _to_float(value: Any) -> float | None:
         try:
             number = float(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         if number != number:  # NaN guard
             return None
@@ -1813,7 +1883,9 @@ async def market_data_profile(ticker: str = Query(...)):
         fast_info = ticker_obj.fast_info
     except Exception as exc:
         logger.exception("Failed to fetch yfinance profile for %s", symbol)
-        raise HTTPException(status_code=502, detail=f"Failed to fetch profile for {symbol}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Failed to fetch profile for {symbol}"
+        ) from exc
 
     market_cap = _to_float(info.get("marketCap"))
     currency = _text(info.get("currency"))
@@ -1902,21 +1974,29 @@ async def _fetch_exa_ticker_news(
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post("https://api.exa.ai/search", headers=headers, json=payload)
+            response = await client.post(
+                "https://api.exa.ai/search", headers=headers, json=payload
+            )
             response.raise_for_status()
             results = response.json().get("results", [])
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         if status == 429:
-            logger.warning("Exa rate limited for ticker %s; falling back to yfinance", ticker)
+            logger.warning(
+                "Exa rate limited for ticker %s; falling back to yfinance", ticker
+            )
             return []
-        logger.warning("Exa HTTP error %s for ticker %s; falling back to yfinance", status, ticker)
+        logger.warning(
+            "Exa HTTP error %s for ticker %s; falling back to yfinance", status, ticker
+        )
         return []
     except httpx.TimeoutException:
         logger.warning("Exa timeout for ticker %s; falling back to yfinance", ticker)
         return []
     except httpx.RequestError as e:
-        logger.warning("Exa request error for ticker %s: %s; falling back to yfinance", ticker, e)
+        logger.warning(
+            "Exa request error for ticker %s: %s; falling back to yfinance", ticker, e
+        )
         return []
 
     news_items: list[TickerNewsItem] = []
@@ -1968,7 +2048,11 @@ def _fetch_yfinance_ticker_news(ticker: str, limit: int) -> list[TickerNewsItem]
             summary = _extract_news_summary({"text": str(data.get("description", ""))})
 
         provider = data.get("provider")
-        source = str(provider.get("displayName", "")).strip() if isinstance(provider, dict) else ""
+        source = (
+            str(provider.get("displayName", "")).strip()
+            if isinstance(provider, dict)
+            else ""
+        )
         pub_date = data.get("pubDate") or data.get("providerPublishTime")
         published_at = str(pub_date or "").strip()
 
@@ -2004,10 +2088,13 @@ async def ticker_news(
 
     try:
         fallback_items = _fetch_yfinance_ticker_news(symbol, limit)
-        return TickerNewsResponse(ticker=symbol, source="yfinance", items=fallback_items)
+        return TickerNewsResponse(
+            ticker=symbol, source="yfinance", items=fallback_items
+        )
     except Exception:
         logger.exception("Failed to fetch yfinance ticker news for %s", symbol)
         return TickerNewsResponse(ticker=symbol, source="none", items=[])
+
 
 @app.post("/api/ticker-news/insight/stream")
 async def ticker_news_insight_stream(req: TickerNewsInsightRequest):
@@ -2071,7 +2158,10 @@ async def ticker_news_insight_stream(req: TickerNewsInsightRequest):
                         }
                     )
                 elif event_type == "agent_message_done":
-                    response = str(event.get("message", {}).get("response", "")).strip() or final_text
+                    response = (
+                        str(event.get("message", {}).get("response", "")).strip()
+                        or final_text
+                    )
                     if response:
                         final_text = response
                 elif event_type == "error":
@@ -2167,7 +2257,9 @@ async def heartbeat_analyze(req: HeartbeatAnalyzeRequest):
         tickers = list({item["ticker"] for item in portfolio})
 
     if not tickers:
-        raise HTTPException(status_code=400, detail="No tickers to analyze. Import a portfolio first.")
+        raise HTTPException(
+            status_code=400, detail="No tickers to analyze. Import a portfolio first."
+        )
 
     user_context = build_user_context(req.user_id)
 
@@ -2203,25 +2295,31 @@ async def heartbeat_analyze(req: HeartbeatAnalyzeRequest):
         results = []
         pending = {asyncio.ensure_future(analyze_one(t)): t for t in tickers}
         while pending:
-            done_set, _ = await asyncio.wait(pending.keys(), return_when=asyncio.FIRST_COMPLETED)
+            done_set, _ = await asyncio.wait(
+                pending.keys(), return_when=asyncio.FIRST_COMPLETED
+            )
             for fut in done_set:
                 del pending[fut]
                 out = fut.result()
                 if out["ok"]:
                     results.append(out["result"])
-                    yield _sse_data({
-                        "type": "ticker_done",
-                        "ticker": out["ticker"],
-                        "decision": out["result"].get("decision", "HOLD"),
-                        "summary": out["result"].get("summary", ""),
-                        "severity": out["result"].get("severity", "info"),
-                    })
+                    yield _sse_data(
+                        {
+                            "type": "ticker_done",
+                            "ticker": out["ticker"],
+                            "decision": out["result"].get("decision", "HOLD"),
+                            "summary": out["result"].get("summary", ""),
+                            "severity": out["result"].get("severity", "info"),
+                        }
+                    )
                 else:
-                    yield _sse_data({
-                        "type": "ticker_error",
-                        "ticker": out["ticker"],
-                        "error": out["error"],
-                    })
+                    yield _sse_data(
+                        {
+                            "type": "ticker_error",
+                            "ticker": out["ticker"],
+                            "error": out["error"],
+                        }
+                    )
 
         yield _sse_data({"type": "done", "results": results})
         yield "data: [DONE]\n\n"
@@ -2249,7 +2347,9 @@ async def create_rule(req: HeartbeatRuleCreateRequest):
         "id": rule["id"],
         "user_id": rule["user_id"],
         "raw_rule": rule["raw_rule"],
-        "parsed_condition": json.loads(rule["parsed_condition"]) if isinstance(rule["parsed_condition"], str) else rule["parsed_condition"],
+        "parsed_condition": json.loads(rule["parsed_condition"])
+        if isinstance(rule["parsed_condition"], str)
+        else rule["parsed_condition"],
         "is_active": bool(rule["is_active"]),
         "created_at": rule["created_at"],
     }
@@ -2339,6 +2439,7 @@ async def unread_count(user_id: str = Query(...)):
 # Market data
 # ---------------------------------------------------------------------------
 
+
 def _market_data_history_payload(
     ticker: str,
     period: str = "1mo",
@@ -2421,7 +2522,9 @@ async def market_data_history_batch(
     interval: str = Query(default="1d"),
 ):
     """Return OHLCV history for multiple tickers in one request."""
-    symbols = [ticker.strip().upper() for ticker in tickers.split(",") if ticker.strip()]
+    symbols = [
+        ticker.strip().upper() for ticker in tickers.split(",") if ticker.strip()
+    ]
     if not symbols:
         return {"period": period, "interval": interval, "results": {}}
 

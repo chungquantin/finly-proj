@@ -70,7 +70,7 @@ def import_csv(user_id: str, csv_data: str) -> list[dict]:
         try:
             quantity = float(row.get("quantity", 0))
             avg_cost = float(row.get("avg_cost", 0))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
         asset_type = row.get("asset_type", "stock").strip().lower()
         if asset_type not in ("stock", "crypto"):

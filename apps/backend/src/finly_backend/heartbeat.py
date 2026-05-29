@@ -109,6 +109,8 @@ SCENARIOS: dict[str, dict[str, str]] = {
 
 _alert_queues: dict[str, list[HeartbeatAlert]] = defaultdict(list)
 _alert_lock = Lock()
+
+
 def _is_market_hours() -> bool:
     """Check if US stock market is currently open (9:30-16:00 ET, weekdays)."""
     now_et = datetime.now(_US_EASTERN_TZ)
@@ -153,8 +155,10 @@ def _fetch_market_price(ticker: str) -> tuple[float, float]:
     """
     try:
         from finly_backend.mock_data import is_vn_ticker
+
         if is_vn_ticker(ticker):
             from finly_backend.mock_data import _generate_ohlcv
+
             data = _generate_ohlcv(ticker, days=2)
             if len(data) >= 2:
                 return data[-1]["Close"], data[-2]["Close"]
@@ -166,6 +170,7 @@ def _fetch_market_price(ticker: str) -> tuple[float, float]:
 
     try:
         import yfinance as yf
+
         t = yf.Ticker(ticker)
         hist = t.history(period="2d")
         if len(hist) >= 2:
@@ -227,7 +232,11 @@ async def _check_rules_cycle() -> None:
 
                 logger.info(
                     "Heartbeat: rule_triggered rule_id=%s user_id=%s ticker=%s price=%.4f prev_close=%.4f",
-                    rule["id"], user_id, ticker, current_price, prev_close,
+                    rule["id"],
+                    user_id,
+                    ticker,
+                    current_price,
+                    prev_close,
                 )
 
                 # Run full pipeline analysis
@@ -247,10 +256,15 @@ async def _check_rules_cycle() -> None:
                 except Exception as e:
                     logger.exception(
                         "Heartbeat: pipeline_failed rule_id=%s user_id=%s ticker=%s err=%s",
-                        rule["id"], user_id, ticker, e,
+                        rule["id"],
+                        user_id,
+                        ticker,
+                        e,
                     )
             except Exception as e:
-                logger.exception("Heartbeat: error processing rule %s: %s", rule["id"], e)
+                logger.exception(
+                    "Heartbeat: error processing rule %s: %s", rule["id"], e
+                )
 
 
 _scheduler_running = False

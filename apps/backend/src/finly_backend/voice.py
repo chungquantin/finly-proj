@@ -44,7 +44,9 @@ async def text_to_speech(text: str) -> bytes | None:
             if resp.status_code == 200:
                 return resp.content
             logger.warning(
-                "ElevenLabs TTS failed: status=%d body=%s", resp.status_code, resp.text[:200]
+                "ElevenLabs TTS failed: status=%d body=%s",
+                resp.status_code,
+                resp.text[:200],
             )
             return None
     except httpx.TimeoutException:
@@ -58,7 +60,9 @@ async def text_to_speech(text: str) -> bytes | None:
         return None
 
 
-async def transcribe_audio(audio_bytes: bytes, content_type: str = "audio/m4a") -> str | None:
+async def transcribe_audio(
+    audio_bytes: bytes, content_type: str = "audio/m4a"
+) -> str | None:
     """Transcribe audio bytes to text using OpenAI Whisper API.
 
     Returns transcribed text or None if API key not set or transcription fails.
@@ -104,7 +108,9 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str = "audio/m4a") 
             logger.info("Whisper transcription: %s", text[:100])
             return text if text else None
 
-        logger.warning("Whisper STT failed: status=%d body=%s", resp.status_code, resp.text[:200])
+        logger.warning(
+            "Whisper STT failed: status=%d body=%s", resp.status_code, resp.text[:200]
+        )
         return None
 
     except Exception as e:

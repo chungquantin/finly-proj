@@ -203,7 +203,9 @@ class TradingAgentsGraph:
                     chunk["messages"][-1].pretty_print()
                     trace.append(chunk)
 
-            final_state = trace[-1] if trace else self.graph.invoke(init_agent_state, **args)
+            final_state = (
+                trace[-1] if trace else self.graph.invoke(init_agent_state, **args)
+            )
         else:
             # Standard mode without tracing
             final_state = self.graph.invoke(init_agent_state, **args)
@@ -237,7 +239,9 @@ class TradingAgentsGraph:
                     "current_response": inv_debate.get("current_response", ""),
                     "judge_decision": inv_debate.get("judge_decision", ""),
                 },
-                "trader_investment_decision": final_state.get("trader_investment_plan", ""),
+                "trader_investment_decision": final_state.get(
+                    "trader_investment_plan", ""
+                ),
                 "risk_debate_state": {
                     "aggressive_history": risk_debate.get("aggressive_history", []),
                     "conservative_history": risk_debate.get("conservative_history", []),
@@ -257,7 +261,9 @@ class TradingAgentsGraph:
             with open(log_file, "w", encoding="utf-8") as f:
                 json.dump(self.log_states_dict, f, indent=4)
         except Exception:
-            logging.getLogger(__name__).warning("Failed to log state for %s", trade_date, exc_info=True)
+            logging.getLogger(__name__).warning(
+                "Failed to log state for %s", trade_date, exc_info=True
+            )
 
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""

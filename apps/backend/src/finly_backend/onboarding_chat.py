@@ -283,7 +283,9 @@ async def run_onboarding_chat_stream(user_id: str, message: str) -> AsyncIterato
                 except Exception:
                     continue
 
-                delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                delta = (
+                    chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                )
                 if not delta:
                     continue
 

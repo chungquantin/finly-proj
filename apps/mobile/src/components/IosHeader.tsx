@@ -26,7 +26,9 @@ export function IosHeader({
   rightContainerClassName,
 }: IosHeaderProps) {
   return (
-    <View className={`flex-row items-center justify-between px-4 pb-3 pt-2 ${containerClassName ?? ""}`}>
+    <View
+      className={`flex-row items-center justify-between px-4 pb-3 pt-2 ${containerClassName ?? ""}`}
+    >
       {onLeftPress ? (
         <Pressable
           className="h-10 min-w-10 items-center justify-center rounded-full border border-[#E9EEF7] bg-[#F6F8FD] px-2"

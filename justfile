@@ -4,6 +4,11 @@ default:
   @just --list
 
 env profile="dev_local":
+  @if [[ "${FINLY_ENV_SUBSHELL:-}" == "1" ]]; then \
+    current_shell="${FINLY_ENV_SHELL:-$(basename "${SHELL:-sh}")}"; \
+    echo "Already inside a \"${current_shell}\" subshell; skipping nested shell."; \
+    exit 0; \
+  fi; \
   env_file="configs/{{profile}}/.env"; \
   if [[ ! -f "$env_file" ]]; then \
     echo "Missing env file: $env_file"; \
@@ -13,6 +18,8 @@ env profile="dev_local":
   source "$env_file"; \
   set +a; \
   echo "Entering shell with env profile: {{profile}}"; \
+  export FINLY_ENV_SUBSHELL=1; \
+  export FINLY_ENV_SHELL=zsh; \
   exec zsh -i
 
 setup: setup-frontend setup-python
@@ -51,6 +58,24 @@ dev:
   (cd apps/agents && if [[ -x .venv/bin/finly-agent-server ]]; then .venv/bin/finly-agent-server; elif [[ -x .venv/bin/python ]]; then .venv/bin/python main.py; else python3 main.py; fi) &
   (cd apps/backend && if [[ -x .venv/bin/finly-backend-api ]]; then .venv/bin/finly-backend-api; elif [[ -x .venv/bin/python ]]; then .venv/bin/python main.py; else python3 main.py; fi) &
   wait
+
+up:
+  @DOCKER_BIN=""; \
+  if command -v docker >/dev/null 2>&1; then \
+    DOCKER_BIN="$(command -v docker)"; \
+  elif [[ -x /usr/local/bin/docker ]]; then \
+    DOCKER_BIN="/usr/local/bin/docker"; \
+  elif [[ -x /opt/homebrew/bin/docker ]]; then \
+    DOCKER_BIN="/opt/homebrew/bin/docker"; \
+  elif [[ -x /Applications/Docker.app/Contents/Resources/bin/docker ]]; then \
+    DOCKER_BIN="/Applications/Docker.app/Contents/Resources/bin/docker"; \
+  fi; \
+  if [[ -z "$DOCKER_BIN" ]]; then \
+    echo "docker not found. Install/start Docker Desktop or OrbStack and retry."; \
+    exit 127; \
+  fi; \
+  export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin:/Applications/OrbStack.app/Contents/MacOS/xbin"; \
+  "$DOCKER_BIN" compose -f compose.yml up --build
 
 # Auto-format both codebases (matches .github/workflows/auto-format.yml)
 format: format-ts format-py

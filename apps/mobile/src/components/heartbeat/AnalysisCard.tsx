@@ -44,11 +44,7 @@ export function AnalysisCard({ result, onMarkRead }: AnalysisCardProps) {
   }
 
   return (
-    <Pressable
-      className="border-b py-4"
-      style={{ borderColor: BORDER }}
-      onPress={handlePress}
-    >
+    <Pressable className="border-b py-4" style={{ borderColor: BORDER }} onPress={handlePress}>
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center">
           <TickerLogo ticker={result.ticker} logoUri={getTickerLogoUri(result.ticker)} />
@@ -63,17 +59,9 @@ export function AnalysisCard({ result, onMarkRead }: AnalysisCardProps) {
         </View>
 
         <View className="flex-row items-center gap-2">
-          {!result.is_read && (
-            <View className="h-2.5 w-2.5 rounded-full bg-[#2453FF]" />
-          )}
-          <View
-            className="rounded-full px-3 py-1.5"
-            style={{ backgroundColor: colors.bg }}
-          >
-            <Text
-              className="font-sans text-[12px] font-semibold"
-              style={{ color: colors.text }}
-            >
+          {!result.is_read && <View className="h-2.5 w-2.5 rounded-full bg-[#2453FF]" />}
+          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: colors.bg }}>
+            <Text className="font-sans text-[12px] font-semibold" style={{ color: colors.text }}>
               {result.decision}
             </Text>
           </View>

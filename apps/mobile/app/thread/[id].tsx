@@ -169,10 +169,7 @@ export default function ThreadDetailRoute() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white px-6">
         <Text className="font-sans text-[28px] font-semibold text-[#0F1728]">Thread not found</Text>
-        <Pressable
-          className="mt-4 rounded-full bg-[#2453FF] px-5 py-3"
-          onPress={handleBack}
-        >
+        <Pressable className="mt-4 rounded-full bg-[#2453FF] px-5 py-3" onPress={handleBack}>
           <Text className="font-sans text-[17px] font-semibold text-white">Go back</Text>
         </Pressable>
       </SafeAreaView>
@@ -183,7 +180,7 @@ export default function ThreadDetailRoute() {
   const showThreadLogo = Boolean(normalizedTicker) && normalizedTicker !== "BOARD"
   const threadHolding = holdings.find((holding) => holding.ticker === thread.ticker)
   const threadLogoUri = showThreadLogo
-    ? threadHolding?.logoUri ?? getTickerLogoUri(thread.ticker)
+    ? (threadHolding?.logoUri ?? getTickerLogoUri(thread.ticker))
     : undefined
 
   const handleSend = async () => {
@@ -239,7 +236,9 @@ export default function ThreadDetailRoute() {
             </Pressable>
 
             <View className="ml-3 flex-1 flex-row items-center">
-              {showThreadLogo ? <TickerLogo ticker={thread.ticker} logoUri={threadLogoUri} /> : null}
+              {showThreadLogo ? (
+                <TickerLogo ticker={thread.ticker} logoUri={threadLogoUri} />
+              ) : null}
 
               <View className={`${showThreadLogo ? "ml-3" : ""} mr-2 flex-1`}>
                 <Text
@@ -811,7 +810,8 @@ function ReportPreviewCard({
   const displayedRelatedTickers = relatedTickers.slice(0, 4)
   const hiddenRelatedCount = Math.max(relatedTickers.length - displayedRelatedTickers.length, 0)
   const currentPrice = resolvePrice?.(primaryTicker) ?? null
-  const currentPriceLabel = typeof currentPrice === "number" ? formatUsd(currentPrice) : "Price unavailable"
+  const currentPriceLabel =
+    typeof currentPrice === "number" ? formatUsd(currentPrice) : "Price unavailable"
 
   return (
     <View className="rounded-[20px] border border-[#E3EBFF] bg-[#F5F8FF] px-4 py-3">
@@ -837,7 +837,11 @@ function ReportPreviewCard({
               disabled={!onTickerPress}
               hitSlop={8}
             >
-              <TickerLogo ticker={primaryTicker} logoUri={getTickerLogoUri(primaryTicker)} size={36} />
+              <TickerLogo
+                ticker={primaryTicker}
+                logoUri={getTickerLogoUri(primaryTicker)}
+                size={36}
+              />
             </Pressable>
             <View className="ml-3">
               <Text className="font-sans text-[12px] text-[#6B7586]">Ticker</Text>
@@ -866,7 +870,11 @@ function ReportPreviewCard({
           <View className="mt-2 flex-row items-center">
             {displayedRelatedTickers.map((ticker, index) => (
               <View key={ticker} className={index === 0 ? "" : "-ml-2"}>
-                <Pressable onPress={() => onTickerPress?.(ticker)} disabled={!onTickerPress} hitSlop={8}>
+                <Pressable
+                  onPress={() => onTickerPress?.(ticker)}
+                  disabled={!onTickerPress}
+                  hitSlop={8}
+                >
                   <TickerLogo ticker={ticker} logoUri={getTickerLogoUri(ticker)} size={28} />
                 </Pressable>
               </View>

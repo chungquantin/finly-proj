@@ -107,10 +107,7 @@ export default function HeartbeatTab() {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ delay: 60, duration: 420, type: "timing" }}
           >
-            <View
-              className="rounded-[30px] border bg-white p-5"
-              style={{ borderColor: BORDER }}
-            >
+            <View className="rounded-[30px] border bg-white p-5" style={{ borderColor: BORDER }}>
               <Text className="font-sans text-[24px] font-semibold text-[#0F1728]">
                 Portfolio Risk Scan
               </Text>
@@ -175,7 +172,7 @@ export default function HeartbeatTab() {
                     const isCurrent = currentTicker === ticker
                     const live = liveResults[ticker]
                     const colors = live
-                      ? decisionColors[live.decision] ?? decisionColors.HOLD
+                      ? (decisionColors[live.decision] ?? decisionColors.HOLD)
                       : null
 
                     return (
@@ -184,17 +181,12 @@ export default function HeartbeatTab() {
                         className="flex-row items-center border-b py-3"
                         style={{ borderColor: "#EEF2F7" }}
                       >
-                        <TickerLogo
-                          ticker={ticker}
-                          logoUri={getTickerLogoUri(ticker)}
-                        />
+                        <TickerLogo ticker={ticker} logoUri={getTickerLogoUri(ticker)} />
                         <Text className="ml-3 flex-1 font-sans text-[16px] font-semibold text-[#0F1728]">
                           {ticker}
                         </Text>
 
-                        {!isDone && (
-                          <ActivityIndicator color={BLUE} size="small" />
-                        )}
+                        {!isDone && <ActivityIndicator color={BLUE} size="small" />}
                         {isDone && live && (
                           <View
                             className="rounded-full px-3 py-1"
@@ -247,8 +239,7 @@ export default function HeartbeatTab() {
                 <Pressable
                   className="ml-2 h-11 w-11 items-center justify-center rounded-full"
                   style={{
-                    backgroundColor:
-                      ruleDraft.trim() && !isCreatingRule ? BLUE : "#BFD0FF",
+                    backgroundColor: ruleDraft.trim() && !isCreatingRule ? BLUE : "#BFD0FF",
                   }}
                   disabled={!ruleDraft.trim() || isCreatingRule}
                   onPress={handleCreateRule}
@@ -271,8 +262,7 @@ export default function HeartbeatTab() {
                     No rules yet
                   </Text>
                   <Text className="mt-1 font-sans text-[14px] leading-6 text-[#7A8699]">
-                    Create a rule in natural language and we'll monitor it during
-                    market hours.
+                    Create a rule in natural language and we'll monitor it during market hours.
                   </Text>
                 </View>
               ) : (
@@ -314,8 +304,7 @@ export default function HeartbeatTab() {
                     No results yet
                   </Text>
                   <Text className="mt-1 font-sans text-[14px] leading-6 text-[#7A8699]">
-                    Run a portfolio scan or create monitoring rules to see
-                    analysis results here.
+                    Run a portfolio scan or create monitoring rules to see analysis results here.
                   </Text>
                 </View>
               ) : (

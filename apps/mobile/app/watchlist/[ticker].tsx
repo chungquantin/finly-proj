@@ -17,7 +17,9 @@ export default function WatchlistTickerRoute() {
   const threads = useAgentBoardStore((state) => state.threads)
   const { holdings } = useSelectedPortfolioData()
   const { quotes } = useMarketData(normalizedTicker ? [normalizedTicker] : [])
-  const isHeldTicker = holdings.some((holding) => holding.ticker.trim().toUpperCase() === normalizedTicker)
+  const isHeldTicker = holdings.some(
+    (holding) => holding.ticker.trim().toUpperCase() === normalizedTicker,
+  )
   const latestThread = threads
     .filter((thread) => thread.ticker.trim().toUpperCase() === normalizedTicker)
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
@@ -27,7 +29,10 @@ export default function WatchlistTickerRoute() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white px-6">
         <Text className="font-sans text-[28px] font-semibold text-[#0F1728]">Ticker not found</Text>
-        <Pressable className="mt-4 rounded-full bg-[#2453FF] px-5 py-3" onPress={() => router.back()}>
+        <Pressable
+          className="mt-4 rounded-full bg-[#2453FF] px-5 py-3"
+          onPress={() => router.back()}
+        >
           <Text className="font-sans text-[17px] font-semibold text-white">Go back</Text>
         </Pressable>
       </SafeAreaView>

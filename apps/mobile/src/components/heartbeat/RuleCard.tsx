@@ -26,9 +26,7 @@ function formatCondition(parsed: HeartbeatRuleResponse["parsed_condition"]): str
   const metric = metricLabels[parsed.metric] ?? parsed.metric
   const op = operatorLabels[parsed.operator] ?? parsed.operator
   const threshold =
-    parsed.metric === "price_change_pct"
-      ? `${parsed.threshold}%`
-      : String(parsed.threshold)
+    parsed.metric === "price_change_pct" ? `${parsed.threshold}%` : String(parsed.threshold)
   return `${ticker} ${metric} ${op} ${threshold}`
 }
 
@@ -45,9 +43,7 @@ export function RuleCard({ rule, onToggle, onDelete }: RuleCardProps) {
       style={{ borderColor: BORDER, opacity: rule.is_active ? 1 : 0.5 }}
     >
       <View className="flex-1 pr-3">
-        <Text className="font-sans text-[16px] font-medium text-[#0F1728]">
-          {rule.raw_rule}
-        </Text>
+        <Text className="font-sans text-[16px] font-medium text-[#0F1728]">{rule.raw_rule}</Text>
         <Text className="mt-1 font-sans text-[13px] text-[#7A8699]">
           {formatCondition(rule.parsed_condition)}
         </Text>
@@ -60,11 +56,7 @@ export function RuleCard({ rule, onToggle, onDelete }: RuleCardProps) {
           trackColor={{ false: "#D5DEEC", true: BLUE }}
           thumbColor="#FFFFFF"
         />
-        <Pressable
-          className="rounded-full p-2"
-          onPress={() => onDelete(rule.id)}
-          hitSlop={8}
-        >
+        <Pressable className="rounded-full p-2" onPress={() => onDelete(rule.id)} hitSlop={8}>
           <Ionicons name="trash-outline" size={18} color="#7A8699" />
         </Pressable>
       </View>

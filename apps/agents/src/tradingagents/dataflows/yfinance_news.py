@@ -25,7 +25,7 @@ def _extract_article_data(article: dict) -> dict:
         if pub_date_str:
             try:
                 pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 pass
 
         return {
