@@ -24,27 +24,33 @@ EXPO_PUBLIC_MARKET_DATA_URL=http://192.168.37.85:8000
 
 For real devices, use your machine's LAN IP instead of `localhost`.
 
-## UI Stack (NativeWind + shadcn-style)
+## UI Stack (Tamagui + NativeWind Transition)
 
-This app now includes a Tailwind-style RN setup with reusable UI primitives.
+This app is migrating to a Tamagui-first design system while keeping NativeWind in
+place for incremental compatibility.
 
-- NativeWind entrypoints:
+- Tamagui foundation:
+  - `src/design-system/tamagui/tamagui.config.ts`
+  - `src/core/providers/AppProviders.tsx` (`TamaguiProvider` + app providers)
+  - `babel.config.js` (optional Tamagui Babel plugin activation when installed)
+- Existing NativeWind compatibility (temporary during migration):
   - `global.css`
   - `tailwind.config.js`
-  - `nativewind-env.d.ts`
-- Build wiring:
-  - `babel.config.js` (`nativewind/babel`)
   - `metro.config.js` (`withNativeWind`)
-- Shadcn-style primitives:
-  - `app/components/ui/` (`button`, `card`, `badge`, `avatar`, `input`)
-  - Variants powered by `class-variance-authority`
-- Utility helper:
-  - `app/lib/utils.ts` (`cn` via `clsx` + `tailwind-merge`)
 
-Starter themed screen matching the pastel card-first direction is in:
+## App Structure (MetaMask-Inspired)
 
-- `app/screens/ThemeShowcaseScreen.tsx`
-- Routed at `src/app/index.tsx`
+The app now follows a cleaner module shape inspired by MetaMask's separation of
+core runtime concerns vs feature code:
+
+- `src/core/`: app-level providers and runtime wiring
+- `src/design-system/`: tokens, themes, shared UI system configuration
+- `src/features/`: feature modules with route-facing screens and logic
+
+Current reference migration:
+
+- Home route wrapper: `app/(tabs)/home.tsx`
+- Feature implementation: `src/features/home/screens/HomeTabScreen.tsx`
 
 To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
 
